@@ -12,6 +12,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.13" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -51,14 +52,19 @@
     <Folder Include="Modules\Identity\Users\Controllers\" />
     <Folder Include="Modules\Identity\Users\DTOs\" />
     <Folder Include="Modules\Identity\Users\Models\" />
-    <Folder Include="Modules\Identity\Users\Repositories\" />
     <Folder Include="Modules\Identity\Users\Services\" />
-    <Folder Include="Modules\Reservations\Configurations\" />
-    <Folder Include="Modules\Reservations\Controllers\" />
-    <Folder Include="Modules\Reservations\DTOs\" />
-    <Folder Include="Modules\Reservations\Models\" />
-    <Folder Include="Modules\Reservations\Repositories\" />
-    <Folder Include="Modules\Reservations\Services\" />
+    <Folder Include="Modules\Reservations\ReservationAttendee\Controllers\" />
+    <Folder Include="Modules\Reservations\ReservationAttendee\DTOs\" />
+    <Folder Include="Modules\Reservations\ReservationAttendee\Repositories\" />
+    <Folder Include="Modules\Reservations\ReservationAttendee\Services\" />
+    <Folder Include="Modules\Reservations\ReservationHistory\Controllers\" />
+    <Folder Include="Modules\Reservations\ReservationHistory\DTOs\" />
+    <Folder Include="Modules\Reservations\ReservationHistory\Repositories\" />
+    <Folder Include="Modules\Reservations\ReservationHistory\Services\" />
+    <Folder Include="Modules\Reservations\Reservation\Controllers\" />
+    <Folder Include="Modules\Reservations\Reservation\DTOs\" />
+    <Folder Include="Modules\Reservations\Reservation\Repositories\" />
+    <Folder Include="Modules\Reservations\Reservation\Services\" />
     <Folder Include="Modules\Rooms\RoomTypes\Configurations\" />
     <Folder Include="Modules\Rooms\RoomTypes\Controllers\" />
     <Folder Include="Modules\Rooms\RoomTypes\DTOs\" />

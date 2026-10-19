@@ -1,4 +1,3 @@
-
 using Kairos.Api.Common.Base.Model;
 using Kairos.Api.Modules.Categories.Models;
 using Kairos.Api.Modules.Identity.Permissions.Models;

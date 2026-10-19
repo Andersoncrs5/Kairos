@@ -1,4 +1,15 @@
+using Kairos.Api.Modules.Categories;
+using Kairos.Api.Modules.Identity;
+using Kairos.Api.Modules.Reservations;
+using Kairos.Api.Modules.Rooms;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services
+    .AddRoomsModule()
+    .AddReservationsModule()
+    .AddCategoriesModule()
+    .AddAuthModule();
 
 // Add services to the container.
 
@@ -21,3 +32,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }
