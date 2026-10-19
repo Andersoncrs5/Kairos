@@ -1,3 +1,4 @@
+
 using Kairos.Api.Common.Base.Model;
 using Kairos.Api.Modules.Categories.Models;
 using Kairos.Api.Modules.Identity.Permissions.Models;
@@ -40,14 +41,15 @@ public class AppDbContext(DbContextOptions options)
 
     public DbSet<ReservationAttendeeModel> ReservationAttendees =>
         Set<ReservationAttendeeModel>();
-    
-     public override int SaveChanges()
+
+    public override int SaveChanges()
     {
         SetAuditDates();
         return base.SaveChanges();
     }
-    
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+
+    public override Task<int> SaveChangesAsync(
+        CancellationToken cancellationToken = default)
     {
         SetAuditDates();
         return base.SaveChangesAsync(cancellationToken);
@@ -55,37 +57,79 @@ public class AppDbContext(DbContextOptions options)
 
     private void SetAuditDates()
     {
-        var entries = ChangeTracker.Entries<BaseModel>();
-        foreach (var entry in entries)
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var entry in ChangeTracker.Entries<BaseModel>())
         {
-            if (entry.State == EntityState.Modified)
+            if (entry.State == EntityState.Added)
             {
-                entry.Entity.UpdatedAt = DateTimeOffset.UtcNow;
+                entry.Entity.CreatedAt = now;
+                entry.Entity.Version = 1;
             }
-            else if (entry.State == EntityState.Added)
+            else if (entry.State == EntityState.Modified)
             {
-                 entry.Entity.CreatedAt = DateTimeOffset.UtcNow;
-                 entry.Entity.Version++;
+                entry.Entity.UpdatedAt = now;
+                entry.Entity.Version++;
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<UserModel>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Entity.CreatedAt = now;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = now;
             }
         }
     }
- 
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
-        
+
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            typeof(AppDbContext).Assembly);
+
         modelBuilder.Entity<UserModel>(entity =>
         {
-            entity.Property(e => e.FullName).HasMaxLength(250).IsRequired(false);
+            entity.ToTable("app_users");
+
+            entity.Property(user => user.FullName)
+                .HasMaxLength(250)
+                .IsRequired(false);
+
+            entity.Property(user => user.Permissions)
+                .HasColumnName("permissions")
+                .HasColumnType("text[]")
+                .IsRequired();
+
+            entity.Property(user => user.CreatedAt)
+                .HasColumnName("created_at")
+                .IsRequired();
+
+            entity.Property(user => user.UpdatedAt)
+                .HasColumnName("updated_at");
         });
 
-        modelBuilder.Entity<UserModel>().ToTable("app_users");
-        modelBuilder.Entity<IdentityUserClaim<string>>().ToTable("app_user_claims");
-        modelBuilder.Entity<IdentityUserRole<string>>().ToTable("app_user_roles");
-        modelBuilder.Entity<IdentityUserLogin<string>>().ToTable("app_user_logins");
-        modelBuilder.Entity<IdentityRoleClaim<string>>().ToTable("app_role_claims");
-        modelBuilder.Entity<IdentityUserToken<string>>().ToTable("app_user_tokens");
+        modelBuilder.Entity<IdentityRole>()
+            .ToTable("app_roles");
+
+        modelBuilder.Entity<IdentityUserClaim<string>>()
+            .ToTable("app_user_claims");
+
+        modelBuilder.Entity<IdentityUserRole<string>>()
+            .ToTable("app_user_roles");
+
+        modelBuilder.Entity<IdentityUserLogin<string>>()
+            .ToTable("app_user_logins");
+
+        modelBuilder.Entity<IdentityRoleClaim<string>>()
+            .ToTable("app_role_claims");
+
+        modelBuilder.Entity<IdentityUserToken<string>>()
+            .ToTable("app_user_tokens");
     }
 }
