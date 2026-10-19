@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Mapster" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
+    <PackageReference Include="xunit.v3" Version="4.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Common\Exceptions\" />
+    <Folder Include="Common\Extensions\" />
+    <Folder Include="Common\Middleware\" />
+    <Folder Include="Config\" />
+    <Folder Include="Modules\Categories\Configurations\" />
+    <Folder Include="Modules\Categories\Controllers\" />
+    <Folder Include="Modules\Categories\DTOs\" />
+    <Folder Include="Modules\Categories\Models\" />
+    <Folder Include="Modules\Categories\Repositories\" />
+    <Folder Include="Modules\Categories\Services\" />
+    <Folder Include="Modules\Identity\Permissions\Configurations\" />
+    <Folder Include="Modules\Identity\Permissions\Controllers\" />
+    <Folder Include="Modules\Identity\Permissions\DTOs\" />
+    <Folder Include="Modules\Identity\Permissions\Models\" />
+    <Folder Include="Modules\Identity\Permissions\Repositories\" />
+    <Folder Include="Modules\Identity\Permissions\Services\" />
+    <Folder Include="Modules\Identity\PermissionUsers\Configurations\" />
+    <Folder Include="Modules\Identity\PermissionUsers\Controllers\" />
+    <Folder Include="Modules\Identity\PermissionUsers\DTOs\" />
+    <Folder Include="Modules\Identity\PermissionUsers\Models\" />
+    <Folder Include="Modules\Identity\PermissionUsers\Repositories\" />
+    <Folder Include="Modules\Identity\PermissionUsers\Services\" />
+    <Folder Include="Modules\Identity\Users\Configurations\" />
+    <Folder Include="Modules\Identity\Users\Controllers\" />
+    <Folder Include="Modules\Identity\Users\DTOs\" />
+    <Folder Include="Modules\Identity\Users\Models\" />
+    <Folder Include="Modules\Identity\Users\Repositories\" />
+    <Folder Include="Modules\Identity\Users\Services\" />
+    <Folder Include="Modules\Reservations\Configurations\" />
+    <Folder Include="Modules\Reservations\Controllers\" />
+    <Folder Include="Modules\Reservations\DTOs\" />
+    <Folder Include="Modules\Reservations\Models\" />
+    <Folder Include="Modules\Reservations\Repositories\" />
+    <Folder Include="Modules\Reservations\Services\" />
+    <Folder Include="Modules\Rooms\RoomTypes\Configurations\" />
+    <Folder Include="Modules\Rooms\RoomTypes\Controllers\" />
+    <Folder Include="Modules\Rooms\RoomTypes\DTOs\" />
+    <Folder Include="Modules\Rooms\RoomTypes\Models\" />
+    <Folder Include="Modules\Rooms\RoomTypes\Repositories\" />
+    <Folder Include="Modules\Rooms\RoomTypes\Services\" />
+    <Folder Include="Modules\Rooms\Room\Configurations\" />
+    <Folder Include="Modules\Rooms\Room\Controllers\" />
+    <Folder Include="Modules\Rooms\Room\DTOs\" />
+    <Folder Include="Modules\Rooms\Room\Models\" />
+    <Folder Include="Modules\Rooms\Room\Repositories\" />
+    <Folder Include="Modules\Rooms\Room\Services\" />
+  </ItemGroup>
+
+</Project>
