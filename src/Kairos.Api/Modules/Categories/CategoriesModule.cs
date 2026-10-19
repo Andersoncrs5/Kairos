@@ -1,6 +1,9 @@
 namespace Kairos.Api.Modules.Categories;
 
-public class CategoriesModule
+public static class CategoriesModule
 {
-    
+    public static IServiceCollection AddCategoriesModule(this IServiceCollection services)
+    {
+        return services;
+    }
 }
