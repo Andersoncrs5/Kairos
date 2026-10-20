@@ -9,13 +9,6 @@ public sealed class RoomTypeConfiguration
 {
     public void Configure(EntityTypeBuilder<RoomTypeModel> builder)
     {
-        builder.ToTable("room_types", table =>
-        {
-            table.HasCheckConstraint(
-                "ck_room_types_max_capacity",
-                "max_capacity > 0");
-        });
-
         builder.HasKey(roomType => roomType.Id);
 
         builder.Property(roomType => roomType.Id)
