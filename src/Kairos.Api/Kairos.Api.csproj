@@ -34,19 +34,16 @@
     <Folder Include="Modules\Categories\Controllers\" />
     <Folder Include="Modules\Categories\DTOs\" />
     <Folder Include="Modules\Categories\Models\" />
-    <Folder Include="Modules\Categories\Repositories\" />
     <Folder Include="Modules\Categories\Services\" />
     <Folder Include="Modules\Identity\Permissions\Configurations\" />
     <Folder Include="Modules\Identity\Permissions\Controllers\" />
     <Folder Include="Modules\Identity\Permissions\DTOs\" />
     <Folder Include="Modules\Identity\Permissions\Models\" />
-    <Folder Include="Modules\Identity\Permissions\Repositories\" />
     <Folder Include="Modules\Identity\Permissions\Services\" />
     <Folder Include="Modules\Identity\PermissionUsers\Configurations\" />
     <Folder Include="Modules\Identity\PermissionUsers\Controllers\" />
     <Folder Include="Modules\Identity\PermissionUsers\DTOs\" />
     <Folder Include="Modules\Identity\PermissionUsers\Models\" />
-    <Folder Include="Modules\Identity\PermissionUsers\Repositories\" />
     <Folder Include="Modules\Identity\PermissionUsers\Services\" />
     <Folder Include="Modules\Identity\Users\Configurations\" />
     <Folder Include="Modules\Identity\Users\Controllers\" />
@@ -63,19 +60,16 @@
     <Folder Include="Modules\Reservations\ReservationHistory\Services\" />
     <Folder Include="Modules\Reservations\Reservation\Controllers\" />
     <Folder Include="Modules\Reservations\Reservation\DTOs\" />
-    <Folder Include="Modules\Reservations\Reservation\Repositories\" />
     <Folder Include="Modules\Reservations\Reservation\Services\" />
     <Folder Include="Modules\Rooms\RoomTypes\Configurations\" />
     <Folder Include="Modules\Rooms\RoomTypes\Controllers\" />
     <Folder Include="Modules\Rooms\RoomTypes\DTOs\" />
     <Folder Include="Modules\Rooms\RoomTypes\Models\" />
-    <Folder Include="Modules\Rooms\RoomTypes\Repositories\" />
     <Folder Include="Modules\Rooms\RoomTypes\Services\" />
     <Folder Include="Modules\Rooms\Room\Configurations\" />
     <Folder Include="Modules\Rooms\Room\Controllers\" />
     <Folder Include="Modules\Rooms\Room\DTOs\" />
     <Folder Include="Modules\Rooms\Room\Models\" />
-    <Folder Include="Modules\Rooms\Room\Repositories\" />
     <Folder Include="Modules\Rooms\Room\Services\" />
   </ItemGroup>
 
