@@ -1,3 +1,4 @@
+using Kairos.Api.Common.Result;
 using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
@@ -37,4 +38,8 @@ public interface IUnitOfWork
     Task ExecuteTransactionAsync(
         Func<CancellationToken, Task> operation,
         CancellationToken cancellationToken = default);
+    
+    Task<Result<T>> ExecuteTransactionAsync<T>(
+        Func<CancellationToken, Task<Result<T>>> operation,
+        CancellationToken ct = default);
 }

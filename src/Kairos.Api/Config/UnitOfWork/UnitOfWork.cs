@@ -1,3 +1,4 @@
+using Kairos.Api.Common.Result;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
@@ -86,6 +87,44 @@ public sealed class UnitOfWork(
                 await transaction.RollbackAsync(
                     CancellationToken.None);
 
+                throw;
+            }
+        });
+    }
+    
+    public async Task<Result<T>> ExecuteTransactionAsync<T>(
+        Func<CancellationToken, Task<Result<T>>> operation,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+
+        if (context.Database.CurrentTransaction is not null)
+            return await operation(ct);
+
+        var strategy = context.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await context.Database.BeginTransactionAsync(ct);
+
+            try
+            {
+                var result = await operation(ct);
+
+                if (!result.IsSuccess)
+                {
+                    await tx.RollbackAsync(CancellationToken.None);
+                    context.ChangeTracker.Clear();
+                    return result;
+                }
+
+                await context.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+                return result;
+            }
+            catch
+            {
+                await tx.RollbackAsync(CancellationToken.None);
                 throw;
             }
         });
