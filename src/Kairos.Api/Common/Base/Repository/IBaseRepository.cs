@@ -17,9 +17,24 @@ public interface IBaseRepository<TEntity>
         TEntity entity,
         CancellationToken cancellationToken = default);
 
+    Task AddAllAsync(
+        IEnumerable<TEntity> entities,
+        CancellationToken cancellationToken = default);
+
     void Update(TEntity entity);
 
+    Task UpdateAllAsync(
+        IEnumerable<TEntity> entities,
+        CancellationToken cancellationToken = default);
+
     void Delete(TEntity entity);
+
+    Task<int> DeleteByIdAndCountAsync(
+        string id,
+        CancellationToken cancellationToken = default);
+
+    Task<int> DeleteAllAsync(
+        CancellationToken cancellationToken = default);
 
     Task<bool> ExistsAsync(
         string id,
