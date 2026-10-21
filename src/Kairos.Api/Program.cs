@@ -1,3 +1,4 @@
+using Kairos.Api.Config;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Categories;
 using Kairos.Api.Modules.Identity;
@@ -15,6 +16,7 @@ builder.Services
     .AddRoomsModule()
     .AddReservationsModule()
     .AddCategoriesModule()
+    .AddConfigModule()
     .AddAuthModule();
 
 // Add services to the container.
