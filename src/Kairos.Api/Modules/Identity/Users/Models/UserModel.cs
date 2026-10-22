@@ -11,4 +11,57 @@ public class UserModel: IdentityUser
     
     public required DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
+    
+    public bool AddPermission(string permission)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(permission);
+
+        var normalizedPermission = permission.Trim();
+
+        if (Permissions.Contains(
+                normalizedPermission,
+                StringComparer.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        Permissions = [.. Permissions, normalizedPermission];
+
+        return true;
+    }
+
+    public bool RemovePermission(string permission)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(permission);
+
+        var normalizedPermission = permission.Trim();
+
+        var updatedPermissions = Permissions
+            .Where(p => !string.Equals(
+                p,
+                normalizedPermission,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        if (updatedPermissions.Length == Permissions.Length)
+        {
+            return false;
+        }
+
+        Permissions = updatedPermissions;
+
+        return true;
+    }
+
+    public bool ExistsPermission(string permission)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(permission);
+
+        var normalizedPermission = permission.Trim();
+
+        return Permissions.Contains(
+            normalizedPermission,
+            StringComparer.OrdinalIgnoreCase);
+    }
+    
 }
