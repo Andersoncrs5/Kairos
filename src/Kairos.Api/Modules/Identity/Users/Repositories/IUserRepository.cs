@@ -15,8 +15,8 @@ public interface IUserRepository
     Task<UserModel?> GetByUsername(string username);
     Task<IdentityResult> Delete(UserModel user);
     Task<IdentityResult> Insert(UserModel user);
+    Task<IdentityResult> Insert(UserModel user, string password);
     Task<IdentityResult> Update(UserModel user);
-
     Task<int> CountAsync(
         CancellationToken cancellationToken = default);
     Task<IdentityResult> DeleteByIdAsync(string id);

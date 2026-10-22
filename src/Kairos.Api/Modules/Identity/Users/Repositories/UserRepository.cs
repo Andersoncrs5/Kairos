@@ -79,5 +79,17 @@ public class UserRepository(AppDbContext context, UserManager<UserModel> manager
     {
         return manager.Users.AnyAsync(u => u.Permissions.Contains(permission) && u.Id == userId);
     }
+    
+    public Task<IdentityResult> Insert(
+        UserModel user,
+        string password)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+
+        user.CreatedAt = DateTimeOffset.UtcNow;
+
+        return manager.CreateAsync(user, password);
+    }
 
 }
