@@ -68,6 +68,15 @@ public sealed class Result<T>
             statusCode,
             null);
     }
+    
+    public static Result<T> Ok(int statusCode = 204)
+    {
+        return new Result<T>(
+            true,
+            default,
+            statusCode,
+            null);
+    }
 
     public static Result<T> Created(T value)
     {
