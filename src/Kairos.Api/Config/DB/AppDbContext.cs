@@ -3,6 +3,7 @@ using Kairos.Api.Modules.Categories.Models;
 using Kairos.Api.Modules.Identity.Permissions.Models;
 using Kairos.Api.Modules.Identity.PermissionUsers.Models;
 using Kairos.Api.Modules.Identity.Users.Models;
+using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reservations.Reservation.Models;
 using Kairos.Api.Modules.Reservations.ReservationAttendee.Models;
 using Kairos.Api.Modules.Reservations.ReservationHistory.Models;
@@ -40,6 +41,9 @@ public class AppDbContext(DbContextOptions options)
 
     public DbSet<ReservationAttendeeModel> ReservationAttendees =>
         Set<ReservationAttendeeModel>();
+    
+    public DbSet<InboxModel> Inbox =>
+        Set<InboxModel>();
 
     public override int SaveChanges()
     {
