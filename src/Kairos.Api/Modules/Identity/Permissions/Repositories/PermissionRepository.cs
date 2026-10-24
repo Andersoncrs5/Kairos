@@ -25,7 +25,7 @@ public sealed class PermissionRepository(AppDbContext context)
     {
         return context.Set<PermissionsModel>()
             .AnyAsync(
-                permission => permission.Code == code,
+                permission => permission.Code.ToLower() == code.ToLower(),
                 cancellationToken);
     }
 }
