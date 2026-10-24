@@ -25,7 +25,7 @@ public sealed class CategoryRepository(AppDbContext context)
     {
         return context.Set<CategoryModel>()
             .AnyAsync(
-                category => category.Name == name,
+                category => category.Name.ToLower() == name.ToLower(),
                 cancellationToken);
     }
 
