@@ -4,14 +4,14 @@ using System.Text;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.Contracts;
 using Kairos.Api.Modules.Identity.Auth.Models;
+using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Kairos.Api.Modules.Identity.Auth.Services.Providers;
 
-public class CreateTokenUseCase(
-    IOptions<JwtOptions> jwtOptions)
+public class CreateTokenUseCase(IOptions<JwtOptions> jwtOptions): ICreateTokenUseCase
 {
     public Task<Result<TokenResponse>> ExecuteAsync(UserModel user)
     {

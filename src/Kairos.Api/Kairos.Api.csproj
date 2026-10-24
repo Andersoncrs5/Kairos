@@ -5,9 +5,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsPackable>false</IsPackable>
+
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Mvc" Version="10.2.1" />
+    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.2.1" />
     <PackageReference Include="Mapster" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
@@ -18,38 +25,39 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="Riok.Mapperly" Version="4.3.1" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
-    <PackageReference Include="xunit.v3" Version="4.0.2" />
+      
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.20.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
+    <PackageReference Include="Npgsql.OpenTelemetry" Version="10.0.3" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.1" />
+    <PackageReference Include="Serilog.Sinks.OpenTelemetry" Version="4.2.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Common\Exceptions\" />
     <Folder Include="Common\Extensions\" />
-    <Folder Include="Common\Middleware\" />
-    <Folder Include="Config\" />
     <Folder Include="Modules\Categories\Configurations\" />
     <Folder Include="Modules\Categories\Controllers\" />
-    <Folder Include="Modules\Categories\DTOs\" />
     <Folder Include="Modules\Categories\Models\" />
-    <Folder Include="Modules\Categories\Services\" />
+    <Folder Include="Modules\Identity\Auth\DTOs\Response\" />
     <Folder Include="Modules\Identity\Permissions\Configurations\" />
     <Folder Include="Modules\Identity\Permissions\Controllers\" />
-    <Folder Include="Modules\Identity\Permissions\DTOs\" />
     <Folder Include="Modules\Identity\Permissions\Models\" />
-    <Folder Include="Modules\Identity\Permissions\Services\" />
     <Folder Include="Modules\Identity\PermissionUsers\Configurations\" />
     <Folder Include="Modules\Identity\PermissionUsers\Controllers\" />
-    <Folder Include="Modules\Identity\PermissionUsers\DTOs\" />
     <Folder Include="Modules\Identity\PermissionUsers\Models\" />
-    <Folder Include="Modules\Identity\PermissionUsers\Services\" />
     <Folder Include="Modules\Identity\Users\Configurations\" />
     <Folder Include="Modules\Identity\Users\Controllers\" />
-    <Folder Include="Modules\Identity\Users\DTOs\" />
     <Folder Include="Modules\Identity\Users\Models\" />
-    <Folder Include="Modules\Identity\Users\Services\" />
+    <Folder Include="Modules\Reliability\Inbox\Controller\" />
+    <Folder Include="Modules\Reliability\Outbox\" />
     <Folder Include="Modules\Reservations\ReservationAttendee\Controllers\" />
     <Folder Include="Modules\Reservations\ReservationAttendee\DTOs\" />
     <Folder Include="Modules\Reservations\ReservationAttendee\Repositories\" />

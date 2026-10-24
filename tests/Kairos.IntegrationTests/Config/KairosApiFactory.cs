@@ -40,7 +40,7 @@ public sealed class KairosApiFactory
         });
     }
 
-    public async ValueTask InitializeAsync()
+    public async Task InitializeAsync()
     {
         await _dbContainer.StartAsync();
 
@@ -70,5 +70,10 @@ public sealed class KairosApiFactory
         {
             await _dbContainer.DisposeAsync();
         }
+    }
+
+    async Task IAsyncLifetime.DisposeAsync()
+    {
+        await DisposeAsync();
     }
 }

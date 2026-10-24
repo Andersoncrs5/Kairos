@@ -3,6 +3,7 @@ using Kairos.Api.Config.UnitOfWork;
 using Kairos.Api.Modules.Identity.Auth.Models;
 using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
+using Kairos.Api.Modules.Identity.Users.Mapper;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Identity.Users.Services.Interface;
 
@@ -38,6 +39,8 @@ public class RegisterUserUseCase(
             ExpiredToken = token.Expired,
             Token = token.Token,
             RefreshToken = refreshToken,
+            User = UserMapper.ToDto(user),
+            Permissions = user.Permissions
         };
         
         return Result<Tokens>.Success(tokens);

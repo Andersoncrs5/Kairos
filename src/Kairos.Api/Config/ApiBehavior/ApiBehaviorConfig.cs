@@ -32,6 +32,10 @@ public static class ApiBehaviorConfig
 
                     return new BadRequestObjectResult(response);
                 };
+
+                options.SuppressMapClientErrors = true;
+
+                options.SuppressModelStateInvalidFilter = false;
             });
 
         return services;
