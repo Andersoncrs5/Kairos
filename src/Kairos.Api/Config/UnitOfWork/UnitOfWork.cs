@@ -4,6 +4,7 @@ using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
 using Kairos.Api.Modules.Identity.Users.Repositories;
+using Kairos.Api.Modules.Reliability.Inbox.Repository;
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
@@ -22,30 +23,19 @@ public sealed class UnitOfWork(
     IRoomRepository roomRepository,
     IRoomTypeRepository roomTypeRepository,
     IRoomBlockoutRepository roomBlockoutRepository,
-    IReservationRepository reservationRepository
+    IReservationRepository reservationRepository,
+    IInboxRepository inboxRepository
 ) : IUnitOfWork
 {
     public IUserRepository UserRepository => userRepository;
-
-    public IPermissionRepository PermissionRepository =>
-        permissionRepository;
-
-    public IPermissionUserRepository PermissionUserRepository =>
-        permissionUserRepository;
-
-    public ICategoryRepository CategoryRepository =>
-        categoryRepository;
-
+    public IPermissionRepository PermissionRepository => permissionRepository;
+    public IPermissionUserRepository PermissionUserRepository => permissionUserRepository;
+    public ICategoryRepository CategoryRepository => categoryRepository;
     public IRoomRepository RoomRepository => roomRepository;
-
-    public IRoomTypeRepository RoomTypeRepository =>
-        roomTypeRepository;
-
-    public IRoomBlockoutRepository RoomBlockoutRepository =>
-        roomBlockoutRepository;
-
-    public IReservationRepository ReservationRepository =>
-        reservationRepository;
+    public IRoomTypeRepository RoomTypeRepository => roomTypeRepository;
+    public IRoomBlockoutRepository RoomBlockoutRepository => roomBlockoutRepository;
+    public IReservationRepository ReservationRepository => reservationRepository;
+    public IInboxRepository InboxRepository => inboxRepository;
 
     public Task<int> CommitAsync(
         CancellationToken cancellationToken = default)
@@ -128,5 +118,56 @@ public sealed class UnitOfWork(
                 throw;
             }
         });
+    }
+    
+    public async Task<Result<T>> ExecuteTransactionWithInboxAsync<T>(
+        string inboxId,
+        string workerId,
+        Func<CancellationToken, Task<Result<T>>> operation,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(inboxId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(workerId);
+        ArgumentNullException.ThrowIfNull(operation);
+
+        if (context.Database.CurrentTransaction is not null)
+        {
+            throw new InvalidOperationException(
+                "ExecuteTransactionWithInboxAsync must be called outside an existing transaction.");
+        }
+
+        bool acquired = await inboxRepository.TryMarkAsProcessingAsync(
+            inboxId,
+            workerId,
+            ct);
+
+        if (!acquired)
+        {
+            return Result<T>.Conflict(
+                "Inbox is not available for processing.");
+        }
+
+        return await ExecuteTransactionAsync(
+            async token =>
+            {
+                var result = await operation(token);
+
+                if (result.IsFailure)
+                    return result;
+
+                var processed = await inboxRepository.TryMarkAsProcessedAsync(
+                    inboxId,
+                    workerId,
+                    token);
+
+                if (!processed)
+                {
+                    return Result<T>.Conflict(
+                        "Could not complete Inbox processing.");
+                }
+
+                return result;
+            },
+            ct);
     }
 }

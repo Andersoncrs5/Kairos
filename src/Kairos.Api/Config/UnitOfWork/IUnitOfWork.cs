@@ -3,6 +3,7 @@ using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
 using Kairos.Api.Modules.Identity.Users.Repositories;
+using Kairos.Api.Modules.Reliability.Inbox.Repository;
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
@@ -28,6 +29,7 @@ public interface IUnitOfWork
     IRoomBlockoutRepository RoomBlockoutRepository { get; }
 
     IReservationRepository ReservationRepository { get; }
+    IInboxRepository InboxRepository { get; }
 
     Task<int> CommitAsync(
         CancellationToken cancellationToken = default);
@@ -40,6 +42,12 @@ public interface IUnitOfWork
         CancellationToken cancellationToken = default);
     
     Task<Result<T>> ExecuteTransactionAsync<T>(
+        Func<CancellationToken, Task<Result<T>>> operation,
+        CancellationToken ct = default);
+    
+    Task<Result<T>> ExecuteTransactionWithInboxAsync<T>(
+        string inboxId,
+        string workerId,
         Func<CancellationToken, Task<Result<T>>> operation,
         CancellationToken ct = default);
 }
