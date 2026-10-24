@@ -1,11 +1,17 @@
 using Kairos.Api.Config.DB;
+using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
+using Kairos.Api.Modules.Identity.Auth.Services.Providers;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
+using Kairos.Api.Modules.Identity.Permissions.Services.Interface;
+using Kairos.Api.Modules.Identity.Permissions.Services.Provider;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
+using Kairos.Api.Modules.Identity.PermissionUsers.Services.Interface;
+using Kairos.Api.Modules.Identity.PermissionUsers.Services.Provider;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Identity.Users.Repositories;
+using Kairos.Api.Modules.Identity.Users.Services.Interface;
+using Kairos.Api.Modules.Identity.Users.Services.Providers;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.DataProtection;
 
 namespace Kairos.Api.Modules.Identity;
 
@@ -16,6 +22,7 @@ public static class AuthModule
     {
         services.AddDataProtection();
 
+        // ASP.NET Core Identity
         services
             .AddIdentityCore<UserModel>(options =>
             {
@@ -30,9 +37,40 @@ public static class AuthModule
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
 
+        // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
-        services.AddScoped<IPermissionUserRepository, PermissionUserRepository>();
+        services.AddScoped<
+            IPermissionUserRepository,
+            PermissionUserRepository>();
+
+        // Auth Use Cases
+        services.AddScoped<ICreateRefreshTokenUseCase, CreateRefreshTokenUseCase>();
+        services.AddScoped<ICreateTokenUseCase, CreateTokenUseCase>();
+        services.AddScoped<IGetPrincipalFromExpiredTokenUseCase, GetPrincipalFromExpiredTokenUseCase>();
+        services.AddScoped<ILoginUserUseCase, LoginUserUseCase>();
+        services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
+
+        // User Use Cases
+        services.AddScoped<ICreateUserUseCase, CreateUserUseCase>();
+        services.AddScoped<IDeleteUserByIdUseCase, DeleteUserByIdUseCase>();
+        services.AddScoped<IExistsUserByIdUseCase, ExistsUserByIdUseCase>();
+        services.AddScoped<IFindUserByIdUseCase, FindUserByIdUseCase>();
+
+        // Permission Use Cases
+        services.AddScoped<ICreatePermissionUseCase, CreatePermissionUseCase>();
+        services.AddScoped<IDeletePermissionByIdUseCase, DeletePermissionByIdUseCase>();
+        services.AddScoped<IExistsPermissionByCodeUseCase, ExistsPermissionByCodeUseCase>();
+        services.AddScoped<IFindPermissionByCodeUseCase, FindPermissionByCodeUseCase>();
+        services.AddScoped<IFindPermissionByIdUseCase, FindPermissionByIdUseCase>();
+        services.AddScoped<IUpdatePermissionUseCase, UpdatePermissionUseCase>();
+
+        // PermissionUser Use Cases
+        services.AddScoped<ICreatePermissionUserUseCase, CreatePermissionUserUseCase>();
+        services.AddScoped<IDeletePermissionUserByUserIdAndPermissionIdUseCase, DeletePermissionUserByUserIdAndPermissionIdUseCase>();
+        services.AddScoped<IExistsPermissionUserByUserIdAndPermissionIdUseCase, ExistsPermissionUserByUserIdAndPermissionIdUseCase>();
+        services.AddScoped<IFindPermissionUserByIdUseCase, FindPermissionUserByIdUseCase>();
+        services.AddScoped<IUpdatePermissionUserUseCase, UpdatePermissionUserUseCase>();
 
         return services;
     }
