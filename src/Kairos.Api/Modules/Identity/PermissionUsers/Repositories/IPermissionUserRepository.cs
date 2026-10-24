@@ -19,4 +19,9 @@ public interface IPermissionUserRepository
         string userId,
         string permissionId,
         CancellationToken cancellationToken = default);
+
+    Task DeleteByUserIdAndPermissionIdAsync(
+        string userId,
+        string permissionId,
+        CancellationToken cancellationToken = default);
 }

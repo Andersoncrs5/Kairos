@@ -9,6 +9,16 @@ public sealed class PermissionUserRepository(AppDbContext context)
     : BaseRepositoryImpl<PermissionUserModel>(context),
         IPermissionUserRepository
 {
+    public async Task DeleteByUserIdAndPermissionIdAsync(
+        string userId, 
+        string permissionId,
+        CancellationToken cancellationToken = default)
+    {
+        await context.PermissionUsers
+            .Where(p => p.UserId == userId && p.PermissionId == permissionId)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+    
     public async Task<IReadOnlyList<PermissionUserModel>> GetByUserIdAsync(
         string userId,
         CancellationToken cancellationToken = default)
