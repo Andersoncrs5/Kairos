@@ -20,6 +20,253 @@ public sealed class InboxRepositoryTest : BaseIntegrationTest
     }
 
     [Fact]
+    public async Task TryMarkAsProcessingAsync_ReturnsTrueAndUpdatesInbox_WhenMessageIsPendingAndEligible()
+    {
+        // Arrange
+        using var scope = CreateScope();
+
+        var repository = GetInboxRepository(scope);
+        var now = DateTimeOffset.UtcNow;
+        var workerId = $"worker-{Guid.NewGuid():N}";
+
+        var inbox = await CreateInboxAsync(
+            scope.ServiceProvider,
+            receivedAt: now.AddMinutes(-2),
+            nextAttemptAt: now.AddMinutes(-1));
+
+        // Act
+        var result = await repository.TryMarkAsProcessingAsync(
+            inbox.Id,
+            workerId);
+
+        // Assert
+        result.Should().BeTrue();
+
+        var dbContext = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var updatedInbox = await dbContext.Set<InboxModel>()
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == inbox.Id);
+
+        updatedInbox.Status.Should().Be(InboxStatusEnum.Processing);
+        updatedInbox.LockedBy.Should().Be(workerId);
+        updatedInbox.UpdatedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task TryMarkAsProcessingAsync_ReturnsFalse_WhenMessageDoesNotExist()
+    {
+        // Arrange
+        using var scope = CreateScope();
+
+        var repository = GetInboxRepository(scope);
+        var id = Guid.NewGuid().ToString();
+        var workerId = $"worker-{Guid.NewGuid():N}";
+
+        // Act
+        var result = await repository.TryMarkAsProcessingAsync(
+            id,
+            workerId);
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TryMarkAsProcessingAsync_ReturnsFalse_WhenMessageIsNotPending()
+    {
+        // Arrange
+        using var scope = CreateScope();
+
+        var repository = GetInboxRepository(scope);
+        var workerId = $"worker-{Guid.NewGuid():N}";
+
+        var inbox = await CreateInboxAsync(
+            scope.ServiceProvider,
+            status: InboxStatusEnum.Processing,
+            lockedBy: $"other-worker-{Guid.NewGuid():N}");
+
+        // Act
+        var result = await repository.TryMarkAsProcessingAsync(
+            inbox.Id,
+            workerId);
+
+        // Assert
+        result.Should().BeFalse();
+
+        var dbContext = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var persistedInbox = await dbContext.Set<InboxModel>()
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == inbox.Id);
+
+        persistedInbox.Status.Should().Be(InboxStatusEnum.Processing);
+        persistedInbox.LockedBy.Should().Be(inbox.LockedBy);
+    }
+
+    [Fact]
+    public async Task TryMarkAsProcessingAsync_ReturnsFalse_WhenNextAttemptIsInTheFuture()
+    {
+        // Arrange
+        using var scope = CreateScope();
+
+        var repository = GetInboxRepository(scope);
+
+        var inbox = await CreateInboxAsync(
+            scope.ServiceProvider,
+            nextAttemptAt: DateTimeOffset.UtcNow.AddHours(1));
+
+        // Act
+        var result = await repository.TryMarkAsProcessingAsync(
+            inbox.Id,
+            $"worker-{Guid.NewGuid():N}");
+
+        // Assert
+        result.Should().BeFalse();
+
+        var dbContext = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var persistedInbox = await dbContext.Set<InboxModel>()
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == inbox.Id);
+
+        persistedInbox.Status.Should().Be(InboxStatusEnum.Pending);
+        persistedInbox.LockedBy.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TryMarkAsProcessedAsync_ReturnsTrueAndUpdatesInbox_WhenWorkerOwnsMessage()
+    {
+        // Arrange
+        using var scope = CreateScope();
+
+        var repository = GetInboxRepository(scope);
+        var workerId = $"worker-{Guid.NewGuid():N}";
+
+        var inbox = await CreateInboxAsync(
+            scope.ServiceProvider,
+            status: InboxStatusEnum.Processing,
+            lockedBy: workerId,
+            nextAttemptAt: DateTimeOffset.UtcNow.AddMinutes(5),
+            lastError: "Previous attempt failed.");
+
+        // Act
+        var result = await repository.TryMarkAsProcessedAsync(
+            inbox.Id,
+            workerId);
+
+        // Assert
+        result.Should().BeTrue();
+
+        var dbContext = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var processedInbox = await dbContext.Set<InboxModel>()
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == inbox.Id);
+
+        processedInbox.Status.Should().Be(InboxStatusEnum.Processed);
+        processedInbox.ProcessedAt.Should().NotBeNull();
+        processedInbox.NextAttemptAt.Should().BeNull();
+        processedInbox.LastError.Should().BeNull();
+        processedInbox.LockedBy.Should().BeNull();
+        processedInbox.UpdatedAt.Should().NotBeNull();
+
+        // O histórico de tentativas deve ser preservado.
+        processedInbox.RetryCount.Should().Be(inbox.RetryCount);
+    }
+
+    [Fact]
+    public async Task TryMarkAsProcessedAsync_ReturnsFalse_WhenMessageDoesNotExist()
+    {
+        // Arrange
+        using var scope = CreateScope();
+
+        var repository = GetInboxRepository(scope);
+        var id = Guid.NewGuid().ToString();
+        var workerId = $"worker-{Guid.NewGuid():N}";
+
+        // Act
+        var result = await repository.TryMarkAsProcessedAsync(
+            id,
+            workerId);
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TryMarkAsProcessedAsync_ReturnsFalse_WhenWorkerDoesNotOwnMessage()
+    {
+        // Arrange
+        using var scope = CreateScope();
+
+        var repository = GetInboxRepository(scope);
+        var ownerWorkerId = $"worker-{Guid.NewGuid():N}";
+        var otherWorkerId = $"worker-{Guid.NewGuid():N}";
+
+        var inbox = await CreateInboxAsync(
+            scope.ServiceProvider,
+            status: InboxStatusEnum.Processing,
+            lockedBy: ownerWorkerId);
+
+        // Act
+        var result = await repository.TryMarkAsProcessedAsync(
+            inbox.Id,
+            otherWorkerId);
+
+        // Assert
+        result.Should().BeFalse();
+
+        var dbContext = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var persistedInbox = await dbContext.Set<InboxModel>()
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == inbox.Id);
+
+        persistedInbox.Status.Should().Be(InboxStatusEnum.Processing);
+        persistedInbox.LockedBy.Should().Be(ownerWorkerId);
+        persistedInbox.ProcessedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TryMarkAsProcessedAsync_ReturnsFalse_WhenMessageIsNotProcessing()
+    {
+        // Arrange
+        using var scope = CreateScope();
+
+        var repository = GetInboxRepository(scope);
+        var workerId = $"worker-{Guid.NewGuid():N}";
+
+        var inbox = await CreateInboxAsync(
+            scope.ServiceProvider,
+            status: InboxStatusEnum.Pending,
+            lockedBy: workerId);
+
+        // Act
+        var result = await repository.TryMarkAsProcessedAsync(
+            inbox.Id,
+            workerId);
+
+        // Assert
+        result.Should().BeFalse();
+
+        var dbContext = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var persistedInbox = await dbContext.Set<InboxModel>()
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == inbox.Id);
+
+        persistedInbox.Status.Should().Be(InboxStatusEnum.Pending);
+        persistedInbox.ProcessedAt.Should().BeNull();
+    }
+    
+    [Fact]
     public async Task GetByMessageIdAsync_ReturnsNull_WhenMessageDoesNotExist()
     {
         // Arrange
@@ -205,7 +452,9 @@ public sealed class InboxRepositoryTest : BaseIntegrationTest
         string? correlationId = null,
         DateTimeOffset? receivedAt = null,
         DateTimeOffset? nextAttemptAt = null,
-        InboxStatusEnum status = InboxStatusEnum.Pending)
+        InboxStatusEnum status = InboxStatusEnum.Pending,
+        string? lockedBy = null,
+        string? lastError = null)
     {
         var context = serviceProvider
             .GetRequiredService<AppDbContext>();
@@ -223,6 +472,8 @@ public sealed class InboxRepositoryTest : BaseIntegrationTest
             NextAttemptAt = nextAttemptAt,
             RetryCount = 0,
             CorrelationId = correlationId,
+            LockedBy = lockedBy,
+            LastError = lastError,
             CreatedAt = now
         };
 
