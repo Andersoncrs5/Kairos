@@ -1,14 +1,19 @@
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using Asp.Versioning;
+using Kairos.Api.Common.Exceptions;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.DB.Transaction;
+using Kairos.Api.Modules.Identity.Auth.DTOs.Commands;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Kairos.Api.Modules.Identity.Auth.Controller;
 
@@ -21,7 +26,10 @@ namespace Kairos.Api.Modules.Identity.Auth.Controller;
 [Produces("application/json")]
 public class AuthController(
     IInboxTransactionUseCase<CreateUserDTO, Tokens, IRegisterUserUseCase> registerUser,
-    IInboxTransactionUseCase<LoginUserDTO, Tokens, ILoginUserUseCase> loginUser
+    IInboxTransactionUseCase<LoginUserDTO, Tokens, ILoginUserUseCase> loginUser,
+    IInboxTransactionUseCase<string, bool, ILogoutUseCase> logoutUser,
+    IInboxTransactionUseCase<ChangePasswordUserCommand, bool, IChangePasswordUserUseCase> changePasswordUser,
+    IInboxTransactionUseCase<string, Tokens, IRefreshTokenUseCase> refreshTokenUser
 ) : ControllerBase
 {
     /// <summary>
@@ -154,7 +162,7 @@ public class AuthController(
             return StatusCode(result.StatusCode, new ResponseHttp<Tokens>(
                 Data: null,
                 Message: "Login failed",
-                TraceId: HttpContext.TraceIdentifier,
+                TraceId: inboxId,
                 Success: false,
                 Timestamp: DateTimeOffset.UtcNow,
                 Errors: result.Errors)
@@ -164,10 +172,121 @@ public class AuthController(
         return StatusCode(StatusCodes.Status200OK, new ResponseHttp<Tokens>(
             Data: result.Value,
             Message: "Welcome again",
-            TraceId: HttpContext.TraceIdentifier,
+            TraceId: inboxId,
             Success: true,
             Timestamp: DateTimeOffset.UtcNow)
         );
+    }
+
+    [HttpPost("Logout")]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), (int)HttpStatusCode.OK)]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), (int)HttpStatusCode.NotFound)]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), (int)HttpStatusCode.Unauthorized)]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<IActionResult> Logout(
+        [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
+        CancellationToken ct) 
+    {
+        string workerId = $"http-{Guid.NewGuid():N}";
+        
+        string userId = User.FindFirst(JwtRegisteredClaimNames.Sid)?.Value ?? throw new UnauthenticatedException();
+        Result<bool> result = await logoutUser.ExecuteAsync(inboxId, workerId, userId, ct);
+        
+        if (result.IsFailure)
+        {
+            return StatusCode(result.StatusCode, new ResponseHttp<bool>(
+                Data: false,
+                Message: "Logout failed",
+                TraceId: inboxId,
+                Success: false,
+                Timestamp: DateTimeOffset.UtcNow,
+                Errors: result.Errors)
+            );
+        }
+
+        return StatusCode(StatusCodes.Status200OK, new ResponseHttp<bool>(
+            Data: true,
+            Message: "Logout successful",
+            TraceId: inboxId,
+            Success: true,
+            Timestamp: DateTimeOffset.UtcNow)
+        );
+    }
+
+    [HttpPost("ChangePassword")]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), (int)HttpStatusCode.Unauthorized)]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordUserDto dto,
+        [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
+        CancellationToken ct)
+    {
+        string workerId = $"http-{Guid.NewGuid():N}";
+        string userId = User.FindFirst(JwtRegisteredClaimNames.Sid)?.Value ?? throw new UnauthenticatedException();
+
+        var command = new ChangePasswordUserCommand(
+            userId,
+            dto.CurrentPassword,
+            dto.NewPassword,
+            dto.ConfirmPassword);
+
+        Result<bool> result = await changePasswordUser.ExecuteAsync(inboxId, workerId, command, ct);
+
+        if (result.IsFailure)
+        {
+            return StatusCode(result.StatusCode, new ResponseHttp<bool>(
+                Data: result.Value,
+                Message: "Error changing password",
+                TraceId: inboxId,
+                Success: false,
+                Timestamp: DateTimeOffset.UtcNow,
+                Errors: result.Errors)
+            );
+        }
+
+        return StatusCode(StatusCodes.Status200OK, new ResponseHttp<bool>(
+            Data: result.Value,
+            Message: "Password changed successfully",
+            TraceId: inboxId,
+            Success: true,
+            Timestamp: DateTimeOffset.UtcNow)
+        );
+    }
+
+    [AllowAnonymous]
+    [HttpPost("RefreshToken")]
+    [ProducesResponseType(typeof(ResponseHttp<Tokens>), (int)HttpStatusCode.OK)]
+    [ProducesResponseType(typeof(ResponseHttp<Tokens>), (int)HttpStatusCode.BadRequest)]
+    [ProducesResponseType(typeof(ResponseHttp<Tokens>), (int)HttpStatusCode.Unauthorized)]
+    [ProducesResponseType(typeof(ResponseHttp<Tokens>), (int)HttpStatusCode.Conflict)]
+    public async Task<IActionResult> RefreshToken(
+        [FromBody] RefreshTokenDto dto,
+        [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
+        CancellationToken ct)
+    {
+        string workerId = $"http-{Guid.NewGuid():N}";
+
+        Result<Tokens> result = await refreshTokenUser.ExecuteAsync(
+            inboxId, workerId, dto.RefreshToken, ct);
+
+        if (result.IsFailure)
+        {
+            return StatusCode(result.StatusCode, new ResponseHttp<Tokens>(
+                Data: null,
+                Message: "Refresh token failed",
+                TraceId: inboxId,
+                Success: false,
+                Timestamp: DateTimeOffset.UtcNow,
+                Errors: result.Errors));
+        }
+
+        return StatusCode(StatusCodes.Status200OK, new ResponseHttp<Tokens>(
+            Data: result.Value,
+            Message: "Refresh token successfully",
+            TraceId: inboxId,
+            Success: true,
+            Timestamp: DateTimeOffset.UtcNow));
     }
     
 }
