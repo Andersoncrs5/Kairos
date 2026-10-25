@@ -91,5 +91,16 @@ public class UserRepository(AppDbContext context, UserManager<UserModel> manager
 
         return manager.CreateAsync(user, password);
     }
+    
+    public Task<IdentityResult> ChangePassword(
+        UserModel user,
+        string currentPassword,
+        string newPassword)
+    {
+        return manager.ChangePasswordAsync(
+            user,
+            currentPassword,
+            newPassword);
+    }
 
 }

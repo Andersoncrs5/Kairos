@@ -17,9 +17,8 @@ public interface IUserRepository
     Task<IdentityResult> Insert(UserModel user);
     Task<IdentityResult> Insert(UserModel user, string password);
     Task<IdentityResult> Update(UserModel user);
-    Task<int> CountAsync(
-        CancellationToken cancellationToken = default);
+    Task<int> CountAsync(CancellationToken cancellationToken = default);
     Task<IdentityResult> DeleteByIdAsync(string id);
-    
     Task<bool> ExistsPermission(string permission, string userId);
+    Task<IdentityResult> ChangePassword(UserModel user, string currentPassword, string newPassword);
 }
