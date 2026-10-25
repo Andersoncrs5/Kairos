@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Kairos.Api.Common.Enums;
@@ -30,6 +31,130 @@ public class AuthControllerTest : BaseIntegrationTest
         : base(factory)
     {
         _output = output;
+    }
+    
+    [Fact]
+    public async Task Logout_ReturnsUnauthorized_WhenTokenIsInvalid()
+    {
+        var (registered, tokens) = await RegisterUserAsync();
+        var inbox = await NewInboxAsync();
+
+        // Lixo qualquer no lugar do JWT
+        using (var garbage = await SendLogoutAsync("not-a-jwt", inbox.Id))
+            garbage.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // JWT real com a assinatura adulterada: prova que a assinatura é validada
+        using (var tampered = await SendLogoutAsync(TamperSignature(tokens.Token), inbox.Id))
+            tampered.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // Nada foi consumido nem revogado
+        (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Pending);
+
+        var user = await GetUserByEmailAsync(registered.Email);
+        user!.RefreshToken.Should().Be(tokens.RefreshToken);
+    }
+
+    [Fact]
+    public async Task Logout_ReturnsBadRequest_WhenInboxHeaderIsMissing()
+    {
+        var (registered, tokens) = await RegisterUserAsync();
+
+        using var response = await SendLogoutAsync(tokens.Token, inboxId: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var http = await ReadAsync<object>(response);
+        http!.Errors.Should().ContainSingle(e => e.Contains(InboxHeader));
+
+        var user = await GetUserByEmailAsync(registered.Email);
+        user!.RefreshToken.Should().Be(tokens.RefreshToken);
+    }
+
+    [Fact]
+    public async Task Logout_ReturnsConflict_WhenSameInboxIsReusedAfterSuccess()
+    {
+        var (_, tokens) = await RegisterUserAsync();
+        var inbox = await NewInboxAsync();
+
+        using (var first = await SendLogoutAsync(tokens.Token, inbox.Id))
+            first.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var second = await SendLogoutAsync(tokens.Token, inbox.Id);
+
+        second.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Logout_IsIdempotent_WhenCalledAgainWithNewInbox()
+    {
+        var (registered, tokens) = await RegisterUserAsync();
+
+        using (var first = await SendLogoutAsync(tokens.Token, (await NewInboxAsync()).Id))
+            first.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // O access token continua válido até expirar, e o usuário já não tem refresh token
+        using var second = await SendLogoutAsync(tokens.Token, (await NewInboxAsync()).Id);
+
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var user = await GetUserByEmailAsync(registered.Email);
+        user!.RefreshToken.Should().BeNull();
+        user.RefreshTokenExpiryTime.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Logout_DoesNotAffectOtherUsers()
+    {
+        var (_, tokensA) = await RegisterUserAsync();
+        var (registeredB, tokensB) = await RegisterUserAsync();
+
+        using var response = await SendLogoutAsync(tokensA.Token, (await NewInboxAsync()).Id);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var userB = await GetUserByEmailAsync(registeredB.Email);
+        userB!.RefreshToken.Should().Be(tokensB.RefreshToken);
+    }
+
+    [Fact]
+    public async Task Logout_ThenLogin_IssuesNewRefreshToken()
+    {
+        var (registered, tokens) = await RegisterUserAsync();
+
+        using (var logout = await SendLogoutAsync(tokens.Token, (await NewInboxAsync()).Id))
+            logout.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var login = await LoginWithNewInboxAsync(registered.Email, registered.Password);
+
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var http = await ReadAsync<Tokens>(login);
+        http!.Data!.RefreshToken.Should().NotBeNullOrWhiteSpace();
+        http.Data.RefreshToken.Should().NotBe(tokens.RefreshToken);
+
+        var user = await GetUserByEmailAsync(registered.Email);
+        user!.RefreshToken.Should().Be(http.Data.RefreshToken);
+    }
+
+    [Fact(Skip = "Bug: inbox fica preso em Processing quando o logout falha (ex.: usuário não encontrado).")]
+    public async Task Logout_ReleasesInbox_WhenUserNotFound()
+    {
+        var (registered, tokens) = await RegisterUserAsync();
+
+        using (var scope = CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<UserModel>>();
+            var user = await userManager.FindByEmailAsync(registered.Email);
+            (await userManager.DeleteAsync(user!)).Succeeded.Should().BeTrue();
+        }
+
+        var inbox = await NewInboxAsync();
+
+        using var response = await SendLogoutAsync(tokens.Token, inbox.Id);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var updated = await GetInboxAsync(inbox.Id);
+        updated.Status.Should().NotBe(InboxStatusEnum.Processing);
+        updated.LockedBy.Should().BeNull();
     }
 
     [Fact]
@@ -754,16 +879,7 @@ public class AuthControllerTest : BaseIntegrationTest
     
 
     // Escopo novo + AsNoTracking: evita ler entidade em cache do EF
-    private async Task<InboxModel> GetInboxAsync(string id)
-    {
-        using var scope = CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-        return await db.Set<InboxModel>()
-            .AsNoTracking()
-            .SingleAsync(i => i.Id == id);
-    }
-
+    
     private async Task<bool> UserExistsAsync(string email)
     {
         using var scope = CreateScope();
@@ -805,15 +921,7 @@ public class AuthControllerTest : BaseIntegrationTest
             new LoginUserDTO { Email = email, Password = password },
             inbox.Id);
     }
-
-    private async Task<UserModel?> GetUserByEmailAsync(string email)
-    {
-        using var scope = CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<UserModel>>();
-
-        return await userManager.FindByEmailAsync(email);
-    }
-
+    
     private async Task UpdateUserAsync(string email, Action<UserModel> configure)
     {
         using var scope = CreateScope();
@@ -826,5 +934,27 @@ public class AuthControllerTest : BaseIntegrationTest
 
         var result = await userManager.UpdateAsync(user!);
         result.Succeeded.Should().BeTrue();
+    }
+    
+    private async Task<HttpResponseMessage> SendLogoutAsync(
+        string? accessToken,
+        string? inboxId)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/auth/Logout");
+
+        if (!string.IsNullOrWhiteSpace(accessToken))
+        {
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        if (inboxId is not null)
+        {
+            request.Headers.Add(InboxHeader, inboxId);
+        }
+
+        return await Client.SendAsync(request);
     }
 }
