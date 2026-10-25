@@ -5,7 +5,7 @@ using Kairos.Api.Common.Res;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.DB.Transaction;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
-using Kairos.Api.Modules.Identity.Auth.Models;
+using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Microsoft.AspNetCore.Mvc;
@@ -24,7 +24,6 @@ public class AuthController(
     IInboxTransactionUseCase<LoginUserDTO, Tokens, ILoginUserUseCase> loginUser
 ) : ControllerBase
 {
-    
     /// <summary>
     /// Registers a new user and returns authentication tokens.
     /// </summary>
@@ -140,7 +139,6 @@ public class AuthController(
     [ProducesResponseType(typeof(ResponseHttp<Tokens>), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ResponseHttp<Tokens>), StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType(typeof(ResponseHttp<Tokens>), StatusCodes.Status500InternalServerError)]
-    [HttpPost("Login")]
     public async Task<IActionResult> Login(
         [FromBody] LoginUserDTO dto,
         [FromHeader(Name = "X-Inbox-Id"), Required]

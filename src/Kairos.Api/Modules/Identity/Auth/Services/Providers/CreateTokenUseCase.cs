@@ -3,7 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.Contracts;
-using Kairos.Api.Modules.Identity.Auth.Models;
+using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Microsoft.Extensions.Options;

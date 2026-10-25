@@ -46,7 +46,7 @@
     <Folder Include="Modules\Categories\Configurations\" />
     <Folder Include="Modules\Categories\Controllers\" />
     <Folder Include="Modules\Categories\Models\" />
-    <Folder Include="Modules\Identity\Auth\DTOs\Response\" />
+    <Folder Include="Modules\Identity\Auth\Models\" />
     <Folder Include="Modules\Identity\Permissions\Configurations\" />
     <Folder Include="Modules\Identity\Permissions\Controllers\" />
     <Folder Include="Modules\Identity\Permissions\Models\" />

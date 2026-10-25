@@ -1,4 +1,4 @@
-namespace Kairos.Api.Modules.Identity.Auth.Models;
+namespace Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 
 
 public class TokenResponse

@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.UnitOfWork;
-using Kairos.Api.Modules.Identity.Auth.Models;
+using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Auth.Services.Providers;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
