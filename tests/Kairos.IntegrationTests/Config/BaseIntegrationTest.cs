@@ -1,17 +1,24 @@
+using System.Net;
+using System.Net.Http.Json;
 using FluentAssertions;
 using Kairos.Api.Common.Enums;
+using Kairos.Api.Common.Res;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Categories.Models;
+using Kairos.Api.Modules.Identity.Auth.Models;
 using Kairos.Api.Modules.Identity.Permissions.Models;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Models;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
+using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Identity.Users.Repositories;
+using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Rooms.Room.Models;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
 using Kairos.Api.Modules.Rooms.RoomTypes.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Kairos.IntegrationTests.Config;
@@ -21,11 +28,87 @@ public abstract class BaseIntegrationTest
     protected HttpClient Client { get; }
     protected KairosApiFactory Factory { get; }
     protected const string ValidPassword = "Test123!Abcd";
-
+    
     protected BaseIntegrationTest(KairosApiFactory factory)
     {
         Factory = factory;
         Client = factory.CreateClient();
+    }
+    
+    
+
+    protected async Task<Tokens> CreateUserHttp() 
+    {
+        using var scope = CreateScope();
+        var inbox = await CreateInboxAsync(scope.ServiceProvider);
+
+        long num = Random.Shared.NextInt64(1, 10000000000000);
+
+        var dto = new CreateUserDTO
+        {
+            Email = $"pochita{num}@gmail.com",
+            Password = "test6rA553e463$#%$%",
+            UserName = $"pochita{num}",
+            FullName = "pochita the chainsaw demon"
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/Register")
+        {
+            Content = JsonContent.Create(dto)
+        };
+        request.Headers.Add("X-Inbox-Id", inbox.Id);
+
+        using var response = await Client.SendAsync(request);
+        
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await response.Content.ReadFromJsonAsync<ResponseHttp<Tokens>>();
+
+        http.Should().NotBeNull();
+        http!.Data.Should().NotBeNull();
+        http.Data!.Token.Should().NotBeNullOrEmpty();
+        http.Data.RefreshToken.Should().NotBeNullOrEmpty();
+        http.Success.Should().BeTrue();
+        http.TraceId.Should().NotBeNullOrWhiteSpace();
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var updated = await db.Set<InboxModel>()
+            .AsNoTracking()
+            .SingleAsync(i => i.Id == inbox.Id);
+
+        updated.Status.Should().Be(InboxStatusEnum.Processed);
+        updated.LockedBy.Should().BeNull();
+        updated.ProcessedAt.Should().NotBeNull();
+
+        return http.Data;
+    }
+    
+    protected static async Task<InboxModel> CreateInboxAsync(
+        IServiceProvider services,
+        Action<InboxModel>? configure = null,
+        CancellationToken cancellationToken = default)
+    {
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var now = DateTimeOffset.UtcNow;
+
+        var inbox = new InboxModel
+        {
+            Id = Guid.NewGuid().ToString(),
+            MessageId = $"message-{Guid.NewGuid():N}",
+            MessageType = "auth.register",
+            Payload = """{"value":"integration-test"}""",
+            Status = InboxStatusEnum.Pending,
+            ReceivedAt = now,
+            RetryCount = 0,
+            CreatedAt = now
+        };
+
+        configure?.Invoke(inbox);
+
+        await dbContext.Set<InboxModel>().AddAsync(inbox, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return inbox;
     }
 
     protected IServiceScope CreateScope()
