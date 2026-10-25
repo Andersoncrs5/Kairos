@@ -171,3 +171,74 @@ public sealed class UnitOfWork(
             ct);
     }
 }
+
+/*
+public async Task<Result<T>> ExecuteTransactionWithInboxAsync<T>(
+       string inboxId,
+       string workerId,
+       Func<CancellationToken, Task<Result<T>>> operation,
+       CancellationToken ct = default)
+   {
+       ArgumentException.ThrowIfNullOrWhiteSpace(inboxId);
+       ArgumentException.ThrowIfNullOrWhiteSpace(workerId);
+       ArgumentNullException.ThrowIfNull(operation);
+   
+       if (context.Database.CurrentTransaction is not null)
+           throw new InvalidOperationException(
+               "ExecuteTransactionWithInboxAsync must be called outside an existing transaction.");
+   
+       bool claimed = false;
+       var strategy = context.Database.CreateExecutionStrategy();
+   
+       try
+       {
+           var result = await strategy.ExecuteAsync(async () =>
+           {
+               claimed = false;
+               context.ChangeTracker.Clear();
+   
+               await using var tx = await context.Database.BeginTransactionAsync(ct);
+   
+               if (!await inboxRepository.TryMarkAsProcessingAsync(inboxId, workerId, ct))
+                   return Result<T>.Conflict("Inbox is not available for processing.");
+   
+               claimed = true;
+   
+               var result = await operation(ct);
+   
+               if (result.IsFailure)
+               {
+                   await tx.RollbackAsync(CancellationToken.None);
+                   return result;
+               }
+   
+               await context.SaveChangesAsync(ct);
+   
+               if (!await inboxRepository.TryMarkAsProcessedAsync(inboxId, workerId, ct))
+               {
+                   await tx.RollbackAsync(CancellationToken.None);
+                   return Result<T>.Conflict("Could not complete Inbox processing.");
+               }
+   
+               await tx.CommitAsync(ct);
+               return result;
+           });
+   
+           if (claimed && result.IsFailure)
+           {
+               context.ChangeTracker.Clear();
+               await inboxRepository.RegisterInboxFailureAsync(
+                   inboxId, result.FirstError, permanent: result.StatusCode < 500, ct);
+           }
+   
+           return result;
+       }
+       catch (Exception ex) when (claimed)
+       {
+           context.ChangeTracker.Clear();
+           await inboxRepository.RegisterInboxFailureAsync(
+               inboxId, ex.Message, permanent: false, CancellationToken.None);
+           throw;
+       }
+   }
+   */
