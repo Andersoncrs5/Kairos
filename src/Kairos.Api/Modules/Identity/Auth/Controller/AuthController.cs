@@ -4,6 +4,7 @@ using Asp.Versioning;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.DB.Transaction;
+using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
 using Kairos.Api.Modules.Identity.Auth.Models;
 using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
@@ -19,7 +20,8 @@ namespace Kairos.Api.Modules.Identity.Auth.Controller;
 [ApiVersion("1.0")]
 [Produces("application/json")]
 public class AuthController(
-    IInboxTransactionUseCase<CreateUserDTO, Tokens, IRegisterUserUseCase> registerUser
+    IInboxTransactionUseCase<CreateUserDTO, Tokens, IRegisterUserUseCase> registerUser,
+    IInboxTransactionUseCase<LoginUserDTO, Tokens, ILoginUserUseCase> loginUser
 ) : ControllerBase
 {
     
@@ -88,6 +90,85 @@ public class AuthController(
                 TraceId: HttpContext.TraceIdentifier,
                 Success: true,
                 Timestamp: DateTimeOffset.UtcNow)
+        );
+    }
+
+     /// <summary>
+    /// Authenticates an existing user and returns authentication tokens.
+    /// </summary>
+    /// <remarks>
+    /// Authenticates the user using the submitted email and password.
+    ///
+    /// Invalid credentials return a generic authentication error to avoid
+    /// disclosing whether the specified account exists.
+    ///
+    /// Repeated failed login attempts can temporarily lock the account.
+    /// The request is processed through the Inbox transaction service,
+    /// and the response includes a trace identifier for request tracking.
+    /// </remarks>
+    /// <param name="dto">
+    /// Login credentials containing the user's email and password.
+    /// </param>
+    /// <param name="inboxId">
+    /// Identifier of the Inbox message provided in the X-Inbox-Id header.
+    /// </param>
+    /// <param name="ct">
+    /// Cancellation token for the HTTP request.
+    /// </param>
+    /// <response code="200">
+    /// Authentication succeeded and access and refresh tokens were returned.
+    /// </response>
+    /// <response code="400">
+    /// The request contains invalid login data.
+    /// </response>
+    /// <response code="401">
+    /// Authentication failed because the credentials are invalid.
+    /// </response>
+    /// <response code="409">
+    /// The Inbox message is unavailable for processing.
+    /// </response>
+    /// <response code="429">
+    /// Authentication was rejected because the account is temporarily locked.
+    /// </response>
+    /// <response code="500">
+    /// An internal error prevented authentication.
+    /// </response>
+    [HttpPost("Login")]
+    [ProducesResponseType(typeof(ResponseHttp<Tokens>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResponseHttp<Tokens>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ResponseHttp<Tokens>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ResponseHttp<Tokens>), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ResponseHttp<Tokens>), StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(typeof(ResponseHttp<Tokens>), StatusCodes.Status500InternalServerError)]
+    [HttpPost("Login")]
+    public async Task<IActionResult> Login(
+        [FromBody] LoginUserDTO dto,
+        [FromHeader(Name = "X-Inbox-Id"), Required]
+        string inboxId,
+        CancellationToken ct)
+    {
+        string workerId = $"http-{Guid.NewGuid():N}";
+
+        Result<Tokens> result = await loginUser.ExecuteAsync(inboxId, workerId, dto, ct);
+
+        if (result.IsFailure)
+        {
+            return StatusCode(result.StatusCode, new ResponseHttp<Tokens>(
+                Data: null,
+                Message: "Login failed",
+                TraceId: HttpContext.TraceIdentifier,
+                Success: false,
+                Timestamp: DateTimeOffset.UtcNow,
+                Errors: result.Errors)
+            );
+        }
+
+        return StatusCode(StatusCodes.Status200OK, new ResponseHttp<Tokens>(
+            Data: result.Value,
+            Message: "Welcome again",
+            TraceId: HttpContext.TraceIdentifier,
+            Success: true,
+            Timestamp: DateTimeOffset.UtcNow)
         );
     }
     
