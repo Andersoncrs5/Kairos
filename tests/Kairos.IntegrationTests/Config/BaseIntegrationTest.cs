@@ -1,11 +1,13 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Kairos.Api.Common.Enums;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Categories.Models;
-using Kairos.Api.Modules.Identity.Auth.Models;
+using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
+using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Permissions.Models;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Models;
@@ -28,6 +30,12 @@ public abstract class BaseIntegrationTest
     protected HttpClient Client { get; }
     protected KairosApiFactory Factory { get; }
     protected const string ValidPassword = "Test123!Abcd";
+    protected const string TestPassword = "test6rA553e463$#%$%";
+    protected const string InboxHeader = "X-Inbox-Id";
+    protected const string RegisterUrl = "/api/v1/auth/Register";
+    protected const string LoginUrl = "/api/v1/auth/Login";
+    protected const string LogoutUrl = "/api/v1/auth/Logout";
+    protected const string ChangePasswordUrl = "/api/v1/auth/ChangePassword";
     
     protected BaseIntegrationTest(KairosApiFactory factory)
     {
@@ -35,7 +43,26 @@ public abstract class BaseIntegrationTest
         Client = factory.CreateClient();
     }
     
+    protected static Task<ResponseHttp<T>?> ReadAsync<T>(HttpResponseMessage response)
+        => response.Content.ReadFromJsonAsync<ResponseHttp<T>>();
     
+    protected async Task<InboxModel> GetInboxAsync(string id)
+    {
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        return await db.Set<InboxModel>()
+            .AsNoTracking()
+            .SingleAsync(i => i.Id == id);
+    }
+    
+    protected async Task<UserModel?> GetUserByEmailAsync(string email)
+    {
+        using var scope = CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<UserModel>>();
+
+        return await userManager.FindByEmailAsync(email);
+    }
 
     protected async Task<Tokens> CreateUserHttp() 
     {
@@ -47,7 +74,7 @@ public abstract class BaseIntegrationTest
         var dto = new CreateUserDTO
         {
             Email = $"pochita{num}@gmail.com",
-            Password = "test6rA553e463$#%$%",
+            Password = TestPassword,
             UserName = $"pochita{num}",
             FullName = "pochita the chainsaw demon"
         };
@@ -82,6 +109,14 @@ public abstract class BaseIntegrationTest
 
         return http.Data;
     }
+    
+    protected async Task<InboxModel> NewInboxAsync(Action<InboxModel>? configure = null)
+    {
+        using var scope = CreateScope();
+        return await CreateInboxAsync(scope.ServiceProvider, configure);
+    }
+    
+    
     
     protected static async Task<InboxModel> CreateInboxAsync(
         IServiceProvider services,
@@ -349,6 +384,136 @@ public abstract class BaseIntegrationTest
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return blockout;
+    }
+    
+    protected static string TamperSignature(string jwt)
+    {
+        var parts = jwt.Split('.');
+        var signature = parts[2];
+
+        parts[2] = (signature[0] == 'A' ? 'B' : 'A') + signature[1..];
+
+        return string.Join('.', parts);
+    }
+    
+    // ------------------------------------------------------------------
+    // HTTP genérico
+    // ------------------------------------------------------------------
+
+    protected async Task<HttpResponseMessage> SendAsync(
+        string url,
+        object? body = null,
+        string? accessToken = null,
+        string? inboxId = null)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+
+        if (body is not null)
+            request.Content = JsonContent.Create(body, body.GetType());
+
+        if (!string.IsNullOrWhiteSpace(accessToken))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        if (inboxId is not null)
+            request.Headers.Add(InboxHeader, inboxId);
+
+        return await Client.SendAsync(request);
+    }
+
+    // ------------------------------------------------------------------
+    // Auth: requisições
+    // ------------------------------------------------------------------
+
+    protected Task<HttpResponseMessage> SendRegisterAsync(CreateUserDTO dto, string? inboxId)
+        => SendAsync(RegisterUrl, dto, inboxId: inboxId);
+
+    protected Task<HttpResponseMessage> SendLoginAsync(object body, string? inboxId)
+        => SendAsync(LoginUrl, body, inboxId: inboxId);
+
+    protected Task<HttpResponseMessage> SendLogoutAsync(string? accessToken, string? inboxId)
+        => SendAsync(LogoutUrl, accessToken: accessToken, inboxId: inboxId);
+
+    protected Task<HttpResponseMessage> SendChangePasswordAsync(
+        ChangePasswordUserDto dto,
+        string? accessToken,
+        string? inboxId)
+        => SendAsync(ChangePasswordUrl, dto, accessToken, inboxId);
+
+    protected async Task<HttpResponseMessage> LoginWithNewInboxAsync(string email, string password)
+    {
+        var inbox = await NewInboxAsync();
+
+        return await SendLoginAsync(
+            new LoginUserDTO { Email = email, Password = password },
+            inbox.Id);
+    }
+
+    // ------------------------------------------------------------------
+    // Auth: dados de teste
+    // ------------------------------------------------------------------
+
+    protected static CreateUserDTO NewUserDto(
+        string? userName = null,
+        string? email = null,
+        string? password = null,
+        string? fullName = "Pochita the Chainsaw Demon")
+    {
+        var id = Guid.NewGuid().ToString("N");
+
+        return new CreateUserDTO
+        {
+            UserName = userName ?? $"pochita{id}",
+            Email = email ?? $"pochita{id}@example.com",
+            Password = password ?? ValidPassword,
+            FullName = fullName
+        };
+    }
+
+    /// <summary>Cadastra um usuário novo via HTTP e devolve o DTO usado e os tokens recebidos.</summary>
+    protected async Task<(CreateUserDTO Dto, Tokens Tokens)> RegisterUserAsync()
+    {
+        var dto = NewUserDto();
+
+        using var response = await SendRegisterAsync(dto, (await NewInboxAsync()).Id);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await ReadAsync<Tokens>(response);
+
+        return (dto, http!.Data!);
+    }
+
+    // ------------------------------------------------------------------
+    // Auth: acesso direto ao banco
+    // ------------------------------------------------------------------
+
+    protected async Task<bool> UserExistsAsync(string email)
+    {
+        using var scope = CreateScope();
+        return await GetUserRepository(scope).ExistsByEmail(email);
+    }
+
+    protected async Task UpdateUserAsync(string email, Action<UserModel> configure)
+    {
+        using var scope = CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<UserModel>>();
+
+        var user = await userManager.FindByEmailAsync(email);
+        user.Should().NotBeNull();
+
+        configure(user!);
+
+        (await userManager.UpdateAsync(user!)).Succeeded.Should().BeTrue();
+    }
+
+    protected async Task DeleteUserAsync(string email)
+    {
+        using var scope = CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<UserModel>>();
+
+        var user = await userManager.FindByEmailAsync(email);
+        user.Should().NotBeNull();
+
+        (await userManager.DeleteAsync(user!)).Succeeded.Should().BeTrue();
     }
     
 }
