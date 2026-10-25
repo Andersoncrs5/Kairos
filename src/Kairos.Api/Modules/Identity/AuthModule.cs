@@ -40,9 +40,7 @@ public static class AuthModule
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
-        services.AddScoped<
-            IPermissionUserRepository,
-            PermissionUserRepository>();
+        services.AddScoped<IPermissionUserRepository, PermissionUserRepository>();
 
         // Auth Use Cases
         services.AddScoped<ICreateRefreshTokenUseCase, CreateRefreshTokenUseCase>();
@@ -50,6 +48,9 @@ public static class AuthModule
         services.AddScoped<IGetPrincipalFromExpiredTokenUseCase, GetPrincipalFromExpiredTokenUseCase>();
         services.AddScoped<ILoginUserUseCase, LoginUserUseCase>();
         services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
+        services.AddScoped<ILogoutUseCase, LogoutUseCase>();
+        services.AddScoped<IRefreshTokenUseCase, RefreshTokenUseCase>();
+        services.AddScoped<IChangePasswordUserUseCase, ChangePasswordUserUseCase>();
 
         // User Use Cases
         services.AddScoped<ICreateUserUseCase, CreateUserUseCase>();
