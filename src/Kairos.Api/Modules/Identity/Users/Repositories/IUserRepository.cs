@@ -1,3 +1,5 @@
+using Kairos.Api.Common.Page;
+using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Microsoft.AspNetCore.Identity;
 
@@ -5,6 +7,7 @@ namespace Kairos.Api.Modules.Identity.Users.Repositories;
 
 public interface IUserRepository
 {
+    Task<Page<UserModel>> Find(FilterUserDto dto, CancellationToken cancellationToken = default);
     Task<UserModel?> GetByIdAsync(string id);
     Task<bool> ExistsByIdAsync(string id);
     Task<UserModel?> GetByEmail(string email);
