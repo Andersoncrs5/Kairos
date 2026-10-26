@@ -12,9 +12,9 @@ public sealed class LogoutUseCase(
 {
     public async Task<Result<bool>> ExecuteAsync(
         string userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken ct = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        ct.ThrowIfCancellationRequested();
 
         UserModel? user = await uow.UserRepository.GetByIdAsync(userId);
 

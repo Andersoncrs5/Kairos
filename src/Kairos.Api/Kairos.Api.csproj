@@ -54,7 +54,6 @@
     <Folder Include="Modules\Identity\PermissionUsers\Controllers\" />
     <Folder Include="Modules\Identity\PermissionUsers\Models\" />
     <Folder Include="Modules\Identity\Users\Configurations\" />
-    <Folder Include="Modules\Identity\Users\Controllers\" />
     <Folder Include="Modules\Identity\Users\Models\" />
     <Folder Include="Modules\Reliability\Inbox\Controller\" />
     <Folder Include="Modules\Reliability\Outbox\" />

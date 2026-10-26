@@ -14,7 +14,7 @@ public class LoginUserUseCase(
     ICreateRefreshTokenUseCase createRefreshTokenUseCase
     ): ILoginUserUseCase
 {
-    public async Task<Result<Tokens>> ExecuteAsync(LoginUserDTO dto, CancellationToken cancellationToken = default)
+    public async Task<Result<Tokens>> ExecuteAsync(LoginUserDTO dto, CancellationToken ct = default)
     {
         UserModel? user = await uow.UserRepository.GetByEmail(dto.Email);
         if (user == null)

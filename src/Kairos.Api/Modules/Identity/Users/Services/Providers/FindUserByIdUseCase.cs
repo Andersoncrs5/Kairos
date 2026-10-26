@@ -10,9 +10,9 @@ public sealed class FindUserByIdUseCase(IUnitOfWork uow)
 {
     public async Task<Result<UserModel>> ExecuteAsync(
         string id,
-        CancellationToken cancellationToken = default)
+        CancellationToken ct = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        ct.ThrowIfCancellationRequested();
 
         if (string.IsNullOrWhiteSpace(id))
         {

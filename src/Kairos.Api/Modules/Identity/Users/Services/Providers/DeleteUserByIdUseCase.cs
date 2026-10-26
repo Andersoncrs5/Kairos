@@ -9,9 +9,9 @@ public sealed class DeleteUserByIdUseCase(IUnitOfWork uow)
 {
     public async Task<Result<object>> ExecuteAsync(
         string id,
-        CancellationToken cancellationToken = default)
+        CancellationToken ct = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        ct.ThrowIfCancellationRequested();
 
         if (string.IsNullOrWhiteSpace(id))
         {
