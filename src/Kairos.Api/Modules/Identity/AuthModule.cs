@@ -57,6 +57,7 @@ public static class AuthModule
         services.AddScoped<IDeleteUserByIdUseCase, DeleteUserByIdUseCase>();
         services.AddScoped<IExistsUserByIdUseCase, ExistsUserByIdUseCase>();
         services.AddScoped<IFindUserByIdUseCase, FindUserByIdUseCase>();
+        services.AddScoped<IFindUsersUseCase, FindUsersUseCase>();
         services.AddScoped<IUpdateUserUseCase, UpdateUserUseCase>();
 
         // Permission Use Cases

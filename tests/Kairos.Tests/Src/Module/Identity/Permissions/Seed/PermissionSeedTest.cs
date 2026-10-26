@@ -43,23 +43,68 @@ public class PermissionSeedTest
         // Arrange
         string[] expectedCodes =
         [
+            // Identity - Users
             "identity.users.create",
             "identity.users.read",
             "identity.users.list",
             "identity.users.update",
             "identity.users.delete",
 
+            // Identity - Permissions
             "identity.permissions.create",
             "identity.permissions.read",
             "identity.permissions.list",
             "identity.permissions.update",
             "identity.permissions.delete",
 
+            // Identity - User permissions
             "identity.permission-users.create",
             "identity.permission-users.read",
             "identity.permission-users.list",
             "identity.permission-users.update",
-            "identity.permission-users.delete"
+            "identity.permission-users.delete",
+
+            // Categories
+            "categories.create",
+            "categories.read",
+            "categories.list",
+            "categories.update",
+            "categories.delete",
+
+            // Rooms
+            "rooms.create",
+            "rooms.read",
+            "rooms.list",
+            "rooms.update",
+            "rooms.delete",
+            "rooms.blockouts.create",
+            "rooms.blockouts.read",
+            "rooms.blockouts.list",
+            "rooms.blockouts.update",
+            "rooms.blockouts.delete",
+            "rooms.availability.read",
+
+            // Room types
+            "room-types.create",
+            "room-types.read",
+            "room-types.list",
+            "room-types.update",
+            "room-types.delete",
+
+            // Reservations
+            "reservations.create",
+            "reservations.read",
+            "reservations.list",
+            "reservations.update",
+            "reservations.cancel",
+            "reservations.attendees.create",
+            "reservations.attendees.read",
+            "reservations.attendees.list",
+            "reservations.attendees.update",
+            "reservations.attendees.delete",
+            "reservations.attendees.respond",
+            "reservations.history.read",
+            "reservations.history.list"
         ];
 
         // Act
@@ -67,7 +112,7 @@ public class PermissionSeedTest
             PermissionSeeder.Permissions;
 
         // Assert
-        permissions.Should().HaveCount(15);
+        permissions.Should().HaveCount(expectedCodes.Length);
 
         permissions
             .Select(permission => permission.Code)
@@ -81,10 +126,53 @@ public class PermissionSeedTest
 
         permissions.Should().OnlyContain(
             permission =>
-                permission.Module == PermissionModuleEnum.Identity &&
                 permission.IsSystem &&
                 permission.IsActive &&
                 permission.CreatedAt != default);
+    }
+
+    [Fact]
+    public void Permissions_ShouldUseExpectedModuleForEachPermission()
+    {
+        // Arrange
+        IReadOnlyList<PermissionsModel> permissions =
+            PermissionSeeder.Permissions;
+
+        // Act & Assert
+        permissions.Should().OnlyContain(
+            permission => permission.Module == ExpectedModuleFor(permission.Code));
+    }
+
+    private static PermissionModuleEnum ExpectedModuleFor(string code)
+    {
+        if (code.StartsWith("identity.", StringComparison.Ordinal))
+        {
+            return PermissionModuleEnum.Identity;
+        }
+
+        if (code.StartsWith("categories.", StringComparison.Ordinal))
+        {
+            return PermissionModuleEnum.Categories;
+        }
+
+        if (code.StartsWith("rooms.", StringComparison.Ordinal))
+        {
+            return PermissionModuleEnum.Rooms;
+        }
+
+        if (code.StartsWith("room-types.", StringComparison.Ordinal))
+        {
+            return PermissionModuleEnum.RoomTypes;
+        }
+
+        if (code.StartsWith("reservations.", StringComparison.Ordinal))
+        {
+            return PermissionModuleEnum.Reservations;
+        }
+
+        throw new ArgumentException(
+            $"Permission code '{code}' does not belong to a known module.",
+            nameof(code));
     }
 
     // ------------------------------------------------------------------
