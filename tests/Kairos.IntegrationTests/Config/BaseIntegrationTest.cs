@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Kairos.Api.Common.Enums;
 using Kairos.Api.Common.Res;
+using Kairos.Api.Config.Contracts;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Categories.Models;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
@@ -22,12 +23,14 @@ using Kairos.Api.Modules.Rooms.RoomTypes.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Kairos.IntegrationTests.Config;
 
 public abstract class BaseIntegrationTest
 {
     protected HttpClient Client { get; }
+    protected IOptions<UserMasterOptions> UserMasterOptions { get; }
     protected KairosApiFactory Factory { get; }
     protected const string ValidPassword = "Test123!Abcd";
     protected const string TestPassword = "test6rA553e463$#%$%";
@@ -38,9 +41,67 @@ public abstract class BaseIntegrationTest
     protected const string ChangePasswordUrl = "/api/v1/auth/ChangePassword";
     
     protected BaseIntegrationTest(KairosApiFactory factory)
+        : this(
+            factory,
+            factory.Services
+                .GetRequiredService<IOptions<UserMasterOptions>>())
+    {
+    }
+
+    protected BaseIntegrationTest(
+        KairosApiFactory factory,
+        IOptions<UserMasterOptions> userMasterOptions)
     {
         Factory = factory;
         Client = factory.CreateClient();
+        UserMasterOptions = userMasterOptions;
+    }
+    
+    protected async Task<Tokens> LoginUserMaster()
+    {
+        using var scope = CreateScope();
+        var inbox = await CreateInboxAsync(scope.ServiceProvider);
+
+        var dto = new LoginUserDTO()
+        {
+            Email = UserMasterOptions.Value.Email,
+            Password = UserMasterOptions.Value.Password,
+        };
+        
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/Login")
+        {
+            Content = JsonContent.Create(dto)
+        };
+        request.Headers.Add("X-Inbox-Id", inbox.Id);
+
+        using var response = await Client.SendAsync(request);
+        
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var http = await response.Content.ReadFromJsonAsync<ResponseHttp<Tokens>>();
+
+        http.Should().NotBeNull();
+        http!.Data.Should().NotBeNull();
+        http.Data!.Token.Should().NotBeNullOrEmpty();
+        
+        http.Data!.User.Email.Should().NotBeNullOrEmpty();
+        http.Data!.User.UserName.Should().Be(UserMasterOptions.Value.UserName);
+        http.Data!.User.Email.Should().Be(UserMasterOptions.Value.Email);
+        
+        http.Data.RefreshToken.Should().NotBeNullOrEmpty();
+        http.Success.Should().BeTrue();
+        http.TraceId.Should().NotBeNullOrWhiteSpace();
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var updated = await db.Set<InboxModel>()
+            .AsNoTracking()
+            .SingleAsync(i => i.Id == inbox.Id);
+
+        updated.Status.Should().Be(InboxStatusEnum.Processed);
+        updated.LockedBy.Should().BeNull();
+        updated.ProcessedAt.Should().NotBeNull();
+
+        return http.Data;
     }
     
     protected static Task<ResponseHttp<T>?> ReadAsync<T>(HttpResponseMessage response)
