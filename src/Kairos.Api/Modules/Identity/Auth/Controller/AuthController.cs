@@ -32,6 +32,20 @@ public class AuthController(
     IInboxTransactionUseCase<string, Tokens, IRefreshTokenUseCase> refreshTokenUser
 ) : ControllerBase
 {
+    
+    [AllowAnonymous]
+    [HttpGet("Exists/email/{email:required}")]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status406NotAcceptable)]
+    public async Task<IActionResult> ExistsByEmail(
+        string email,
+        [FromHeader(Name = "X-Inbox-Id"), Required]
+        string inboxId,
+        CancellationToken ct)
+    {
+        return Ok();
+    }
+    
     /// <summary>
     /// Registers a new user and returns authentication tokens.
     /// </summary>
@@ -288,5 +302,6 @@ public class AuthController(
             Success: true,
             Timestamp: DateTimeOffset.UtcNow));
     }
+    
     
 }
