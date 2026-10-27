@@ -6,6 +6,7 @@ using Kairos.Api.Common.Exceptions;
 using Kairos.Api.Common.Page;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Common.Result;
+using Kairos.Api.Config.Authentication;
 using Kairos.Api.Config.DB.Transaction;
 using Kairos.Api.Modules.Identity.Users.DTOs.Commands;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
@@ -160,6 +161,7 @@ public class UserController(
     }
     
     [HttpGet]
+    [RequirePermissions("identity.users.list")]
     [ProducesResponseType(typeof(ResponseHttp<Page<UserDTO>>), (int)HttpStatusCode.OK)]
     [ProducesResponseType(typeof(ResponseHttp<object>), (int)HttpStatusCode.BadRequest)]
     [ProducesResponseType(typeof(ResponseHttp<object>), (int)HttpStatusCode.Unauthorized)]
