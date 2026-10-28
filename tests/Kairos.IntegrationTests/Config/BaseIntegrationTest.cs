@@ -9,6 +9,8 @@ using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Categories.Models;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
+using Kairos.Api.Modules.Identity.Permissions.DTOs.Request;
+using Kairos.Api.Modules.Identity.Permissions.DTOs.Response;
 using Kairos.Api.Modules.Identity.Permissions.Models;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Models;
@@ -26,6 +28,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Kairos.IntegrationTests.Config;
+
+public sealed class PageResponse<T>
+{
+    public List<T> Data { get; set; } = [];
+
+    public int Count { get; set; }
+
+    public long TotalCount { get; set; }
+
+    public int PageNumber { get; set; }
+
+    public int PageSize { get; set; }
+}
 
 public abstract class BaseIntegrationTest
 {
@@ -55,6 +70,62 @@ public abstract class BaseIntegrationTest
         Factory = factory;
         Client = factory.CreateClient();
         UserMasterOptions = userMasterOptions;
+    }
+
+    protected async Task<PermissionDto> CreatePermissionHttp(Tokens tokens)
+    {
+        var inbox = await NewInboxAsync();
+
+         var dto = new CreatePermissionDto
+        {
+            Code = $"test.permission.{Guid.NewGuid():N}",
+            Name = "Integration Test Permission",
+            Module = PermissionModuleEnum.Identity,
+            Description = "Created by integration tests."
+        };
+        
+        using var response = await SendAsync(
+            "/api/v1/permissions",
+            body: dto,
+            accessToken: tokens.Token,
+            inboxId: inbox.Id);
+        
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await ReadAsync<PermissionDto>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().NotBeNullOrWhiteSpace();
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Code.Should().Be(dto.Code);
+        http.Data.Name.Should().Be(dto.Name);
+        http.Data.Module.Should().Be(dto.Module);
+        http.Data.IsSystem.Should().BeFalse();
+        http.Data.Description.Should().Be(dto.Description);
+
+        // Verifica a persistência no banco.
+        using var scope = CreateScope();
+
+        var repository = GetPermissionRepository(scope);
+        var persisted = await repository.GetByCodeAsync(dto.Code);
+
+        persisted.Should().NotBeNull();
+        persisted!.Code.Should().Be(dto.Code);
+        persisted.Name.Should().Be(dto.Name);
+        persisted.Module.Should().Be(dto.Module);
+        persisted.IsSystem.Should().BeFalse();
+        persisted.Description.Should().Be(dto.Description);
+
+        // Verifica o processamento do Inbox.
+        var updatedInbox = await GetInboxAsync(inbox.Id);
+
+        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
+        updatedInbox.ProcessedAt.Should().NotBeNull();
+        updatedInbox.LockedBy.Should().BeNull();
+        
+        return http.Data;
     }
     
     protected async Task<Tokens> LoginUserMaster()
