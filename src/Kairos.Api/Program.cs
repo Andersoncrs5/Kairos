@@ -32,6 +32,8 @@ app.UseSwaggerConfig();
 
 app.UseMiddleware<RequireInboxIdMiddleware>();
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

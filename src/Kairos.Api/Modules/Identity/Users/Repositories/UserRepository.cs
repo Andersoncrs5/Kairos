@@ -11,152 +11,235 @@ namespace Kairos.Api.Modules.Identity.Users.Repositories;
 public class UserRepository(AppDbContext context, UserManager<UserModel> manager): IUserRepository
 {
     
-    public async Task<Page<UserModel>> Find(FilterUserDto dto, CancellationToken cancellationToken = default)
+    public async Task<Page<UserModel>> Find(
+        FilterUserDto dto,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(dto);
 
-        ArgumentOutOfRangeException.ThrowIfLessThan(dto.Page, 1);
-        ArgumentOutOfRangeException.ThrowIfLessThan(dto.PageSize, 1);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(dto.PageSize, 100);
+        int page = dto.Page ?? 1;
+        int pageSize = dto.PageSize ?? 20;
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(pageSize, 100);
 
         IQueryable<UserModel> query = manager.Users.AsNoTracking();
 
-        // BaseFilter
+        // BaseFilter: ID
         if (!string.IsNullOrWhiteSpace(dto.Id))
         {
-            query = query.Where(user => user.Id == dto.Id);
+            var id = dto.Id.Trim();
+
+            query = query.Where(user => user.Id == id);
         }
 
-        if (dto.CreatedAtMin > DateTimeOffset.MinValue)
+        /* BaseFilter: Version
+        if (dto.VersionMin.HasValue)
         {
-            query = query.Where(user => user.CreatedAt >= dto.CreatedAtMin);
+            var versionMin = dto.VersionMin.Value;
+
+            query = query.Where(user => user.Version >= versionMin);
         }
 
-        if (dto.CreatedAtMax > DateTimeOffset.MinValue)
+        if (dto.VersionMax.HasValue)
         {
-            query = query.Where(user => user.CreatedAt <= dto.CreatedAtMax);
+            var versionMax = dto.VersionMax.Value;
+
+            query = query.Where(user => user.Version <= versionMax);
+        }
+        */
+        
+        // BaseFilter: CreatedAt
+        if (dto.CreatedAtMin.HasValue)
+        {
+            var createdAtMin = dto.CreatedAtMin.Value;
+
+            query = query.Where(user => user.CreatedAt >= createdAtMin);
         }
 
+        if (dto.CreatedAtMax.HasValue)
+        {
+            var createdAtMax = dto.CreatedAtMax.Value;
+
+            query = query.Where(user => user.CreatedAt <= createdAtMax);
+        }
+
+        // BaseFilter: UpdatedAt
         if (dto.UpdatedAtMin.HasValue)
         {
+            var updatedAtMin = dto.UpdatedAtMin.Value;
+
             query = query.Where(user =>
                 user.UpdatedAt.HasValue &&
-                user.UpdatedAt.Value >= dto.UpdatedAtMin.Value);
+                user.UpdatedAt.Value >= updatedAtMin);
         }
 
         if (dto.UpdatedAtMax.HasValue)
         {
+            var updatedAtMax = dto.UpdatedAtMax.Value;
+
             query = query.Where(user =>
                 user.UpdatedAt.HasValue &&
-                user.UpdatedAt.Value <= dto.UpdatedAtMax.Value);
+                user.UpdatedAt.Value <= updatedAtMax);
         }
 
         // UserName
         if (!string.IsNullOrWhiteSpace(dto.UserName))
         {
-            string value = dto.UserName.Trim();
+            var value = dto.UserName.Trim();
 
-            query = dto.IgnoreCaseUserName == true
-                ? query.Where(user =>
+            if (dto.IgnoreCaseUserName == true)
+            {
+                var normalized = value.ToUpperInvariant();
+
+                query = query.Where(user =>
                     user.UserName != null &&
-                    user.UserName.ToUpper().Contains(value.ToUpper()))
-                : query.Where(user =>
+                    user.UserName.ToUpper().Contains(normalized));
+            }
+            else
+            {
+                query = query.Where(user =>
                     user.UserName != null &&
                     user.UserName.Contains(value));
+            }
         }
 
         // Email
         if (!string.IsNullOrWhiteSpace(dto.Email))
         {
-            string value = dto.Email.Trim();
+            var value = dto.Email.Trim();
 
-            query = dto.IgnoreCaseEmail == true
-                ? query.Where(user =>
+            if (dto.IgnoreCaseEmail == true)
+            {
+                var normalized = value.ToUpperInvariant();
+
+                query = query.Where(user =>
                     user.Email != null &&
-                    user.Email.ToUpper().Contains(value.ToUpper()))
-                : query.Where(user =>
+                    user.Email.ToUpper().Contains(normalized));
+            }
+            else
+            {
+                query = query.Where(user =>
                     user.Email != null &&
                     user.Email.Contains(value));
+            }
         }
 
         // FullName
         if (!string.IsNullOrWhiteSpace(dto.FullName))
         {
-            string value = dto.FullName.Trim();
+            var value = dto.FullName.Trim();
 
-            query = dto.IgnoreCaseFullName == true
-                ? query.Where(user =>
+            if (dto.IgnoreCaseFullName == true)
+            {
+                var normalized = value.ToUpperInvariant();
+
+                query = query.Where(user =>
                     user.FullName != null &&
-                    user.FullName.ToUpper().Contains(value.ToUpper()))
-                : query.Where(user =>
+                    user.FullName.ToUpper().Contains(normalized));
+            }
+            else
+            {
+                query = query.Where(user =>
                     user.FullName != null &&
                     user.FullName.Contains(value));
+            }
         }
 
         // PhoneNumber
         if (!string.IsNullOrWhiteSpace(dto.PhoneNumber))
         {
-            string value = dto.PhoneNumber.Trim();
+            var value = dto.PhoneNumber.Trim();
 
-            query = dto.IgnoreCasePhoneNumber == true
-                ? query.Where(user =>
+            if (dto.IgnoreCasePhoneNumber == true)
+            {
+                var normalized = value.ToUpperInvariant();
+
+                query = query.Where(user =>
                     user.PhoneNumber != null &&
-                    user.PhoneNumber.ToUpper().Contains(value.ToUpper()))
-                : query.Where(user =>
+                    user.PhoneNumber.ToUpper().Contains(normalized));
+            }
+            else
+            {
+                query = query.Where(user =>
                     user.PhoneNumber != null &&
                     user.PhoneNumber.Contains(value));
+            }
         }
 
         // Identity flags
         if (dto.EmailConfirmed.HasValue)
         {
+            var emailConfirmed = dto.EmailConfirmed.Value;
+
             query = query.Where(user =>
-                user.EmailConfirmed == dto.EmailConfirmed.Value);
+                user.EmailConfirmed == emailConfirmed);
         }
 
         if (dto.PhoneNumberConfirmed.HasValue)
         {
+            var phoneNumberConfirmed = dto.PhoneNumberConfirmed.Value;
+
             query = query.Where(user =>
-                user.PhoneNumberConfirmed == dto.PhoneNumberConfirmed.Value);
+                user.PhoneNumberConfirmed == phoneNumberConfirmed);
         }
 
         if (dto.TwoFactorEnabled.HasValue)
         {
+            var twoFactorEnabled = dto.TwoFactorEnabled.Value;
+
             query = query.Where(user =>
-                user.TwoFactorEnabled == dto.TwoFactorEnabled.Value);
+                user.TwoFactorEnabled == twoFactorEnabled);
         }
 
         if (dto.LockoutEnabled.HasValue)
         {
+            var lockoutEnabled = dto.LockoutEnabled.Value;
+
             query = query.Where(user =>
-                user.LockoutEnabled == dto.LockoutEnabled.Value);
+                user.LockoutEnabled == lockoutEnabled);
         }
 
         // Failed login attempts
         if (dto.AccessFailedCountMin.HasValue)
         {
+            var min = dto.AccessFailedCountMin.Value;
+
             query = query.Where(user =>
-                user.AccessFailedCount >= dto.AccessFailedCountMin.Value);
+                user.AccessFailedCount >= min);
         }
 
         if (dto.AccessFailedCountMax.HasValue)
         {
+            var max = dto.AccessFailedCountMax.Value;
+
             query = query.Where(user =>
-                user.AccessFailedCount <= dto.AccessFailedCountMax.Value);
+                user.AccessFailedCount <= max);
         }
 
         // Total before pagination
         long totalCount = await query.LongCountAsync(cancellationToken);
 
         // Deterministic ordering
+        var columnOrder = dto.ColumnOrder ?? ColumnOrderEnum.ASC;
+
         IOrderedQueryable<UserModel> orderedQuery =
-            dto.ColumnOrder == ColumnOrderEnum.DESC
+            columnOrder == ColumnOrderEnum.DESC
                 ? query.OrderByDescending(user => user.CreatedAt)
                     .ThenBy(user => user.Id)
                 : query.OrderBy(user => user.CreatedAt)
                     .ThenBy(user => user.Id);
 
-        long offset = ((long)dto.Page - 1) * dto.PageSize;
+        // DESC must apply to the complete ordering, including tie-breaking.
+        if (columnOrder == ColumnOrderEnum.DESC)
+        {
+            orderedQuery = query
+                .OrderByDescending(user => user.CreatedAt)
+                .ThenByDescending(user => user.Id);
+        }
+
+        long offset = ((long)page - 1) * pageSize;
 
         if (offset > int.MaxValue)
         {
@@ -167,15 +250,16 @@ public class UserRepository(AppDbContext context, UserManager<UserModel> manager
 
         List<UserModel> users = await orderedQuery
             .Skip((int)offset)
-            .Take(dto.PageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         return Page<UserModel>.Create(
             users,
             totalCount,
-            dto.Page,
-            dto.PageSize);
+            page,
+            pageSize);
     }
+        
     public Task<UserModel?> GetByIdAsync(string id) => manager.FindByIdAsync(id);
     public async Task<bool> ExistsByIdAsync(string id) => await manager.FindByIdAsync(id) != null;
     public Task<UserModel?> GetByEmail(string email) => manager.FindByEmailAsync(email);

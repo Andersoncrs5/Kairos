@@ -33,8 +33,4 @@
     <ProjectReference Include="..\..\src\Kairos.Api\Kairos.Api.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Src\Module\Identity\User\Service\" />
-  </ItemGroup>
-
 </Project>

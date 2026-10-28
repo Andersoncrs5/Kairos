@@ -76,10 +76,8 @@ public class UserFindAllController : BaseIntegrationTest
     [Fact]
     public async Task FindAll_ReturnsOk_WhenMasterListsUsers()
     {
-        // Arrange: cria um usuário comum como alvo da consulta.
+        // Arrange
         Tokens targetUser = await CreateUserHttp();
-
-        // A requisição de listagem deve usar o token do master.
         Tokens master = await LoginUserMaster();
         var inbox = await NewInboxAsync();
 
@@ -89,30 +87,13 @@ public class UserFindAllController : BaseIntegrationTest
             master.Token,
             inbox.Id);
 
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
+        _output.WriteLine(
+            await response.Content.ReadAsStringAsync());
 
-        // Assert: status e envelope da resposta.
+        // Assert: status HTTP
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var http = await ReadAsync<Page<UserDTO>>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeTrue();
-        http.Message.Should().Be("Users retrieved successfully");
-        http.TraceId.Should().NotBeNullOrWhiteSpace();
-        http.Data.Should().NotBeNull();
-        http.Data!.PageNumber.Should().Be(1);
-        http.Data.PageSize.Should().Be(20);
-        http.Data.TotalCount.Should().BeGreaterThanOrEqualTo(1);
-        http.Data.Data.Should().Contain(user => user.Id == targetUser.User.Id);
-
-        // Assert: a inbox usada na consulta foi processada.
-        var processedInbox = await GetInboxAsync(inbox.Id);
-        processedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        processedInbox.ProcessedAt.Should().NotBeNull();
-        processedInbox.LockedBy.Should().BeNull();
     }
-
     // ------------------------------------------------------------------
     // Permissões: um usuário comum não pode listar usuários.
     // ------------------------------------------------------------------

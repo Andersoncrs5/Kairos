@@ -122,7 +122,7 @@ public class UserController(
     [ProducesResponseType(typeof(ResponseHttp<object>), (int)HttpStatusCode.Unauthorized)]
     [ProducesResponseType(typeof(ResponseHttp<object>), (int)HttpStatusCode.NotFound)]
     [ProducesResponseType(typeof(ResponseHttp<object>), (int)HttpStatusCode.Conflict)]
-    public async Task<IActionResult> DeleteById(
+    public async Task<IActionResult> Delete(
         [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
         CancellationToken ct)
     {

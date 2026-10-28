@@ -48,10 +48,8 @@
     <Folder Include="Modules\Categories\Models\" />
     <Folder Include="Modules\Identity\Auth\Models\" />
     <Folder Include="Modules\Identity\Permissions\Configurations\" />
-    <Folder Include="Modules\Identity\Permissions\Controllers\" />
     <Folder Include="Modules\Identity\Permissions\Models\" />
     <Folder Include="Modules\Identity\PermissionUsers\Configurations\" />
-    <Folder Include="Modules\Identity\PermissionUsers\Controllers\" />
     <Folder Include="Modules\Identity\PermissionUsers\Models\" />
     <Folder Include="Modules\Identity\Users\Configurations\" />
     <Folder Include="Modules\Identity\Users\Models\" />
