@@ -77,6 +77,7 @@ public static class AuthModule
         services.AddScoped<IExistsPermissionUserByUserIdAndPermissionIdUseCase, ExistsPermissionUserByUserIdAndPermissionIdUseCase>();
         services.AddScoped<IFindPermissionUserByIdUseCase, FindPermissionUserByIdUseCase>();
         services.AddScoped<IUpdatePermissionUserUseCase, UpdatePermissionUserUseCase>();
+        services.AddScoped<IFindPermissionUsersUseCase, FindPermissionUsersUseCase>();
 
         return services;
     }
