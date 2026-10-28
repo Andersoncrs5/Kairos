@@ -10,6 +10,7 @@ using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
+using Kairos.Api.Modules.Identity.Users.Services.Interface;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,13 +30,49 @@ public class AuthController(
     IInboxTransactionUseCase<LoginUserDTO, Tokens, ILoginUserUseCase> loginUser,
     IInboxTransactionUseCase<string, bool, ILogoutUseCase> logoutUser,
     IInboxTransactionUseCase<ChangePasswordUserCommand, bool, IChangePasswordUserUseCase> changePasswordUser,
-    IInboxTransactionUseCase<string, Tokens, IRefreshTokenUseCase> refreshTokenUser
+    IInboxTransactionUseCase<string, Tokens, IRefreshTokenUseCase> refreshTokenUser,
+    IInboxTransactionUseCase<string, bool, IExistsUserByEmailUseCase> existsUserByEmail,
+    IInboxTransactionUseCase<string, bool, IExistsUserByUserNameUseCase> existsUserByUserName
 ) : ControllerBase
 {
     
     [AllowAnonymous]
+    [HttpGet("Exists/username/{username:required}")]
+    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status406NotAcceptable)]
+    public async Task<IActionResult> ExistsByUserName(
+        string username,
+        [FromHeader(Name = "X-Inbox-Id"), Required]
+        string inboxId,
+        CancellationToken ct)
+    {
+        string workerId = $"http-{Guid.NewGuid():N}";
+        Result<bool> result = await existsUserByUserName.ExecuteAsync(inboxId, workerId, username, ct);
+
+        if (result.IsFailure)
+        {
+            return StatusCode(result.StatusCode, new ResponseHttp<bool?>(
+                Data: null,
+                Message: "Error check if user exists by username",
+                TraceId: HttpContext.TraceIdentifier,
+                Success: false,
+                Timestamp: DateTimeOffset.UtcNow,
+                Errors: result.Errors)
+            );
+        }
+
+        return StatusCode(StatusCodes.Status201Created, new ResponseHttp<bool?>(
+            Data: result.Value,
+            Message: result.Value? "User exists": "User does not exist",
+            TraceId: HttpContext.TraceIdentifier,
+            Success: true,
+            Timestamp: DateTimeOffset.UtcNow)
+        );
+    }
+    
+    [AllowAnonymous]
     [HttpGet("Exists/email/{email:required}")]
-    [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status406NotAcceptable)]
     public async Task<IActionResult> ExistsByEmail(
         string email,
@@ -43,7 +80,28 @@ public class AuthController(
         string inboxId,
         CancellationToken ct)
     {
-        return Ok();
+        string workerId = $"http-{Guid.NewGuid():N}";
+        Result<bool> result = await existsUserByEmail.ExecuteAsync(inboxId, workerId, email, ct);
+
+        if (result.IsFailure)
+        {
+            return StatusCode(result.StatusCode, new ResponseHttp<bool?>(
+                Data: null,
+                Message: "Error check if user exists by email",
+                TraceId: HttpContext.TraceIdentifier,
+                Success: false,
+                Timestamp: DateTimeOffset.UtcNow,
+                Errors: result.Errors)
+            );
+        }
+
+        return StatusCode(StatusCodes.Status201Created, new ResponseHttp<bool?>(
+            Data: result.Value,
+            Message: result.Value? "User exists": "User does not exist",
+            TraceId: HttpContext.TraceIdentifier,
+            Success: true,
+            Timestamp: DateTimeOffset.UtcNow)
+        );
     }
     
     /// <summary>
