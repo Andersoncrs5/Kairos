@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Kairos.Api.Config.Contracts;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -55,6 +56,14 @@ public static class AuthenticationConfig
                 });
 
         services.AddAuthorization();
+
+        services.AddSingleton<
+            IAuthorizationPolicyProvider,
+            PermissionAuthorizationPolicyProvider>();
+
+        services.AddScoped<
+            IAuthorizationHandler,
+            PermissionAuthorizationHandler>();
 
         return services;
     }
