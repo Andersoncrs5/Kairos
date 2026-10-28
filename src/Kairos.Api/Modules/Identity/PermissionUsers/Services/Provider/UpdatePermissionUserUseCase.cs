@@ -1,6 +1,6 @@
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.UnitOfWork;
-using Kairos.Api.Modules.Identity.PermissionUsers.DTOs.Request;
+using Kairos.Api.Modules.Identity.PermissionUsers.DTOs.Commands;
 using Kairos.Api.Modules.Identity.PermissionUsers.Mapper;
 using Kairos.Api.Modules.Identity.PermissionUsers.Models;
 using Kairos.Api.Modules.Identity.PermissionUsers.Services.Interface;
@@ -11,23 +11,22 @@ public sealed class UpdatePermissionUserUseCase(IUnitOfWork uow)
     : IUpdatePermissionUserUseCase
 {
     public async Task<Result<PermissionUserModel>> ExecuteAsync(
-        string id,
-        UpdatePermissionUserDTO dto,
+        UpdatePermissionUserCommand command,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
+        if (command is null || string.IsNullOrWhiteSpace(command.Id))
         {
             return Result<PermissionUserModel>.ValidationFailure(
                 ["Id is required."]);
         }
 
-        if (!Guid.TryParse(id, out var permissionUserId))
+        if (!Guid.TryParse(command.Id, out var permissionUserId))
         {
             return Result<PermissionUserModel>.ValidationFailure(
                 ["Id must be a valid UUID."]);
         }
 
-        if (dto is null)
+        if (command.Dto is null)
         {
             return Result<PermissionUserModel>.ValidationFailure(
                 ["Request body is required."]);
@@ -43,7 +42,7 @@ public sealed class UpdatePermissionUserUseCase(IUnitOfWork uow)
                 "Permission-user association not found.");
         }
 
-        PermissionUserMapper.ApplyUpdate(dto, permissionUser);
+        PermissionUserMapper.ApplyUpdate(command.Dto, permissionUser);
 
         uow.PermissionUserRepository.Update(permissionUser);
 

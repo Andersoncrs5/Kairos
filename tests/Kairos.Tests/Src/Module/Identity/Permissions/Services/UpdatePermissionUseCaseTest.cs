@@ -1,5 +1,7 @@
 using FluentAssertions;
+using Kairos.Api.Common.Enums;
 using Kairos.Api.Config.UnitOfWork;
+using Kairos.Api.Modules.Identity.Permissions.DTOs.Commands;
 using Kairos.Api.Modules.Identity.Permissions.DTOs.Request;
 using Kairos.Api.Modules.Identity.Permissions.Models;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
@@ -19,11 +21,14 @@ public sealed class UpdatePermissionUseCaseTest
         _unitOfWork = Substitute.For<IUnitOfWork>();
         _permissionRepository = Substitute.For<IPermissionRepository>();
 
-        _unitOfWork.PermissionRepository
-            .Returns(_permissionRepository);
+        _unitOfWork.PermissionRepository.Returns(_permissionRepository);
 
         _sut = new UpdatePermissionUseCase(_unitOfWork);
     }
+
+    // ---------------------------------------------------------------
+    // Validação do comando
+    // ---------------------------------------------------------------
 
     [Theory]
     [InlineData("")]
@@ -32,22 +37,15 @@ public sealed class UpdatePermissionUseCaseTest
     public async Task ExecuteAsync_WhenIdIsEmpty_ReturnsValidationFailure(
         string id)
     {
-        // Arrange
-        var dto = new UpdatePermissionDto
-        {
-            Name = "Updated permission"
-        };
+        var command = NewCommand(id);
 
-        // Act
         var result = await _sut.ExecuteAsync(
-            id,
-            dto,
+            command,
             CancellationToken.None);
 
-        // Assert
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(400);
-        result.Errors.Should().Contain("Id is required.");
+        result.Errors.Should().Contain("Permission ID is required.");
 
         await _permissionRepository
             .DidNotReceive()
@@ -58,31 +56,44 @@ public sealed class UpdatePermissionUseCaseTest
         _permissionRepository
             .DidNotReceive()
             .Update(Arg.Any<PermissionsModel>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenDtoIsNull_ReturnsValidationFailure()
+    {
+        var command = new UpdatePermissionCommand(
+            Guid.NewGuid().ToString(),
+            null!);
+
+        var result = await _sut.ExecuteAsync(
+            command,
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.StatusCode.Should().Be(400);
+        result.Errors.Should().Contain(
+            "Permission update data is required.");
+
+        await _permissionRepository
+            .DidNotReceive()
+            .GetByIdAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task ExecuteAsync_WhenIdIsInvalid_ReturnsValidationFailure()
     {
-        // Arrange
         const string id = "invalid-uuid";
+        var command = NewCommand(id);
 
-        var dto = new UpdatePermissionDto
-        {
-            Name = "Updated permission"
-        };
-
-        // Act
         var result = await _sut.ExecuteAsync(
-            id,
-            dto,
+            command,
             CancellationToken.None);
 
-        // Assert
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(400);
-
-        result.Errors.Should().Contain(
-            "Id must be a valid UUID.");
+        result.Errors.Should().Contain("Id must be a valid UUID.");
 
         await _permissionRepository
             .DidNotReceive()
@@ -95,36 +106,30 @@ public sealed class UpdatePermissionUseCaseTest
             .Update(Arg.Any<PermissionsModel>());
     }
 
+    // ---------------------------------------------------------------
+    // Regras de negócio
+    // ---------------------------------------------------------------
+
     [Fact]
     public async Task ExecuteAsync_WhenPermissionDoesNotExist_ReturnsNotFound()
     {
-        // Arrange
         var id = Guid.NewGuid().ToString();
-        var cancellationToken = CancellationToken.None;
-
-        var dto = new UpdatePermissionDto
-        {
-            Name = "Updated permission"
-        };
+        var ct = CancellationToken.None;
+        var command = NewCommand(id);
 
         _permissionRepository
-            .GetByIdAsync(id, cancellationToken)
+            .GetByIdAsync(id, ct)
             .Returns(Task.FromResult<PermissionsModel?>(null));
 
-        // Act
-        var result = await _sut.ExecuteAsync(
-            id,
-            dto,
-            cancellationToken);
+        var result = await _sut.ExecuteAsync(command, ct);
 
-        // Assert
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(404);
         result.Errors.Should().Contain("Permission not found.");
 
         await _permissionRepository
             .Received(1)
-            .GetByIdAsync(id, cancellationToken);
+            .GetByIdAsync(id, ct);
 
         _permissionRepository
             .DidNotReceive()
@@ -134,80 +139,70 @@ public sealed class UpdatePermissionUseCaseTest
     [Fact]
     public async Task ExecuteAsync_WhenPermissionIsSystem_ReturnsForbidden()
     {
-        // Arrange
         var id = Guid.NewGuid().ToString();
-        var cancellationToken = CancellationToken.None;
+        var ct = CancellationToken.None;
         var permission = CreatePermission(id, isSystem: true);
-
         var originalName = permission.Name;
-
-        var dto = new UpdatePermissionDto
-        {
-            Name = "Modified system permission"
-        };
+        var command = NewCommand(
+            id,
+            new UpdatePermissionDto
+            {
+                Name = "Modified system permission"
+            });
 
         _permissionRepository
-            .GetByIdAsync(id, cancellationToken)
+            .GetByIdAsync(id, ct)
             .Returns(Task.FromResult<PermissionsModel?>(permission));
 
-        // Act
-        var result = await _sut.ExecuteAsync(
-            id,
-            dto,
-            cancellationToken);
+        var result = await _sut.ExecuteAsync(command, ct);
 
-        // Assert
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(403);
-
         result.Errors.Should().Contain(
             "System permissions cannot be modified.");
 
         permission.Name.Should().Be(originalName);
-
-        await _permissionRepository
-            .Received(1)
-            .GetByIdAsync(id, cancellationToken);
 
         _permissionRepository
             .DidNotReceive()
             .Update(Arg.Any<PermissionsModel>());
     }
 
+    // ---------------------------------------------------------------
+    // Atualização
+    // ---------------------------------------------------------------
+
     [Fact]
-    public async Task ExecuteAsync_WhenDtoIsValid_UpdatesPermission()
+    public async Task ExecuteAsync_WhenCommandIsValid_UpdatesPermission()
     {
-        // Arrange
         var id = Guid.NewGuid().ToString();
 
         using var cts = new CancellationTokenSource();
-        var cancellationToken = cts.Token;
+        var ct = cts.Token;
 
         var permission = CreatePermission(id, isSystem: false);
 
-        var dto = new UpdatePermissionDto
-        {
-            Name = "Updated permission",
-            Description = "Updated description",
-            IsActive = false
-        };
+        var command = NewCommand(
+            id,
+            new UpdatePermissionDto
+            {
+                Name = "Updated permission",
+                Description = "Updated description",
+                IsActive = false
+            });
 
         _permissionRepository
-            .GetByIdAsync(id, cancellationToken)
+            .GetByIdAsync(id, ct)
             .Returns(Task.FromResult<PermissionsModel?>(permission));
 
-        // Act
-        var result = await _sut.ExecuteAsync(
-            id,
-            dto,
-            cancellationToken);
+        var result = await _sut.ExecuteAsync(command, ct);
 
-        // Assert: resultado
+        // Resultado
         result.IsSuccess.Should().BeTrue();
         result.StatusCode.Should().Be(200);
         result.Value.Should().BeSameAs(permission);
 
-        // Assert: propriedades alteradas pelo Mapperly
+        // Propriedades atualizadas pelo Mapperly
         permission.Name.Should().Be("Updated permission");
         permission.Description.Should().Be("Updated description");
         permission.IsActive.Should().BeFalse();
@@ -215,53 +210,46 @@ public sealed class UpdatePermissionUseCaseTest
         // Propriedades que não fazem parte do DTO permanecem inalteradas.
         permission.Id.Should().Be(id);
         permission.Code.Should().Be("users.read");
-        permission.Module.Should().Be(
-            Kairos.Api.Common.Enums.PermissionModuleEnum.Identity);
+        permission.Module.Should().Be(PermissionModuleEnum.Identity);
         permission.IsSystem.Should().BeFalse();
 
-        // Assert: leitura e atualização do repositório
+        // O repositório recebe a entidade atualizada.
         await _permissionRepository
             .Received(1)
-            .GetByIdAsync(id, cancellationToken);
+            .GetByIdAsync(id, ct);
 
         _permissionRepository
             .Received(1)
-            .Update(
-                Arg.Is<PermissionsModel>(entity =>
-                    ReferenceEquals(entity, permission)));
+            .Update(Arg.Is<PermissionsModel>(
+                entity => ReferenceEquals(entity, permission)));
 
-        // O Use Case não confirma a transação.
+        // A transação é controlada pelo chamador, não pelo Use Case.
         await _unitOfWork
             .DidNotReceive()
             .CommitAsync(Arg.Any<CancellationToken>());
     }
 
+    // ---------------------------------------------------------------
+    // Exceções
+    // ---------------------------------------------------------------
+
     [Fact]
     public async Task ExecuteAsync_WhenLookupThrows_PropagatesException()
     {
-        // Arrange
         var id = Guid.NewGuid().ToString();
-        var cancellationToken = CancellationToken.None;
-
-        var dto = new UpdatePermissionDto
-        {
-            Name = "Updated permission"
-        };
+        var ct = CancellationToken.None;
+        var command = NewCommand(id);
 
         var exception = new InvalidOperationException(
             "Permission lookup failed.");
 
         _permissionRepository
-            .GetByIdAsync(id, cancellationToken)
+            .GetByIdAsync(id, ct)
             .Returns(Task.FromException<PermissionsModel?>(exception));
 
-        // Act
-        var act = () => _sut.ExecuteAsync(
-            id,
-            dto,
-            cancellationToken);
+        Func<Task> act = async () =>
+            await _sut.ExecuteAsync(command, ct);
 
-        // Assert
         await act.Should()
             .ThrowAsync<InvalidOperationException>()
             .WithMessage("Permission lookup failed.");
@@ -274,34 +262,25 @@ public sealed class UpdatePermissionUseCaseTest
     [Fact]
     public async Task ExecuteAsync_WhenUpdateThrows_PropagatesException()
     {
-        // Arrange
         var id = Guid.NewGuid().ToString();
-        var cancellationToken = CancellationToken.None;
+        var ct = CancellationToken.None;
         var permission = CreatePermission(id, isSystem: false);
-
-        var dto = new UpdatePermissionDto
-        {
-            Name = "Updated permission"
-        };
+        var command = NewCommand(id);
 
         var exception = new InvalidOperationException(
             "Permission update failed.");
 
         _permissionRepository
-            .GetByIdAsync(id, cancellationToken)
+            .GetByIdAsync(id, ct)
             .Returns(Task.FromResult<PermissionsModel?>(permission));
 
         _permissionRepository
             .When(repository => repository.Update(permission))
             .Do(_ => throw exception);
 
-        // Act
-        var act = () => _sut.ExecuteAsync(
-            id,
-            dto,
-            cancellationToken);
+        Func<Task> act = async () =>
+            await _sut.ExecuteAsync(command, ct);
 
-        // Assert
         await act.Should()
             .ThrowAsync<InvalidOperationException>()
             .WithMessage("Permission update failed.");
@@ -309,6 +288,48 @@ public sealed class UpdatePermissionUseCaseTest
         _permissionRepository
             .Received(1)
             .Update(permission);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCancellationIsRequested_ThrowsOperationCanceled()
+    {
+        var id = Guid.NewGuid().ToString();
+        var command = NewCommand(id);
+
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        Func<Task> act = async () =>
+            await _sut.ExecuteAsync(command, cts.Token);
+
+        await act.Should()
+            .ThrowAsync<OperationCanceledException>();
+
+        await _permissionRepository
+            .DidNotReceive()
+            .GetByIdAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+
+        _permissionRepository
+            .DidNotReceive()
+            .Update(Arg.Any<PermissionsModel>());
+    }
+
+    // ---------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------
+
+    private static UpdatePermissionCommand NewCommand(
+        string? id = null,
+        UpdatePermissionDto? dto = null)
+    {
+        return new UpdatePermissionCommand(
+            id ?? Guid.NewGuid().ToString(),
+            dto ?? new UpdatePermissionDto
+            {
+                Name = "Updated permission"
+            });
     }
 
     private static PermissionsModel CreatePermission(
@@ -324,7 +345,7 @@ public sealed class UpdatePermissionUseCaseTest
             Code = "users.read",
             Name = "Read users",
             Description = "Original description",
-            Module = Kairos.Api.Common.Enums.PermissionModuleEnum.Identity,
+            Module = PermissionModuleEnum.Identity,
             IsSystem = isSystem,
             IsActive = true
         };

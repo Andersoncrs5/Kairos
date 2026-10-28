@@ -1,5 +1,7 @@
+using System.ComponentModel.DataAnnotations;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.UnitOfWork;
+using Kairos.Api.Modules.Identity.Permissions.DTOs.Commands;
 using Kairos.Api.Modules.Identity.Permissions.DTOs.Request;
 using Kairos.Api.Modules.Identity.Permissions.Mapper;
 using Kairos.Api.Modules.Identity.Permissions.Models;
@@ -11,25 +13,56 @@ public sealed class UpdatePermissionUseCase(IUnitOfWork uow)
     : IUpdatePermissionUseCase
 {
     public async Task<Result<PermissionsModel>> ExecuteAsync(
-        string id,
-        UpdatePermissionDto dto,
-        CancellationToken cancellationToken = default)
+        UpdatePermissionCommand command,
+        CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
+        ct.ThrowIfCancellationRequested();
+
+        List<ValidationResult> validationResults = [];
+
+        if (!Validator.TryValidateObject(
+                command,
+                new ValidationContext(command),
+                validationResults,
+                validateAllProperties: true))
         {
-            return Result<PermissionsModel>.ValidationFailure(
-                ["Id is required."]);
+            return Result<PermissionsModel>.Failure(
+                validationResults
+                    .Select(result =>
+                        result.ErrorMessage ?? "Invalid update command.")
+                    .ToArray(),
+                400);
         }
 
-        if (!Guid.TryParse(id, out var permissionId))
+        UpdatePermissionDto dto = command.Dto;
+
+        validationResults = [];
+
+        if (!Validator.TryValidateObject(
+                dto,
+                new ValidationContext(dto),
+                validationResults,
+                validateAllProperties: true))
         {
-            return Result<PermissionsModel>.ValidationFailure(
-                ["Id must be a valid UUID."]);
+            return Result<PermissionsModel>.Failure(
+                validationResults
+                    .Select(result =>
+                        result.ErrorMessage ?? "Invalid permission data.")
+                    .ToArray(),
+                400);
         }
 
-        var permission = await uow.PermissionRepository.GetByIdAsync(
-            permissionId.ToString(),
-            cancellationToken);
+        if (!Guid.TryParse(command.PermissionId, out var permissionId))
+        {
+            return Result<PermissionsModel>.Failure(
+                ["Id must be a valid UUID."],
+                400);
+        }
+
+        PermissionsModel? permission =
+            await uow.PermissionRepository.GetByIdAsync(
+                permissionId.ToString(),
+                ct);
 
         if (permission is null)
         {
@@ -42,11 +75,11 @@ public sealed class UpdatePermissionUseCase(IUnitOfWork uow)
             return Result<PermissionsModel>.Forbidden(
                 "System permissions cannot be modified.");
         }
-        
+
         PermissionMapper.ApplyUpdate(dto, permission);
 
         uow.PermissionRepository.Update(permission);
-        
+
         return Result<PermissionsModel>.Success(permission);
     }
 }

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Kairos.Api.Config.UnitOfWork;
+using Kairos.Api.Modules.Identity.PermissionUsers.DTOs.Commands;
 using Kairos.Api.Modules.Identity.PermissionUsers.DTOs.Request;
 using Kairos.Api.Modules.Identity.PermissionUsers.Models;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
@@ -32,10 +33,15 @@ public sealed class UpdatePermissionUserUseCaseTest
         string id)
     {
         // Arrange
-        var dto = new UpdatePermissionUserDTO { IsActive = false };
+        var dto = new UpdatePermissionUserDTO
+        {
+            IsActive = false
+        };
+
+        var command = new UpdatePermissionUserCommand(id, dto);
 
         // Act
-        var result = await _sut.ExecuteAsync(id, dto);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -51,10 +57,6 @@ public sealed class UpdatePermissionUserUseCaseTest
         _repository
             .DidNotReceive()
             .Update(Arg.Any<PermissionUserModel>());
-
-        await _unitOfWork
-            .DidNotReceive()
-            .CommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -65,16 +67,45 @@ public sealed class UpdatePermissionUserUseCaseTest
         string id)
     {
         // Arrange
-        var dto = new UpdatePermissionUserDTO { IsActive = false };
+        var dto = new UpdatePermissionUserDTO
+        {
+            IsActive = false
+        };
+
+        var command = new UpdatePermissionUserCommand(id, dto);
 
         // Act
-        var result = await _sut.ExecuteAsync(id, dto);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(400);
-
         result.Errors.Should().Contain("Id must be a valid UUID.");
+
+        await _repository
+            .DidNotReceive()
+            .GetByIdAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+
+        _repository
+            .DidNotReceive()
+            .Update(Arg.Any<PermissionUserModel>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCommandIsNull_ReturnsValidationFailure()
+    {
+        // Arrange
+        UpdatePermissionUserCommand command = null!;
+
+        // Act
+        var result = await _sut.ExecuteAsync(command);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.StatusCode.Should().Be(400);
+        result.Errors.Should().Contain("Id is required.");
 
         await _repository
             .DidNotReceive()
@@ -92,9 +123,10 @@ public sealed class UpdatePermissionUserUseCaseTest
     {
         // Arrange
         var id = Guid.NewGuid().ToString();
+        var command = new UpdatePermissionUserCommand(id, null!);
 
         // Act
-        var result = await _sut.ExecuteAsync(id, null!);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -119,19 +151,23 @@ public sealed class UpdatePermissionUserUseCaseTest
         var id = Guid.NewGuid().ToString();
         var cancellationToken = CancellationToken.None;
 
-        var dto = new UpdatePermissionUserDTO { IsActive = false };
+        var dto = new UpdatePermissionUserDTO
+        {
+            IsActive = false
+        };
+
+        var command = new UpdatePermissionUserCommand(id, dto);
 
         _repository
             .GetByIdAsync(id, cancellationToken)
             .Returns(Task.FromResult<PermissionUserModel?>(null));
 
         // Act
-        var result = await _sut.ExecuteAsync(id, dto, cancellationToken);
+        var result = await _sut.ExecuteAsync(command, cancellationToken);
 
         // Assert
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(404);
-
         result.Errors.Should().Contain(
             "Permission-user association not found.");
 
@@ -142,10 +178,6 @@ public sealed class UpdatePermissionUserUseCaseTest
         _repository
             .DidNotReceive()
             .Update(Arg.Any<PermissionUserModel>());
-
-        await _unitOfWork
-            .DidNotReceive()
-            .CommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -153,10 +185,7 @@ public sealed class UpdatePermissionUserUseCaseTest
     {
         // Arrange
         var id = Guid.NewGuid().ToString();
-
-        using var cts = new CancellationTokenSource();
-        var cancellationToken = cts.Token;
-
+        var cancellationToken = CancellationToken.None;
         var association = CreatePermissionUser(id);
 
         var dto = new UpdatePermissionUserDTO
@@ -164,12 +193,14 @@ public sealed class UpdatePermissionUserUseCaseTest
             IsActive = false
         };
 
+        var command = new UpdatePermissionUserCommand(id, dto);
+
         _repository
             .GetByIdAsync(id, cancellationToken)
             .Returns(Task.FromResult<PermissionUserModel?>(association));
 
         // Act
-        var result = await _sut.ExecuteAsync(id, dto, cancellationToken);
+        var result = await _sut.ExecuteAsync(command, cancellationToken);
 
         // Assert: resultado
         result.IsSuccess.Should().BeTrue();
@@ -182,10 +213,9 @@ public sealed class UpdatePermissionUserUseCaseTest
         // Assert: campos que não fazem parte do DTO
         association.Id.Should().Be(id);
         association.UserId.Should().Be("user-test-id");
-        association.PermissionId.Should().Be(
-            "permission-test-id");
+        association.PermissionId.Should().Be("permission-test-id");
 
-        // A auditoria e versão serão atualizadas pelo AppDbContext.
+        // A auditoria e a versão serão atualizadas pelo AppDbContext.
         association.Version.Should().Be(1);
         association.UpdatedAt.Should().BeNull();
 
@@ -198,8 +228,8 @@ public sealed class UpdatePermissionUserUseCaseTest
         _repository
             .Received(1)
             .Update(
-                Arg.Is<PermissionUserModel>(entity =>
-                    ReferenceEquals(entity, association)));
+                Arg.Is<PermissionUserModel>(
+                    entity => ReferenceEquals(entity, association)));
 
         // O commit fica com o serviço orquestrador.
         await _unitOfWork
@@ -219,12 +249,14 @@ public sealed class UpdatePermissionUserUseCaseTest
             IsActive = null
         };
 
+        var command = new UpdatePermissionUserCommand(id, dto);
+
         _repository
             .GetByIdAsync(id, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<PermissionUserModel?>(association));
 
         // Act
-        var result = await _sut.ExecuteAsync(id, dto);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -240,17 +272,24 @@ public sealed class UpdatePermissionUserUseCaseTest
     {
         // Arrange
         var id = Guid.NewGuid().ToString();
-        var dto = new UpdatePermissionUserDTO { IsActive = false };
+
+        var dto = new UpdatePermissionUserDTO
+        {
+            IsActive = false
+        };
+
+        var command = new UpdatePermissionUserCommand(id, dto);
 
         var exception = new InvalidOperationException(
             "Permission-user lookup failed.");
 
         _repository
             .GetByIdAsync(id, Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<PermissionUserModel?>(exception));
+            .Returns(
+                Task.FromException<PermissionUserModel?>(exception));
 
         // Act
-        var act = () => _sut.ExecuteAsync(id, dto);
+        var act = () => _sut.ExecuteAsync(command);
 
         // Assert
         await act.Should()
@@ -268,7 +307,13 @@ public sealed class UpdatePermissionUserUseCaseTest
         // Arrange
         var id = Guid.NewGuid().ToString();
         var association = CreatePermissionUser(id);
-        var dto = new UpdatePermissionUserDTO { IsActive = false };
+
+        var dto = new UpdatePermissionUserDTO
+        {
+            IsActive = false
+        };
+
+        var command = new UpdatePermissionUserCommand(id, dto);
 
         var exception = new InvalidOperationException(
             "Permission-user update failed.");
@@ -282,7 +327,7 @@ public sealed class UpdatePermissionUserUseCaseTest
             .Do(_ => throw exception);
 
         // Act
-        var act = () => _sut.ExecuteAsync(id, dto);
+        var act = () => _sut.ExecuteAsync(command);
 
         // Assert
         await act.Should()

@@ -1,9 +1,8 @@
+using Kairos.Api.Common.Base.Services;
 using Kairos.Api.Common.Result;
 
 namespace Kairos.Api.Modules.Identity.Permissions.Services.Interface;
 
-public interface IDeletePermissionByIdUseCase
+public interface IDeletePermissionByIdUseCase: IUseCase<string, Result<object>>
 {
-    Task<Result<object>> ExecuteAsync(string id,
-        CancellationToken cancellationToken = default);
 }

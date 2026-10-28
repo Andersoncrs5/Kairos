@@ -4,6 +4,7 @@ using Kairos.Api.Common.Result;
 using Kairos.Api.Config.UnitOfWork;
 using Kairos.Api.Modules.Identity.Permissions.Models;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
+using Kairos.Api.Modules.Identity.PermissionUsers.DTOs.Commands;
 using Kairos.Api.Modules.Identity.PermissionUsers.Models;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Services.Provider;
@@ -56,9 +57,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
         var permissionId = Guid.NewGuid().ToString();
 
         // Act
-        var result = await _sut.ExecuteAsync(
-            userId!,
-            permissionId);
+        var result = await ExecuteAsync(userId, permissionId);
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -96,9 +95,9 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
         string? permissionId)
     {
         // Act
-        var result = await _sut.ExecuteAsync(
+        var result = await ExecuteAsync(
             "user-test-id",
-            permissionId!);
+            permissionId);
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -140,7 +139,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
         string permissionId)
     {
         // Act
-        var result = await _sut.ExecuteAsync(
+        var result = await ExecuteAsync(
             "user-test-id",
             permissionId);
 
@@ -178,7 +177,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
         cts.Cancel();
 
         // Act
-        Func<Task> act = () => _sut.ExecuteAsync(
+        Func<Task> act = () => ExecuteAsync(
             "user-test-id",
             Guid.NewGuid().ToString(),
             cts.Token);
@@ -218,7 +217,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
             .Returns(Task.FromResult<PermissionsModel?>(null));
 
         // Act
-        var result = await _sut.ExecuteAsync(
+        var result = await ExecuteAsync(
             "user-test-id",
             permissionId);
 
@@ -258,7 +257,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
         SetupPermission(permission);
 
         // Act
-        var result = await _sut.ExecuteAsync(
+        var result = await ExecuteAsync(
             "user-test-id",
             permissionId);
 
@@ -299,7 +298,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
                     Result<UserModel>.NotFound("User not found.")));
 
         // Act
-        var result = await _sut.ExecuteAsync(userId, permissionId);
+        var result = await ExecuteAsync(userId, permissionId);
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -337,7 +336,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
                     Result<UserModel>.Forbidden("User lookup forbidden.")));
 
         // Act
-        var result = await _sut.ExecuteAsync(userId, permissionId);
+        var result = await ExecuteAsync(userId, permissionId);
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -368,7 +367,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
                     Result<UserModel>.Success(null!)));
 
         // Act
-        var result = await _sut.ExecuteAsync(userId, permissionId);
+        var result = await ExecuteAsync(userId, permissionId);
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -398,7 +397,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
         SetupAssociation(userId, permissionId, null);
 
         // Act
-        var result = await _sut.ExecuteAsync(userId, permissionId);
+        var result = await ExecuteAsync(userId, permissionId);
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -460,19 +459,19 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
             .Returns(Task.CompletedTask);
 
         // Act
-        var result = await _sut.ExecuteAsync(userId, permissionId, ct);
+        var result = await ExecuteAsync(userId, permissionId, ct);
 
-        // Assert: resultado sem conteúdo
+        // Assert: resultado sem conteúdo.
         result.IsSuccess.Should().BeTrue();
         result.StatusCode.Should().Be(204);
         result.Value.Should().BeNull();
         result.Errors.Should().BeEmpty();
 
-        // Assert: a permissão foi removida, preservando as outras.
+        // A permissão removida não deve apagar as outras.
         user.Permissions.Should().ContainSingle()
             .Which.Should().Be("users.write");
 
-        // Assert: consultas
+        // Assert: consultas.
         await _permissionRepository
             .Received(1)
             .GetByIdAsync(permissionId, ct);
@@ -488,7 +487,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
                 permissionId,
                 ct);
 
-        // Assert: exclusão
+        // Assert: exclusão.
         await _permissionUserRepository
             .Received(1)
             .DeleteByUserIdAndPermissionIdAsync(
@@ -525,7 +524,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
             .Returns(Task.CompletedTask);
 
         // Act
-        var result = await _sut.ExecuteAsync(userId, permissionId);
+        var result = await ExecuteAsync(userId, permissionId);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -567,7 +566,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
             .Returns(Task.CompletedTask);
 
         // Act
-        var result = await _sut.ExecuteAsync(
+        var result = await ExecuteAsync(
             $" {userId} ",
             $" {permissionId} ");
 
@@ -624,7 +623,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
             .Returns(Task.CompletedTask);
 
         // Act
-        var result = await _sut.ExecuteAsync(userId, dtoPermissionId);
+        var result = await ExecuteAsync(userId, dtoPermissionId);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -657,7 +656,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
                         "Permission lookup failed.")));
 
         // Act
-        Func<Task> act = () => _sut.ExecuteAsync(
+        Func<Task> act = () => ExecuteAsync(
             "user-test-id",
             permissionId);
 
@@ -697,7 +696,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
                         "User lookup failed.")));
 
         // Act
-        Func<Task> act = () => _sut.ExecuteAsync(userId, permissionId);
+        Func<Task> act = () => ExecuteAsync(userId, permissionId);
 
         // Assert
         await act.Should()
@@ -740,7 +739,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
                         "Association lookup failed.")));
 
         // Act
-        Func<Task> act = () => _sut.ExecuteAsync(userId, permissionId);
+        Func<Task> act = () => ExecuteAsync(userId, permissionId);
 
         // Assert
         await act.Should()
@@ -781,7 +780,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
                         "Permission-user deletion failed.")));
 
         // Act
-        Func<Task> act = () => _sut.ExecuteAsync(userId, permissionId);
+        Func<Task> act = () => ExecuteAsync(userId, permissionId);
 
         // Assert
         await act.Should()
@@ -818,7 +817,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
             .Returns(Task.CompletedTask);
 
         // Act
-        var result = await _sut.ExecuteAsync(userId, permissionId);
+        var result = await ExecuteAsync(userId, permissionId);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -826,6 +825,18 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCaseTest
         await _unitOfWork
             .DidNotReceive()
             .CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    private Task<Result<object>> ExecuteAsync(
+        string? userId,
+        string? permissionId,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new DeletePermissionUserCommand(
+            userId!,
+            permissionId!);
+
+        return _sut.ExecuteAsync(command, cancellationToken);
     }
 
     private void SetupPermission(

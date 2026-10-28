@@ -1,6 +1,6 @@
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.UnitOfWork;
-using Kairos.Api.Modules.Identity.Permissions.Models;
+using Kairos.Api.Modules.Identity.PermissionUsers.DTOs.Commands;
 using Kairos.Api.Modules.Identity.PermissionUsers.Services.Interface;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Identity.Users.Services.Interface;
@@ -13,27 +13,34 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCase(
     : IDeletePermissionUserByUserIdAndPermissionIdUseCase
 {
     public async Task<Result<object>> ExecuteAsync(
-        string userId,
-        string permissionId,
+        DeletePermissionUserCommand command,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (string.IsNullOrWhiteSpace(userId))
+        if (command is null)
+        {
+            return Result<object>.ValidationFailure(
+                ["Command is required."]);
+        }
+
+        if (string.IsNullOrWhiteSpace(command.UserId))
         {
             return Result<object>.ValidationFailure(
                 ["UserId is required."]);
         }
 
-        if (string.IsNullOrWhiteSpace(permissionId))
+        if (string.IsNullOrWhiteSpace(command.PermissionId))
         {
             return Result<object>.ValidationFailure(
                 ["PermissionId is required."]);
         }
 
-        var normalizedUserId = userId.Trim();
+        var normalizedUserId = command.UserId.Trim();
 
-        if (!Guid.TryParse(permissionId.Trim(), out var permissionGuid))
+        if (!Guid.TryParse(
+                command.PermissionId.Trim(),
+                out var permissionGuid))
         {
             return Result<object>.ValidationFailure(
                 ["PermissionId must be a valid UUID."]);
@@ -41,14 +48,14 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCase(
 
         var normalizedPermissionId = permissionGuid.ToString();
 
-        PermissionsModel? permission =
-            await uow.PermissionRepository.GetByIdAsync(
-                normalizedPermissionId,
-                cancellationToken);
+        var permission = await uow.PermissionRepository.GetByIdAsync(
+            normalizedPermissionId,
+            cancellationToken);
 
         if (permission is null)
         {
-            return Result<object>.NotFound("Permission not found.");
+            return Result<object>.NotFound(
+                "Permission not found.");
         }
 
         if (string.IsNullOrWhiteSpace(permission.Code))
@@ -57,8 +64,6 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCase(
                 "The permission has an invalid code.",
                 500);
         }
-
-        var permissionCode = permission.Code.Trim();
 
         var userResult = await findUserByIdUseCase.ExecuteAsync(
             normalizedUserId,
@@ -75,7 +80,8 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCase(
 
         if (user is null)
         {
-            return Result<object>.NotFound("User not found.");
+            return Result<object>.NotFound(
+                "User not found.");
         }
 
         var association =
@@ -97,7 +103,7 @@ public sealed class DeletePermissionUserByUserIdAndPermissionIdUseCase(
                 permission.Id,
                 cancellationToken);
 
-        user.RemovePermission(permissionCode);
+        user.RemovePermission(permission.Code.Trim());
 
         return Result<object>.Ok();
     }
