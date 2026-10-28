@@ -59,6 +59,8 @@ public static class AuthModule
         services.AddScoped<IFindUserByIdUseCase, FindUserByIdUseCase>();
         services.AddScoped<IFindUsersUseCase, FindUsersUseCase>();
         services.AddScoped<IUpdateUserUseCase, UpdateUserUseCase>();
+        services.AddScoped<IExistsUserByEmailUseCase, ExistsUserByEmailUseCase>();
+        services.AddScoped<IExistsUserByUserNameUseCase, ExistsUserByUserNameUseCase>();
 
         // Permission Use Cases
         services.AddScoped<ICreatePermissionUseCase, CreatePermissionUseCase>();
@@ -67,6 +69,7 @@ public static class AuthModule
         services.AddScoped<IFindPermissionByCodeUseCase, FindPermissionByCodeUseCase>();
         services.AddScoped<IFindPermissionByIdUseCase, FindPermissionByIdUseCase>();
         services.AddScoped<IUpdatePermissionUseCase, UpdatePermissionUseCase>();
+        services.AddScoped<IFindAllPermissionUseCase, FindAllPermissionUseCase>();
 
         // PermissionUser Use Cases
         services.AddScoped<ICreatePermissionUserUseCase, CreatePermissionUserUseCase>();
