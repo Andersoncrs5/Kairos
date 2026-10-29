@@ -6,6 +6,8 @@ using Kairos.Api.Common.Enums;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Config.Contracts;
 using Kairos.Api.Config.DB;
+using Kairos.Api.Modules.Categories.DTOs.Request;
+using Kairos.Api.Modules.Categories.DTOs.Response;
 using Kairos.Api.Modules.Categories.Models;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
@@ -21,6 +23,8 @@ using Kairos.Api.Modules.Identity.Users.Repositories;
 using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Rooms.Room.Models;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
+using Kairos.Api.Modules.Rooms.RoomTypes.DTOs.Request;
+using Kairos.Api.Modules.Rooms.RoomTypes.DTOs.Response;
 using Kairos.Api.Modules.Rooms.RoomTypes.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -62,7 +66,110 @@ public abstract class BaseIntegrationTest
                 .GetRequiredService<IOptions<UserMasterOptions>>())
     {
     }
+    
+    protected async Task<RoomTypeDto> CreateRoomTypeHttp(Tokens tokens)
+    {
+        var inbox = await NewInboxAsync();
 
+        var dto = new CreateRoomTypeDto
+        {
+            Name = $"Integration Room Type {Guid.NewGuid():N}",
+            Description = "Created by integration tests."
+        };
+
+        using var response = await SendAsync(
+            "/api/v1/room-types",
+            body: dto,
+            accessToken: tokens.Token,
+            inboxId: inbox.Id);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await ReadAsync<RoomTypeDto>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().NotBeNullOrWhiteSpace();
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Name.Should().Be(dto.Name);
+        http.Data.Description.Should().Be(dto.Description);
+
+        // Verifica a persistência no banco.
+        using var scope = CreateScope();
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var persisted = await db.Set<RoomTypeModel>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(roomType => roomType.Name == dto.Name);
+
+        persisted.Should().NotBeNull();
+        persisted!.Name.Should().Be(dto.Name);
+        persisted.Description.Should().Be(dto.Description);
+        persisted.IsActive.Should().BeTrue();
+
+        // Verifica o processamento do Inbox.
+        var updatedInbox = await GetInboxAsync(inbox.Id);
+
+        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
+        updatedInbox.ProcessedAt.Should().NotBeNull();
+        updatedInbox.LockedBy.Should().BeNull();
+
+        return http.Data;
+    }
+
+    protected async Task<CategoryDto> CreateCategoryHttp(Tokens tokens)
+    {
+        var inbox = await NewInboxAsync();
+
+        var dto = new CreateCategoryDto
+        {
+            Name = $"Integration Category {Guid.NewGuid():N}",
+            Description = "Created by integration tests."
+        };
+
+        using var response = await SendAsync(
+            "/api/v1/categories",
+            body: dto,
+            accessToken: tokens.Token,
+            inboxId: inbox.Id);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await ReadAsync<CategoryDto>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().NotBeNullOrWhiteSpace();
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Name.Should().Be(dto.Name);
+        http.Data.Description.Should().Be(dto.Description);
+
+        // Verifica a persistência no banco.
+        using var scope = CreateScope();
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var persisted = await db.Categories
+            .AsNoTracking()
+            .SingleOrDefaultAsync(category => category.Name == dto.Name);
+
+        persisted.Should().NotBeNull();
+        persisted!.Name.Should().Be(dto.Name);
+        persisted.Description.Should().Be(dto.Description);
+
+        // Verifica o processamento do Inbox.
+        var updatedInbox = await GetInboxAsync(inbox.Id);
+
+        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
+        updatedInbox.ProcessedAt.Should().NotBeNull();
+        updatedInbox.LockedBy.Should().BeNull();
+
+        return http.Data;
+    }
+    
     protected BaseIntegrationTest(
         KairosApiFactory factory,
         IOptions<UserMasterOptions> userMasterOptions)
