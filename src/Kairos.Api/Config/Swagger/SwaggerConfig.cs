@@ -1,4 +1,5 @@
 using System.Reflection;
+using Kairos.Api.Config.Swagger.Filter;
 using Microsoft.OpenApi;
 
 namespace Kairos.Api.Config.Swagger;
@@ -12,6 +13,8 @@ public static class SwaggerConfig
 
         services.AddSwaggerGen(options =>
         {
+            options.OperationFilter<BadRequestResponseSchemaOperationFilter>();
+            
             options.SwaggerDoc("v1", new OpenApiInfo
             {
                 Title = "Kairos API",
