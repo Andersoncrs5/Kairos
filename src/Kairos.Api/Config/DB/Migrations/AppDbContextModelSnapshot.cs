@@ -604,6 +604,19 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnType("text")
                         .HasColumnName("id");
 
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<string>("CancelledBy")
+                        .HasColumnType("text")
+                        .HasColumnName("cancelled_by");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -616,6 +629,11 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.Property<DateTimeOffset>("EndsAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ends_at");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
 
                     b.Property<string>("Reason")
                         .IsRequired()
@@ -632,6 +650,18 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("starts_at");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("type");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -642,11 +672,15 @@ namespace Kairos.Api.Config.DB.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CancelledBy");
+
                     b.HasIndex("CreatedBy");
 
                     b.HasIndex("RoomId");
 
                     b.HasIndex("RoomId", "StartsAt", "EndsAt");
+
+                    b.HasIndex("RoomId", "Status", "StartsAt");
 
                     b.ToTable("room_blockouts", null, t =>
                         {
@@ -893,17 +927,28 @@ namespace Kairos.Api.Config.DB.Migrations
 
             modelBuilder.Entity("Kairos.Api.Modules.Rooms.RoomBlockout.Models.RoomBlockoutModel", b =>
                 {
-                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", null)
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "Canceller")
+                        .WithMany()
+                        .HasForeignKey("CancelledBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "Creater")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", null)
+                    b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", "Room")
                         .WithMany()
                         .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Canceller");
+
+                    b.Navigation("Creater");
+
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
