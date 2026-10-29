@@ -50,12 +50,14 @@ public sealed class PermissionUserConfiguration
             permissionUser.PermissionId
         }).IsUnique();
 
-        builder.HasOne<UserModel>()
+        builder
+            .HasOne(permissionUser => permissionUser.User)
             .WithMany()
             .HasForeignKey(permissionUser => permissionUser.UserId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<PermissionsModel>()
+        builder
+            .HasOne(permissionUser => permissionUser.Permissions)
             .WithMany()
             .HasForeignKey(permissionUser => permissionUser.PermissionId)
             .OnDelete(DeleteBehavior.Restrict);

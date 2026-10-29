@@ -13,10 +13,7 @@ public class CreateCategoryUseCase(IUnitOfWork uow): ICreateCategoryUseCase
         CreateCategoryDto dto,
         CancellationToken cancellationToken)
     {
-        var category = CategoryMapper.ToModel(
-            dto,
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow);
+        CategoryModel category = CategoryMapper.ToModel(dto, Guid.NewGuid().ToString(), DateTimeOffset.UtcNow);
         
         bool check = await uow.CategoryRepository.ExistsByNameAsync(dto.Name, cancellationToken);
         if (check)

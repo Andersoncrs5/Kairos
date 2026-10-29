@@ -44,7 +44,6 @@
   <ItemGroup>
     <Folder Include="Common\Extensions\" />
     <Folder Include="Modules\Categories\Configurations\" />
-    <Folder Include="Modules\Categories\Controllers\" />
     <Folder Include="Modules\Categories\Models\" />
     <Folder Include="Modules\Identity\Auth\Models\" />
     <Folder Include="Modules\Identity\Permissions\Configurations\" />
@@ -67,15 +66,9 @@
     <Folder Include="Modules\Reservations\Reservation\DTOs\" />
     <Folder Include="Modules\Reservations\Reservation\Services\" />
     <Folder Include="Modules\Rooms\RoomTypes\Configurations\" />
-    <Folder Include="Modules\Rooms\RoomTypes\Controllers\" />
-    <Folder Include="Modules\Rooms\RoomTypes\DTOs\" />
     <Folder Include="Modules\Rooms\RoomTypes\Models\" />
-    <Folder Include="Modules\Rooms\RoomTypes\Services\" />
     <Folder Include="Modules\Rooms\Room\Configurations\" />
-    <Folder Include="Modules\Rooms\Room\Controllers\" />
-    <Folder Include="Modules\Rooms\Room\DTOs\" />
     <Folder Include="Modules\Rooms\Room\Models\" />
-    <Folder Include="Modules\Rooms\Room\Services\" />
   </ItemGroup>
 
 </Project>

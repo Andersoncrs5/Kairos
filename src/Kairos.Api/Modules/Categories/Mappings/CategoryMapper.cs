@@ -1,4 +1,5 @@
 using Kairos.Api.Modules.Categories.DTOs.Request;
+using Kairos.Api.Modules.Categories.DTOs.Response;
 using Kairos.Api.Modules.Categories.Models;
 using Riok.Mapperly.Abstractions;
 
@@ -13,6 +14,9 @@ public static partial class CategoryMapper
         CreateCategoryDto source,
         string id,
         DateTimeOffset createdAt);
+
+    public static partial CategoryDto ToDto(
+        CategoryModel source);
 
     public static partial void ApplyUpdate(
         UpdateCategoryDto source,

@@ -1,4 +1,6 @@
 using Kairos.Api.Common.Base.Repository;
+using Kairos.Api.Common.Page;
+using Kairos.Api.Modules.Categories.DTOs.Request;
 using Kairos.Api.Modules.Categories.Models;
 
 namespace Kairos.Api.Modules.Categories.Repositories;
@@ -15,5 +17,9 @@ public interface ICategoryRepository
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CategoryModel>> GetActiveAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<Page<CategoryModel>> FilterAsync(
+        CategoryFilterDto filter,
         CancellationToken cancellationToken = default);
 }

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Kairos.Api.Config.UnitOfWork;
+using Kairos.Api.Modules.Categories.DTOs.Commands;
 using Kairos.Api.Modules.Categories.DTOs.Request;
 using Kairos.Api.Modules.Categories.Models;
 using Kairos.Api.Modules.Categories.Repositories;
@@ -8,7 +9,7 @@ using NSubstitute;
 
 namespace Kairos.Tests.Module.Category.Service;
 
-public class UpdateCategoryUseCaseTest
+public sealed class UpdateCategoryUseCaseTest
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICategoryRepository _categoryRepository;
@@ -24,6 +25,10 @@ public class UpdateCategoryUseCaseTest
         _sut = new UpdateCategoryUseCase(_unitOfWork);
     }
 
+    // ---------------------------------------------------------------
+    // Validação do comando
+    // ---------------------------------------------------------------
+
     [Theory]
     [InlineData("")]
     [InlineData(" ")]
@@ -37,15 +42,16 @@ public class UpdateCategoryUseCaseTest
             Name = "Updated category"
         };
 
+        var command = new UpdateCategoryCommand(id, dto);
+
         // Act
-        var result = await _sut.ExecuteAsync(
-            id,
-            dto,
-            CancellationToken.None);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         result.IsFailure.Should().BeTrue();
-        result.Errors.Should().Contain("Id is required.");
+        result.StatusCode.Should().Be(400);
+        result.Errors.Should().Contain(
+            "Category ID is required.");
 
         await _categoryRepository
             .DidNotReceive()
@@ -65,14 +71,14 @@ public class UpdateCategoryUseCaseTest
             Name = "Updated category"
         };
 
+        var command = new UpdateCategoryCommand(id, dto);
+
         // Act
-        var result = await _sut.ExecuteAsync(
-            id,
-            dto,
-            CancellationToken.None);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         result.IsFailure.Should().BeTrue();
+        result.StatusCode.Should().Be(400);
         result.Errors.Should().Contain(
             "Id must be a valid UUID.");
 
@@ -82,6 +88,10 @@ public class UpdateCategoryUseCaseTest
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>());
     }
+
+    // ---------------------------------------------------------------
+    // Categoria inexistente
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenCategoryDoesNotExist_ReturnsNotFound()
@@ -94,15 +104,16 @@ public class UpdateCategoryUseCaseTest
             Name = "Updated category"
         };
 
+        var command = new UpdateCategoryCommand(id, dto);
+
         _categoryRepository
-            .GetByIdAsync(id, Arg.Any<CancellationToken>())
+            .GetByIdAsync(
+                id,
+                Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<CategoryModel?>(null));
 
         // Act
-        var result = await _sut.ExecuteAsync(
-            id,
-            dto,
-            CancellationToken.None);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -114,14 +125,21 @@ public class UpdateCategoryUseCaseTest
             .ExistsByNameAsync(
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>());
+
+        _categoryRepository
+            .DidNotReceive()
+            .Update(Arg.Any<CategoryModel>());
     }
+
+    // ---------------------------------------------------------------
+    // Conflito de nome
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenNameAlreadyExists_ReturnsConflict()
     {
         // Arrange
         var id = Guid.NewGuid().ToString();
-
         var category = CreateCategory(id, "Old category");
 
         var dto = new UpdateCategoryDto
@@ -129,8 +147,12 @@ public class UpdateCategoryUseCaseTest
             Name = "Existing category"
         };
 
+        var command = new UpdateCategoryCommand(id, dto);
+
         _categoryRepository
-            .GetByIdAsync(id, Arg.Any<CancellationToken>())
+            .GetByIdAsync(
+                id,
+                Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<CategoryModel?>(category));
 
         _categoryRepository
@@ -140,31 +162,24 @@ public class UpdateCategoryUseCaseTest
             .Returns(Task.FromResult(true));
 
         // Act
-        var result = await _sut.ExecuteAsync(
-            id,
-            dto,
-            CancellationToken.None);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(409);
-
         result.Errors.Should().Contain(
             "Category with the name Existing category already exists.");
 
-        // A categoria não deve ser modificada em caso de conflito.
         category.Name.Should().Be("Old category");
 
-        await _categoryRepository
-            .Received(1)
-            .ExistsByNameAsync(
-                "Existing category",
-                Arg.Any<CancellationToken>());
-
-        await _unitOfWork
+        _categoryRepository
             .DidNotReceive()
-            .CommitAsync(Arg.Any<CancellationToken>());
+            .Update(Arg.Any<CategoryModel>());
     }
+
+    // ---------------------------------------------------------------
+    // Atualização bem-sucedida
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenDtoIsValid_UpdatesCategory()
@@ -184,18 +199,21 @@ public class UpdateCategoryUseCaseTest
             IsActive = false
         };
 
+        var command = new UpdateCategoryCommand(id, dto);
+
         _categoryRepository
             .GetByIdAsync(id, cancellationToken)
             .Returns(Task.FromResult<CategoryModel?>(category));
 
         _categoryRepository
-            .ExistsByNameAsync("Updated category", cancellationToken)
+            .ExistsByNameAsync(
+                "Updated category",
+                cancellationToken)
             .Returns(Task.FromResult(false));
 
         // Act
         var result = await _sut.ExecuteAsync(
-            id,
-            dto,
+            command,
             cancellationToken);
 
         // Assert
@@ -206,31 +224,23 @@ public class UpdateCategoryUseCaseTest
         category.Name.Should().Be("Updated category");
         category.Description.Should().Be("Existing description");
         category.IsActive.Should().BeFalse();
-
         category.Version.Should().Be(1);
         category.UpdatedAt.Should().BeNull();
 
-        await _categoryRepository
+        _categoryRepository
             .Received(1)
-            .GetByIdAsync(id, cancellationToken);
-
-        await _categoryRepository
-            .Received(1)
-            .ExistsByNameAsync(
-                "Updated category",
-                cancellationToken);
-
-        await _unitOfWork
-            .DidNotReceive()
-            .CommitAsync(Arg.Any<CancellationToken>());
+            .Update(category);
     }
+
+    // ---------------------------------------------------------------
+    // Nome inalterado
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenNameIsUnchanged_DoesNotCheckDuplicate()
     {
         // Arrange
         var id = Guid.NewGuid().ToString();
-
         var category = CreateCategory(id, "Existing category");
 
         var dto = new UpdateCategoryDto
@@ -238,19 +248,21 @@ public class UpdateCategoryUseCaseTest
             Name = "Existing category"
         };
 
+        var command = new UpdateCategoryCommand(id, dto);
+
         _categoryRepository
-            .GetByIdAsync(id, Arg.Any<CancellationToken>())
+            .GetByIdAsync(
+                id,
+                Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<CategoryModel?>(category));
 
         // Act
-        var result = await _sut.ExecuteAsync(
-            id,
-            dto,
-            CancellationToken.None);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().BeSameAs(category);
+
         category.Name.Should().Be("Existing category");
 
         await _categoryRepository
@@ -258,7 +270,15 @@ public class UpdateCategoryUseCaseTest
             .ExistsByNameAsync(
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>());
+
+        _categoryRepository
+            .Received(1)
+            .Update(category);
     }
+
+    // ---------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------
 
     private static CategoryModel CreateCategory(
         string id,

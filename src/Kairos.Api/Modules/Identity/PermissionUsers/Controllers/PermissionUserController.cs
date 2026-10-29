@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
+using Kairos.Api.Common.Page;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.Authentication;
@@ -26,9 +27,59 @@ public class PermissionUserController(
     IInboxTransactionUseCase<DeletePermissionUserCommand, object, IDeletePermissionUserByUserIdAndPermissionIdUseCase> deletePermissionUserUseCase,
     IExistsPermissionUserByUserIdAndPermissionIdUseCase existsPermissionUserByUserIdAndPermissionIdUseCase,
     IFindPermissionUserByIdUseCase findPermissionUserByIdUseCase,
+    IFindPermissionUsersUseCase findPermissionUsersUseCase,
     IInboxTransactionUseCase<UpdatePermissionUserCommand, PermissionUserModel, IUpdatePermissionUserUseCase> updatePermissionUserUseCase
 ) : ControllerBase
 {
+    
+    /// <summary>
+    /// Retrieves a paginated list of user-permission associations.
+    /// </summary>
+    /// <remarks>
+    /// Supports filtering by association ID, version, creation and update dates,
+    /// user properties, permission properties, module and active status.
+    /// Requires a valid JWT and the identity.permission-users.list permission.
+    /// </remarks>
+    /// <param name="dto">Filtering and pagination parameters.</param>
+    /// <param name="ct">Cancellation token for the HTTP request.</param>
+    /// <response code="200">The associations were retrieved successfully.</response>
+    /// <response code="400">The query parameters are invalid.</response>
+    /// <response code="401">Authentication is required or the JWT is invalid.</response>
+    /// <response code="403">The user lacks permission to list associations.</response>
+    /// <response code="500">An internal error prevented the query.</response>
+    [HttpGet]
+    [RequirePermissions("identity.permission-users.list")]
+    [ProducesResponseType(typeof(ResponseHttp<Page<PermissionUserDTO>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ResponseHttp<ValidationErrorResponse>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> Find(
+        [FromQuery] FilterPermissionUserDTO dto,
+        [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
+        CancellationToken ct)
+    {
+        Page<PermissionUserModel> result = await findPermissionUsersUseCase.ExecuteAsync(dto, ct);
+
+        Page<PermissionUserDTO> data = Page<PermissionUserDTO>.Create(
+            result.Data
+                .Select(PermissionUserMapper.ToDto)
+                .ToArray(),
+            result.TotalCount,
+            result.PageNumber,
+            result.PageSize);
+
+        return StatusCode(
+            StatusCodes.Status200OK,
+            new ResponseHttp<Page<PermissionUserDTO>>(
+                Data: data,
+                Message: "User-permission associations retrieved successfully",
+                TraceId: inboxId,
+                Success: true,
+                Timestamp: DateTimeOffset.UtcNow));
+    }
+    
     /// <summary>
     /// Updates an existing user-permission association.
     /// </summary>

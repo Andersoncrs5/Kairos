@@ -32,7 +32,7 @@ public sealed class FilterPermissionUserDTO : BaseFilter
     
     public PermissionModuleEnum[]? PermissionModuleEnums { get; init; }
     
-    public PermissionDto Permission { get; init; }
+    public PermissionDto? Permission { get; init; }
     
     public bool? IsActive { get; init; }
 }

@@ -1,4 +1,6 @@
 using Kairos.Api.Common.Base.Repository;
+using Kairos.Api.Common.Page;
+using Kairos.Api.Modules.Rooms.RoomTypes.DTOs.Request;
 using Kairos.Api.Modules.Rooms.RoomTypes.Models;
 
 namespace Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
@@ -6,6 +8,10 @@ namespace Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
 public interface IRoomTypeRepository
     : IBaseRepository<RoomTypeModel>
 {
+    Task<Page<RoomTypeModel>> Find(
+        FilterRoomTypeDto dto,
+        CancellationToken ct = default);
+
     Task<RoomTypeModel?> GetByNameAsync(
         string name,
         CancellationToken cancellationToken = default);

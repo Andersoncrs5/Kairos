@@ -1,5 +1,7 @@
+using System.ComponentModel.DataAnnotations;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.UnitOfWork;
+using Kairos.Api.Modules.Categories.DTOs.Commands;
 using Kairos.Api.Modules.Categories.DTOs.Request;
 using Kairos.Api.Modules.Categories.Mappings;
 using Kairos.Api.Modules.Categories.Models;
@@ -11,25 +13,56 @@ public sealed class UpdateCategoryUseCase(IUnitOfWork uow)
     : IUpdateCategoryUseCase
 {
     public async Task<Result<CategoryModel>> ExecuteAsync(
-        string id,
-        UpdateCategoryDto dto,
-        CancellationToken cancellationToken = default)
+        UpdateCategoryCommand command,
+        CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
+        ct.ThrowIfCancellationRequested();
+
+        List<ValidationResult> validationResults = [];
+
+        if (!Validator.TryValidateObject(
+                command,
+                new ValidationContext(command),
+                validationResults,
+                validateAllProperties: true))
         {
-            return Result<CategoryModel>.ValidationFailure(
-                ["Id is required."]);
+            return Result<CategoryModel>.Failure(
+                validationResults
+                    .Select(result =>
+                        result.ErrorMessage ?? "Invalid update command.")
+                    .ToArray(),
+                400);
         }
 
-        if (!Guid.TryParse(id, out var categoryId))
+        UpdateCategoryDto dto = command.Dto;
+
+        validationResults = [];
+
+        if (!Validator.TryValidateObject(
+                dto,
+                new ValidationContext(dto),
+                validationResults,
+                validateAllProperties: true))
         {
-            return Result<CategoryModel>.ValidationFailure(
-                ["Id must be a valid UUID."]);
+            return Result<CategoryModel>.Failure(
+                validationResults
+                    .Select(result =>
+                        result.ErrorMessage ?? "Invalid category data.")
+                    .ToArray(),
+                400);
         }
 
-        var category = await uow.CategoryRepository.GetByIdAsync(
-            categoryId.ToString(),
-            cancellationToken);
+        if (!Guid.TryParse(command.CategoryId, out var categoryId))
+        {
+            return Result<CategoryModel>.Failure(
+                ["Id must be a valid UUID."],
+                400);
+        }
+
+        CategoryModel? category =
+            await uow.CategoryRepository.GetByIdAsync(
+                categoryId.ToString(),
+                ct);
 
         if (category is null)
         {
@@ -37,14 +70,24 @@ public sealed class UpdateCategoryUseCase(IUnitOfWork uow)
                 "Category not found.");
         }
 
-        if (dto.Name != null && category.Name != dto.Name)
+        if (dto.Name is not null &&
+            category.Name != dto.Name)
         {
-            bool check = await uow.CategoryRepository.ExistsByNameAsync(dto.Name, cancellationToken);
-            if (check)
-                return Result<CategoryModel>.Conflict($"Category with the name {dto.Name} already exists.");
+            bool exists =
+                await uow.CategoryRepository.ExistsByNameAsync(
+                    dto.Name,
+                    ct);
+
+            if (exists)
+            {
+                return Result<CategoryModel>.Conflict(
+                    $"Category with the name {dto.Name} already exists.");
+            }
         }
-        
+
         CategoryMapper.ApplyUpdate(dto, category);
+
+        uow.CategoryRepository.Update(category);
 
         return Result<CategoryModel>.Success(category);
     }
