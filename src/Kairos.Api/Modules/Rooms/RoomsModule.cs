@@ -2,6 +2,8 @@ using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Services.Interfaces;
 using Kairos.Api.Modules.Rooms.Room.Services.Providers;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
+using Kairos.Api.Modules.Rooms.RoomBlockout.Services.Interfaces;
+using Kairos.Api.Modules.Rooms.RoomBlockout.Services.Providers;
 using Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
 using Kairos.Api.Modules.Rooms.RoomTypes.Services.Interface;
 using Kairos.Api.Modules.Rooms.RoomTypes.Services.Provider;
@@ -34,6 +36,15 @@ public static class RoomsModule
         services.AddScoped<IUpdateRoomUseCase, UpdateRoomUseCase>();
         services.AddScoped<IExistsRoomByCodeUseCase, ExistsRoomByCodeUseCase>();
         services.AddScoped<IExistsRoomByIdUseCase, ExistsRoomByIdUseCase>();
+        
+        services.AddScoped<ICreateRoomBlockoutUseCase, CreateRoomBlockoutUseCase>();
+        // RoomBlockout use cases
+        services.AddScoped<ICreateRoomBlockoutUseCase, CreateRoomBlockoutUseCase>();
+        services.AddScoped<IDeleteRoomBlockoutByIdCase, DeleteRoomBlockoutByIdCase>();
+        services.AddScoped<IExistsRoomBlockoutByIdUseCase, ExistsRoomBlockoutByIdUseCase>();
+        services.AddScoped<IFindRoomBlockoutUseCase, FindRoomBlockoutUseCase>();
+        services.AddScoped<IUpdateRoomBlockoutUseCase, UpdateRoomBlockoutUseCase>();
+        services.AddScoped<ICancelRoomBlockoutUseCase, CancelRoomBlockoutUseCase>();
         
         return services;
     }
