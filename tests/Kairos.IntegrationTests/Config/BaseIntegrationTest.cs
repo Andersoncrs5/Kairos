@@ -839,7 +839,8 @@ public abstract class BaseIntegrationTest
             StartsAt = start,
             EndsAt = endsAt ?? start.AddHours(1),
             CreatedBy = createdBy,
-            CreatedAt = DateTimeOffset.UtcNow
+            CreatedAt = DateTimeOffset.UtcNow,
+            Type = RoomBlockoutType.Other    
         };
 
         configure?.Invoke(blockout);
