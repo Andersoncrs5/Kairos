@@ -24,6 +24,8 @@ using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Request;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Response;
 using Kairos.Api.Modules.Rooms.Room.Models;
+using Kairos.Api.Modules.Rooms.RoomBlockout.DTOs.Request;
+using Kairos.Api.Modules.Rooms.RoomBlockout.DTOs.Response;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
 using Kairos.Api.Modules.Rooms.RoomTypes.DTOs.Request;
 using Kairos.Api.Modules.Rooms.RoomTypes.DTOs.Response;
@@ -853,6 +855,90 @@ public abstract class BaseIntegrationTest
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return blockout;
+    }
+    
+    // ------------------------------------------------------------------
+    // Room Blockouts via HTTP
+    // ------------------------------------------------------------------
+
+    protected async Task<RoomBlockoutDto> CreateRoomBlockoutHttp(Tokens tokens)
+    {
+        var room = await CreateRoomHttp(tokens);
+        var inbox = await NewInboxAsync();
+
+        var now = DateTimeOffset.FromUnixTimeMilliseconds(
+            DateTimeOffset.UtcNow.AddDays(10).ToUnixTimeMilliseconds()
+        );
+
+        var dto = new CreateRoomBlockoutDto
+        {
+            RoomId = room.Id,
+            Type = RoomBlockoutType.Maintenance,
+            Reason = $"Integration Blockout {Guid.NewGuid():N}",
+            Notes = "Created by integration tests.",
+            StartsAt = now,
+            EndsAt = now.AddHours(2)
+        };
+
+        using var response = await SendAsync(
+            "/api/v1/room-blockouts",
+            body: dto,
+            accessToken: tokens.Token,
+            inboxId: inbox.Id);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await ReadAsync<RoomBlockoutDto>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().NotBeNullOrWhiteSpace();
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Id.Should().NotBeNullOrWhiteSpace();
+        http.Data.RoomId.Should().Be(dto.RoomId);
+        http.Data.Type.Should().Be(dto.Type);
+        http.Data.Status.Should().Be(RoomBlockoutStatus.Scheduled);
+        http.Data.Reason.Should().Be(dto.Reason);
+        http.Data.Notes.Should().Be(dto.Notes);
+        http.Data.StartsAt.Should().Be(dto.StartsAt);
+        http.Data.EndsAt.Should().Be(dto.EndsAt);
+        http.Data.CreatedBy.Should().NotBeNullOrWhiteSpace();
+
+        // Verifica a persistência no banco.
+        using var scope = CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var persisted = await db.Set<RoomBlockoutModel>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(blockout =>
+                blockout.Id == http.Data.Id);
+
+        persisted.Should().NotBeNull();
+
+        persisted!.Id.Should().Be(http.Data.Id);
+        persisted.RoomId.Should().Be(dto.RoomId);
+        persisted.Type.Should().Be(dto.Type);
+        persisted.Status.Should().Be(RoomBlockoutStatus.Scheduled);
+        persisted.Reason.Should().Be(dto.Reason);
+        persisted.Notes.Should().Be(dto.Notes);
+        persisted.StartsAt.Should().Be(dto.StartsAt);
+        persisted.EndsAt.Should().Be(dto.EndsAt);
+        persisted.CreatedBy.Should().Be(http.Data.CreatedBy);
+
+        persisted.Version.Should().Be(1);
+        persisted.CreatedAt.Should().NotBe(default);
+
+        // Verifica o processamento do Inbox.
+        var updatedInbox = await GetInboxAsync(inbox.Id);
+
+        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
+        updatedInbox.ProcessedAt.Should().NotBeNull();
+        updatedInbox.LockedBy.Should().BeNull();
+
+        return http.Data;
     }
 
     // ------------------------------------------------------------------
