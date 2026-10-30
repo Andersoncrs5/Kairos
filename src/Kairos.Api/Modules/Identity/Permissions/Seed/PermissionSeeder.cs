@@ -189,6 +189,11 @@ public class PermissionSeeder(IUnitOfWork uow) : IPermissionSeeder
                 PermissionModuleEnum.Rooms,
                 "Allows blocking a room for a time range."),
             CreatePermission(
+                "rooms.blockouts.cancel",
+                "Cancel room blockouts",
+                PermissionModuleEnum.Rooms,
+                "Allows blocking a room for a time range."),
+            CreatePermission(
                 "rooms.blockouts.read",
                 "Read room blockouts",
                 PermissionModuleEnum.Rooms,
