@@ -42,6 +42,7 @@ public static class RoomsModule
         services.AddScoped<ICreateRoomBlockoutUseCase, CreateRoomBlockoutUseCase>();
         services.AddScoped<IDeleteRoomBlockoutByIdCase, DeleteRoomBlockoutByIdCase>();
         services.AddScoped<IExistsRoomBlockoutByIdUseCase, ExistsRoomBlockoutByIdUseCase>();
+        services.AddScoped<IFindAllRoomBlockoutUseCase, FindAllRoomBlockoutUseCase>();
         services.AddScoped<IFindRoomBlockoutUseCase, FindRoomBlockoutUseCase>();
         services.AddScoped<IUpdateRoomBlockoutUseCase, UpdateRoomBlockoutUseCase>();
         services.AddScoped<ICancelRoomBlockoutUseCase, CancelRoomBlockoutUseCase>();
