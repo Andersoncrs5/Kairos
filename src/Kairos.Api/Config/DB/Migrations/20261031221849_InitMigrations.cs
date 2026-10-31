@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Kairos.Api.Config.DB.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class InitMigrations : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -119,29 +119,6 @@ namespace Kairos.Api.Config.DB.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_permissions", x => x.id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "reservations",
-                columns: table => new
-                {
-                    id = table.Column<string>(type: "text", nullable: false),
-                    room_id = table.Column<string>(type: "text", nullable: false),
-                    user_id = table.Column<string>(type: "text", nullable: false),
-                    category_id = table.Column<string>(type: "text", nullable: false),
-                    title = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
-                    starts_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    ends_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Confirmed"),
-                    idempotency_key = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    version = table.Column<long>(type: "bigint", nullable: false),
-                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_reservations", x => x.id);
-                    table.CheckConstraint("ck_reservations_valid_period", "starts_at < ends_at");
                 });
 
             migrationBuilder.CreateTable(
@@ -297,82 +274,29 @@ namespace Kairos.Api.Config.DB.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "reservation_attendees",
-                columns: table => new
-                {
-                    id = table.Column<string>(type: "text", nullable: false),
-                    reservation_id = table.Column<string>(type: "text", nullable: false),
-                    user_id = table.Column<string>(type: "text", nullable: false),
-                    status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Pending"),
-                    version = table.Column<long>(type: "bigint", nullable: false),
-                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_reservation_attendees", x => x.id);
-                    table.ForeignKey(
-                        name: "FK_reservation_attendees_app_users_user_id",
-                        column: x => x.user_id,
-                        principalTable: "app_users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_reservation_attendees_reservations_reservation_id",
-                        column: x => x.reservation_id,
-                        principalTable: "reservations",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "reservation_history",
-                columns: table => new
-                {
-                    id = table.Column<string>(type: "text", nullable: false),
-                    reservation_id = table.Column<string>(type: "text", nullable: false),
-                    actor_user_id = table.Column<string>(type: "text", nullable: false),
-                    action = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    old_values = table.Column<string>(type: "jsonb", nullable: true),
-                    new_values = table.Column<string>(type: "jsonb", nullable: true),
-                    version = table.Column<long>(type: "bigint", nullable: false),
-                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_reservation_history", x => x.id);
-                    table.ForeignKey(
-                        name: "FK_reservation_history_app_users_actor_user_id",
-                        column: x => x.actor_user_id,
-                        principalTable: "app_users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_reservation_history_reservations_reservation_id",
-                        column: x => x.reservation_id,
-                        principalTable: "reservations",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "rooms",
                 columns: table => new
                 {
                     id = table.Column<string>(type: "text", nullable: false),
                     room_type_id = table.Column<string>(type: "text", nullable: false),
+                    code = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     name = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
+                    description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     location = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
+                    floor = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
                     capacity = table.Column<int>(type: "integer", nullable: false),
+                    area_square_meters = table.Column<decimal>(type: "numeric(10,2)", precision: 10, scale: 2, nullable: true),
+                    is_accessible = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    is_reservable = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_rooms", x => x.id);
+                    table.CheckConstraint("ck_rooms_area_square_meters", "area_square_meters IS NULL OR area_square_meters > 0");
                     table.CheckConstraint("ck_rooms_capacity", "capacity > 0");
                     table.ForeignKey(
                         name: "FK_rooms_RoomTypes_room_type_id",
@@ -383,14 +307,73 @@ namespace Kairos.Api.Config.DB.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "reservations",
+                columns: table => new
+                {
+                    id = table.Column<string>(type: "text", nullable: false),
+                    room_id = table.Column<string>(type: "text", nullable: false),
+                    user_id = table.Column<string>(type: "text", nullable: false),
+                    category_id = table.Column<string>(type: "text", nullable: false),
+                    title = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
+                    description = table.Column<string>(type: "text", nullable: true),
+                    starts_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    ends_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Confirmed"),
+                    idempotency_key = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    cancelled_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    cancelled_by = table.Column<string>(type: "text", nullable: true),
+                    cancellation_reason = table.Column<string>(type: "text", nullable: true),
+                    checked_in_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    checked_out_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    version = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_reservations", x => x.id);
+                    table.CheckConstraint("ck_reservations_valid_period", "starts_at < ends_at");
+                    table.ForeignKey(
+                        name: "FK_reservations_app_users_cancelled_by",
+                        column: x => x.cancelled_by,
+                        principalTable: "app_users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_reservations_app_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "app_users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_reservations_categories_category_id",
+                        column: x => x.category_id,
+                        principalTable: "categories",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_reservations_rooms_room_id",
+                        column: x => x.room_id,
+                        principalTable: "rooms",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "room_blockouts",
                 columns: table => new
                 {
                     id = table.Column<string>(type: "text", nullable: false),
                     room_id = table.Column<string>(type: "text", nullable: false),
+                    type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     reason = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    notes = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     starts_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ends_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    cancelled_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    cancellation_reason = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    cancelled_by = table.Column<string>(type: "text", nullable: true),
                     created_by = table.Column<string>(type: "text", nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -400,6 +383,12 @@ namespace Kairos.Api.Config.DB.Migrations
                 {
                     table.PrimaryKey("PK_room_blockouts", x => x.id);
                     table.CheckConstraint("ck_room_blockouts_valid_period", "starts_at < ends_at");
+                    table.ForeignKey(
+                        name: "FK_room_blockouts_app_users_cancelled_by",
+                        column: x => x.cancelled_by,
+                        principalTable: "app_users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_room_blockouts_app_users_created_by",
                         column: x => x.created_by,
@@ -491,37 +480,36 @@ namespace Kairos.Api.Config.DB.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_reservation_attendees_reservation_id_user_id",
-                table: "reservation_attendees",
-                columns: new[] { "reservation_id", "user_id" },
-                unique: true);
+                name: "IX_reservations_cancelled_by",
+                table: "reservations",
+                column: "cancelled_by");
 
             migrationBuilder.CreateIndex(
-                name: "IX_reservation_attendees_user_id",
-                table: "reservation_attendees",
-                column: "user_id");
+                name: "IX_reservations_category_id",
+                table: "reservations",
+                column: "category_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_reservation_history_actor_user_id",
-                table: "reservation_history",
-                column: "actor_user_id");
+                name: "ix_reservations_room_period",
+                table: "reservations",
+                columns: new[] { "room_id", "starts_at", "ends_at" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_reservation_history_reservation_id",
-                table: "reservation_history",
-                column: "reservation_id");
+                name: "ix_reservations_user_starts_at",
+                table: "reservations",
+                columns: new[] { "user_id", "starts_at" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_reservation_history_reservation_id_created_at",
-                table: "reservation_history",
-                columns: new[] { "reservation_id", "created_at" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_reservations_user_id_idempotency_key",
+                name: "ux_reservations_user_idempotency_key",
                 table: "reservations",
                 columns: new[] { "user_id", "idempotency_key" },
                 unique: true,
                 filter: "idempotency_key IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_room_blockouts_cancelled_by",
+                table: "room_blockouts",
+                column: "cancelled_by");
 
             migrationBuilder.CreateIndex(
                 name: "IX_room_blockouts_created_by",
@@ -537,6 +525,17 @@ namespace Kairos.Api.Config.DB.Migrations
                 name: "IX_room_blockouts_room_id_starts_at_ends_at",
                 table: "room_blockouts",
                 columns: new[] { "room_id", "starts_at", "ends_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_room_blockouts_room_id_status_starts_at",
+                table: "room_blockouts",
+                columns: new[] { "room_id", "status", "starts_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_rooms_code",
+                table: "rooms",
+                column: "code",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_rooms_room_type_id",
@@ -569,19 +568,13 @@ namespace Kairos.Api.Config.DB.Migrations
                 name: "app_user_tokens");
 
             migrationBuilder.DropTable(
-                name: "categories");
-
-            migrationBuilder.DropTable(
                 name: "InboxMessages");
 
             migrationBuilder.DropTable(
                 name: "permissions_users");
 
             migrationBuilder.DropTable(
-                name: "reservation_attendees");
-
-            migrationBuilder.DropTable(
-                name: "reservation_history");
+                name: "reservations");
 
             migrationBuilder.DropTable(
                 name: "room_blockouts");
@@ -593,7 +586,7 @@ namespace Kairos.Api.Config.DB.Migrations
                 name: "permissions");
 
             migrationBuilder.DropTable(
-                name: "reservations");
+                name: "categories");
 
             migrationBuilder.DropTable(
                 name: "app_users");

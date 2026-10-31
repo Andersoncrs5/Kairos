@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Kairos.Api.Config.DB.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261026174141_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20261031221849_InitMigrations")]
+    partial class InitMigrations
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -343,14 +343,38 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnType("text")
                         .HasColumnName("id");
 
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("text")
+                        .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<string>("CancelledBy")
+                        .HasColumnType("text")
+                        .HasColumnName("cancelled_by");
+
                     b.Property<string>("CategoryId")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("category_id");
 
+                    b.Property<DateTimeOffset?>("CheckedInAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_in_at");
+
+                    b.Property<DateTimeOffset?>("CheckedOutAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_out_at");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
 
                     b.Property<DateTimeOffset>("EndsAt")
                         .HasColumnType("timestamp with time zone")
@@ -399,113 +423,25 @@ namespace Kairos.Api.Config.DB.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CancelledBy");
+
+                    b.HasIndex("CategoryId");
+
                     b.HasIndex("UserId", "IdempotencyKey")
                         .IsUnique()
+                        .HasDatabaseName("ux_reservations_user_idempotency_key")
                         .HasFilter("idempotency_key IS NOT NULL");
+
+                    b.HasIndex("UserId", "StartsAt")
+                        .HasDatabaseName("ix_reservations_user_starts_at");
+
+                    b.HasIndex("RoomId", "StartsAt", "EndsAt")
+                        .HasDatabaseName("ix_reservations_room_period");
 
                     b.ToTable("reservations", null, t =>
                         {
                             t.HasCheckConstraint("ck_reservations_valid_period", "starts_at < ends_at");
                         });
-                });
-
-            modelBuilder.Entity("Kairos.Api.Modules.Reservations.ReservationAttendee.Models.ReservationAttendeeModel", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("text")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("ReservationId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("reservation_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("Pending")
-                        .HasColumnName("status");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("user_id");
-
-                    b.Property<long>("Version")
-                        .HasColumnType("bigint")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("ReservationId", "UserId")
-                        .IsUnique();
-
-                    b.ToTable("reservation_attendees", (string)null);
-                });
-
-            modelBuilder.Entity("Kairos.Api.Modules.Reservations.ReservationHistory.Models.ReservationHistoryModel", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("text")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("action");
-
-                    b.Property<string>("ActorUserId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("actor_user_id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("NewValues")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("new_values");
-
-                    b.Property<string>("OldValues")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("old_values");
-
-                    b.Property<string>("ReservationId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("reservation_id");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<long>("Version")
-                        .HasColumnType("bigint")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActorUserId");
-
-                    b.HasIndex("ReservationId");
-
-                    b.HasIndex("ReservationId", "CreatedAt");
-
-                    b.ToTable("reservation_history", (string)null);
                 });
 
             modelBuilder.Entity("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", b =>
@@ -514,19 +450,52 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnType("text")
                         .HasColumnName("id");
 
+                    b.Property<decimal?>("AreaSquareMeters")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("area_square_meters");
+
                     b.Property<int>("Capacity")
                         .HasColumnType("integer")
                         .HasColumnName("capacity");
 
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("code");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Floor")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("floor");
+
+                    b.Property<bool>("IsAccessible")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_accessible");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
+
+                    b.Property<bool>("IsReservable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_reservable");
 
                     b.Property<string>("Location")
                         .IsRequired()
@@ -545,7 +514,7 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnType("text")
                         .HasColumnName("room_type_id");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
+                    b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
@@ -555,10 +524,15 @@ namespace Kairos.Api.Config.DB.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Code")
+                        .IsUnique();
+
                     b.HasIndex("RoomTypeId");
 
                     b.ToTable("rooms", null, t =>
                         {
+                            t.HasCheckConstraint("ck_rooms_area_square_meters", "area_square_meters IS NULL OR area_square_meters > 0");
+
                             t.HasCheckConstraint("ck_rooms_capacity", "capacity > 0");
                         });
                 });
@@ -568,6 +542,19 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text")
                         .HasColumnName("id");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<string>("CancelledBy")
+                        .HasColumnType("text")
+                        .HasColumnName("cancelled_by");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -581,6 +568,11 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.Property<DateTimeOffset>("EndsAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ends_at");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
 
                     b.Property<string>("Reason")
                         .IsRequired()
@@ -597,6 +589,18 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("starts_at");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("type");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -607,11 +611,15 @@ namespace Kairos.Api.Config.DB.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CancelledBy");
+
                     b.HasIndex("CreatedBy");
 
                     b.HasIndex("RoomId");
 
                     b.HasIndex("RoomId", "StartsAt", "EndsAt");
+
+                    b.HasIndex("RoomId", "Status", "StartsAt");
 
                     b.ToTable("room_blockouts", null, t =>
                         {
@@ -798,71 +806,92 @@ namespace Kairos.Api.Config.DB.Migrations
 
             modelBuilder.Entity("Kairos.Api.Modules.Identity.PermissionUsers.Models.PermissionUserModel", b =>
                 {
-                    b.HasOne("Kairos.Api.Modules.Identity.Permissions.Models.PermissionsModel", null)
+                    b.HasOne("Kairos.Api.Modules.Identity.Permissions.Models.PermissionsModel", "Permissions")
                         .WithMany()
                         .HasForeignKey("PermissionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", null)
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Permissions");
+
+                    b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Kairos.Api.Modules.Reservations.ReservationAttendee.Models.ReservationAttendeeModel", b =>
+            modelBuilder.Entity("Kairos.Api.Modules.Reservations.Reservation.Models.ReservationModel", b =>
                 {
-                    b.HasOne("Kairos.Api.Modules.Reservations.Reservation.Models.ReservationModel", null)
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "Canceller")
                         .WithMany()
-                        .HasForeignKey("ReservationId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("CancelledBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Kairos.Api.Modules.Categories.Models.CategoryModel", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", null)
+                    b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-                });
 
-            modelBuilder.Entity("Kairos.Api.Modules.Reservations.ReservationHistory.Models.ReservationHistoryModel", b =>
-                {
-                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", null)
-                        .WithMany()
-                        .HasForeignKey("ActorUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.Navigation("Canceller");
 
-                    b.HasOne("Kairos.Api.Modules.Reservations.Reservation.Models.ReservationModel", null)
-                        .WithMany()
-                        .HasForeignKey("ReservationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.Navigation("Category");
+
+                    b.Navigation("Room");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", b =>
                 {
-                    b.HasOne("Kairos.Api.Modules.Rooms.RoomTypes.Models.RoomTypeModel", null)
+                    b.HasOne("Kairos.Api.Modules.Rooms.RoomTypes.Models.RoomTypeModel", "RoomTypeModel")
                         .WithMany()
                         .HasForeignKey("RoomTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("RoomTypeModel");
                 });
 
             modelBuilder.Entity("Kairos.Api.Modules.Rooms.RoomBlockout.Models.RoomBlockoutModel", b =>
                 {
-                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", null)
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "Canceller")
+                        .WithMany()
+                        .HasForeignKey("CancelledBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "Creater")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", null)
+                    b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", "Room")
                         .WithMany()
                         .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Canceller");
+
+                    b.Navigation("Creater");
+
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

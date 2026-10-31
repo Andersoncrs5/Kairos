@@ -54,14 +54,6 @@
     <Folder Include="Modules\Identity\Users\Models\" />
     <Folder Include="Modules\Reliability\Inbox\Controller\" />
     <Folder Include="Modules\Reliability\Outbox\" />
-    <Folder Include="Modules\Reservations\ReservationAttendee\Controllers\" />
-    <Folder Include="Modules\Reservations\ReservationAttendee\DTOs\" />
-    <Folder Include="Modules\Reservations\ReservationAttendee\Repositories\" />
-    <Folder Include="Modules\Reservations\ReservationAttendee\Services\" />
-    <Folder Include="Modules\Reservations\ReservationHistory\Controllers\" />
-    <Folder Include="Modules\Reservations\ReservationHistory\DTOs\" />
-    <Folder Include="Modules\Reservations\ReservationHistory\Repositories\" />
-    <Folder Include="Modules\Reservations\ReservationHistory\Services\" />
     <Folder Include="Modules\Rooms\RoomTypes\Configurations\" />
     <Folder Include="Modules\Rooms\RoomTypes\Models\" />
     <Folder Include="Modules\Rooms\Room\Configurations\" />

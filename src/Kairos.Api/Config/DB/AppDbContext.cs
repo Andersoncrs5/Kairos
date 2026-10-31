@@ -5,8 +5,6 @@ using Kairos.Api.Modules.Identity.PermissionUsers.Models;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reservations.Reservation.Models;
-using Kairos.Api.Modules.Reservations.ReservationAttendee.Models;
-using Kairos.Api.Modules.Reservations.ReservationHistory.Models;
 using Kairos.Api.Modules.Rooms.Room.Models;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
 using Kairos.Api.Modules.Rooms.RoomTypes.Models;
@@ -36,12 +34,6 @@ public class AppDbContext(DbContextOptions options)
     public DbSet<ReservationModel> Reservations =>
         Set<ReservationModel>();
 
-    public DbSet<ReservationHistoryModel> ReservationHistory =>
-        Set<ReservationHistoryModel>();
-
-    public DbSet<ReservationAttendeeModel> ReservationAttendees =>
-        Set<ReservationAttendeeModel>();
-    
     public DbSet<InboxModel> Inbox =>
         Set<InboxModel>();
 
