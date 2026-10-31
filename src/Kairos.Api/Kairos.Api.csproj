@@ -54,6 +54,8 @@
     <Folder Include="Modules\Identity\Users\Models\" />
     <Folder Include="Modules\Reliability\Inbox\Controller\" />
     <Folder Include="Modules\Reliability\Outbox\" />
+    <Folder Include="Modules\Rooms\RoomOperatingHour\Services\Interfaces\" />
+    <Folder Include="Modules\Rooms\RoomOperatingHour\Services\Providers\" />
     <Folder Include="Modules\Rooms\RoomTypes\Configurations\" />
     <Folder Include="Modules\Rooms\RoomTypes\Models\" />
     <Folder Include="Modules\Rooms\Room\Configurations\" />
