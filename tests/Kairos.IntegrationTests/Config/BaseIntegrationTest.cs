@@ -21,6 +21,9 @@ using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Identity.Users.Repositories;
 using Kairos.Api.Modules.Reliability.Inbox.Model;
+using Kairos.Api.Modules.Reservations.Reservation.DTOs.Request;
+using Kairos.Api.Modules.Reservations.Reservation.DTOs.Response;
+using Kairos.Api.Modules.Reservations.Reservation.Models;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Request;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Response;
 using Kairos.Api.Modules.Rooms.Room.Models;
@@ -941,6 +944,187 @@ public abstract class BaseIntegrationTest
         return http.Data;
     }
 
+    // ------------------------------------------------------------------
+    // Reservations via HTTP
+    // ------------------------------------------------------------------
+
+    protected async Task<ReservationDto> CreateReservationHttp(Tokens tokens)
+    {
+        // Cria as dependências necessárias.
+        var category = await CreateCategoryHttp(tokens);
+        var room = await CreateRoomHttp(tokens);
+
+        var inbox = await NewInboxAsync();
+
+        var startsAt = DateTimeOffset.FromUnixTimeMilliseconds(
+            DateTimeOffset.UtcNow
+                .AddDays(10)
+                .ToUnixTimeMilliseconds());
+
+        var dto = new CreateReservationDto
+        {
+            RoomId = room.Id,
+            CategoryId = category.Id,
+            Title = $"Integration Reservation {Guid.NewGuid():N}",
+            Description = "Created by integration tests.",
+            StartsAt = startsAt,
+            EndsAt = startsAt.AddHours(2),
+            IdempotencyKey = $"integration-{Guid.NewGuid():N}"
+        };
+
+        using var response = await SendAsync(
+            "/api/v1/reservations",
+            body: dto,
+            accessToken: tokens.Token,
+            inboxId: inbox.Id);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await ReadAsync<ReservationDto>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().NotBeNullOrWhiteSpace();
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Id.Should().NotBeNullOrWhiteSpace();
+        http.Data.RoomId.Should().Be(dto.RoomId);
+        http.Data.CategoryId.Should().Be(dto.CategoryId);
+        http.Data.UserId.Should().NotBeNullOrWhiteSpace();
+        http.Data.Title.Should().Be(dto.Title);
+        http.Data.Description.Should().Be(dto.Description);
+        http.Data.StartsAt.Should().Be(dto.StartsAt);
+        http.Data.EndsAt.Should().Be(dto.EndsAt);
+        http.Data.Status.Should().Be(ReservationStatusEnum.Confirmed);
+
+        http.Data.CancelledAt.Should().BeNull();
+        http.Data.CancelledBy.Should().BeNull();
+        http.Data.CancellationReason.Should().BeNull();
+
+        // Verifica a persistência no banco.
+        using var scope = CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var persisted = await db.Set<ReservationModel>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(reservation =>
+                reservation.Id == http.Data.Id);
+
+        persisted.Should().NotBeNull();
+
+        persisted!.Id.Should().Be(http.Data.Id);
+        persisted.RoomId.Should().Be(dto.RoomId);
+        persisted.CategoryId.Should().Be(dto.CategoryId);
+        persisted.UserId.Should().Be(http.Data.UserId);
+        persisted.Title.Should().Be(dto.Title);
+        persisted.Description.Should().Be(dto.Description);
+        persisted.StartsAt.Should().Be(dto.StartsAt);
+        persisted.EndsAt.Should().Be(dto.EndsAt);
+        persisted.IdempotencyKey.Should().Be(dto.IdempotencyKey);
+        persisted.Status.Should().Be(ReservationStatusEnum.Confirmed);
+
+        persisted.Version.Should().Be(1);
+        persisted.CreatedAt.Should().NotBe(default);
+        persisted.UpdatedAt.Should().BeNull();
+
+        persisted.CancelledAt.Should().BeNull();
+        persisted.CancelledBy.Should().BeNull();
+        persisted.CancellationReason.Should().BeNull();
+        persisted.CheckedInAt.Should().BeNull();
+        persisted.CheckedOutAt.Should().BeNull();
+
+        // Verifica o processamento do Inbox.
+        var updatedInbox = await GetInboxAsync(inbox.Id);
+
+        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
+        updatedInbox.ProcessedAt.Should().NotBeNull();
+        updatedInbox.LockedBy.Should().BeNull();
+
+        return http.Data;
+    }
+    
+    // ------------------------------------------------------------------
+    // Reservations: Cancel via HTTP
+    // ------------------------------------------------------------------
+
+    protected async Task<ReservationDto> CancelReservationHttp(
+        Tokens tokens,
+        string reservationId,
+        string? cancellationReason = "Cancelled by integration tests.")
+    {
+        var inbox = await NewInboxAsync();
+
+        var dto = new CancelReservationDto
+        {
+            CancellationReason = cancellationReason
+        };
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/reservations/{Uri.EscapeDataString(reservationId)}/cancel")
+        {
+            Content = JsonContent.Create(dto)
+        };
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens.Token);
+
+        request.Headers.Add(InboxHeader, inbox.Id);
+
+        using var response = await Client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var http = await ReadAsync<ReservationDto>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().Be(inbox.Id);
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Id.Should().Be(reservationId);
+        http.Data.Status.Should().Be(ReservationStatusEnum.Cancelled);
+        http.Data.CancelledAt.Should().NotBeNull();
+        http.Data.CancelledBy.Should().NotBeNullOrWhiteSpace();
+
+        string? expectedReason = string.IsNullOrWhiteSpace(cancellationReason)
+            ? null
+            : cancellationReason.Trim();
+
+        http.Data.CancellationReason.Should().Be(expectedReason);
+
+        // Verifica a persistência.
+        using var scope = CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var persisted = await db.Set<ReservationModel>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == reservationId);
+
+        persisted.Should().NotBeNull();
+
+        persisted!.Status.Should().Be(ReservationStatusEnum.Cancelled);
+        persisted.CancelledAt.Should().NotBeNull();
+        persisted.CancelledBy.Should().Be(http.Data.CancelledBy);
+        persisted.CancellationReason.Should().Be(expectedReason);
+
+        persisted.CreatedAt.Should().NotBe(default);
+        persisted.UpdatedAt.Should().NotBeNull();
+
+        // Verifica o processamento do Inbox.
+        var updatedInbox = await GetInboxAsync(inbox.Id);
+
+        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
+        updatedInbox.ProcessedAt.Should().NotBeNull();
+        updatedInbox.LockedBy.Should().BeNull();
+
+        return http.Data;
+    }
+    
     // ------------------------------------------------------------------
     // JWT
     // ------------------------------------------------------------------
