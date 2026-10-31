@@ -7,6 +7,15 @@ namespace Kairos.Api.Modules.Rooms.RoomBlockout.DTOs.Request;
 public sealed class FilterRoomBlockoutDto : BaseFilter
 {
     public string? RoomId { get; init; }
+    [StringLength(30, ErrorMessage = "Room code cannot exceed 30 characters.")]
+    public string? CodeRoom { get; init; }
+
+    public bool? CodeRoomIgnoreCase { get; init; }
+
+    [StringLength(120, ErrorMessage = "Room name cannot exceed 120 characters.")]
+    public string? NameRoom { get; init; }
+
+    public bool? NameRoomIgnoreCase { get; init; }
 
     [EnumDataType(
         typeof(RoomBlockoutType),
@@ -39,8 +48,26 @@ public sealed class FilterRoomBlockoutDto : BaseFilter
     public DateTimeOffset? EndsAtFrom { get; init; }
 
     public DateTimeOffset? EndsAtTo { get; init; }
+    
 
     public string? CreatedBy { get; init; }
+    public string? CreatedUserName { get; set; }
+    public bool? CreatedIgnoreCaseUserName { get; set; }
+
+    public string? CreatedEmail { get; set; }
+    public bool? CreatedIgnoreCaseEmail { get; set; }
+    
+    public string? CreatedFullName { get; set; }
+    public bool? CreatedIgnoreCaseFullName { get; set; }
+    
 
     public string? CancelledBy { get; init; }
+    public string? CancelledUserName { get; set; }
+    public bool? CancelledIgnoreCaseUserName { get; set; }
+
+    public string? CancelledEmail { get; set; }
+    public bool? CancelledIgnoreCaseEmail { get; set; }
+    
+    public string? CancelledFullName { get; set; }
+    public bool? CancelledIgnoreCaseFullName { get; set; }
 }

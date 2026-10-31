@@ -1,18 +1,15 @@
 using System.ComponentModel.DataAnnotations;
+using Kairos.Api.Modules.Reservations.Reservation.DTOs.Request;
 
 namespace Kairos.Api.Modules.Reservations.Reservation.DTOs.Commands;
 
 public sealed record CancelReservationCommand(
-    [property: Required(
-        ErrorMessage = "Reservation ID is required.")]
+    [property: Required(ErrorMessage = "Reservation ID is required.")]
     string ReservationId,
 
-    [property: StringLength(
-        255,
-        ErrorMessage = "Reservation cancellation reason cannot exceed 255 characters.")]
-    string? CancellationReason,
+    [property: Required(ErrorMessage = "Cancellation user ID is required.")]
+    string UserId,
 
-    [property: Required(
-        ErrorMessage = "Reservation canceller ID is required.")]
-    string CancelledBy
+    [property: Required(ErrorMessage = "Cancellation data is required.")]
+    CancelReservationDto Dto
 );
