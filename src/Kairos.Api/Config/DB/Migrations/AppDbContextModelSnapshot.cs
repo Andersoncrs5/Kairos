@@ -340,14 +340,38 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnType("text")
                         .HasColumnName("id");
 
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("text")
+                        .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<string>("CancelledBy")
+                        .HasColumnType("text")
+                        .HasColumnName("cancelled_by");
+
                     b.Property<string>("CategoryId")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("category_id");
 
+                    b.Property<DateTimeOffset?>("CheckedInAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_in_at");
+
+                    b.Property<DateTimeOffset?>("CheckedOutAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_out_at");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
 
                     b.Property<DateTimeOffset>("EndsAt")
                         .HasColumnType("timestamp with time zone")
@@ -396,9 +420,20 @@ namespace Kairos.Api.Config.DB.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CancelledBy");
+
+                    b.HasIndex("CategoryId");
+
                     b.HasIndex("UserId", "IdempotencyKey")
                         .IsUnique()
+                        .HasDatabaseName("ux_reservations_user_idempotency_key")
                         .HasFilter("idempotency_key IS NOT NULL");
+
+                    b.HasIndex("UserId", "StartsAt")
+                        .HasDatabaseName("ix_reservations_user_starts_at");
+
+                    b.HasIndex("RoomId", "StartsAt", "EndsAt")
+                        .HasDatabaseName("ix_reservations_room_period");
 
                     b.ToTable("reservations", null, t =>
                         {
@@ -880,6 +915,40 @@ namespace Kairos.Api.Config.DB.Migrations
                         .IsRequired();
 
                     b.Navigation("Permissions");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Kairos.Api.Modules.Reservations.Reservation.Models.ReservationModel", b =>
+                {
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "Canceller")
+                        .WithMany()
+                        .HasForeignKey("CancelledBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Kairos.Api.Modules.Categories.Models.CategoryModel", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Canceller");
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Room");
 
                     b.Navigation("User");
                 });
