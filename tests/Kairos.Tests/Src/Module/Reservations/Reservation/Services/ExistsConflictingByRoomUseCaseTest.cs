@@ -1,11 +1,13 @@
 using Kairos.Api.Config.UnitOfWork;
+using Kairos.Api.Modules.Reservations.Reservation.DTOs.Commands;
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
 using Kairos.Api.Modules.Reservations.Reservation.Services.Providers;
 using Moq;
+using Xunit;
 
 namespace Kairos.Tests.Module.Reservations.Reservation.Services;
 
-public class ExistsConflictingByRoomUseCaseTest
+public sealed class ExistsConflictingByRoomUseCaseTest
 {
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IReservationRepository> _reservationRepositoryMock;
@@ -25,28 +27,26 @@ public class ExistsConflictingByRoomUseCaseTest
             _unitOfWorkMock.Object);
     }
 
+    // ---------------------------------------------------------------
+    // Sucesso
+    // ---------------------------------------------------------------
+
     [Fact]
     public async Task ExecuteAsync_WhenConflictExists_ReturnsTrue()
     {
         // Arrange
-        const string roomId = "room-123";
-
-        DateTimeOffset startsAt = new(2026, 11, 10, 10, 0, 0, TimeSpan.Zero);
-        DateTimeOffset endsAt = startsAt.AddHours(1);
+        ReservationRoomConflictCommand command = NewCommand();
 
         _reservationRepositoryMock
             .Setup(x => x.ExistsConflictingByRoomAsync(
-                roomId,
-                startsAt,
-                endsAt,
+                command.RoomId,
+                command.StartsAt,
+                command.EndsAt,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         // Act
-        var result = await _sut.ExecuteAsync(
-            roomId,
-            startsAt,
-            endsAt);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         Assert.False(result.IsFailure);
@@ -54,9 +54,9 @@ public class ExistsConflictingByRoomUseCaseTest
 
         _reservationRepositoryMock.Verify(
             x => x.ExistsConflictingByRoomAsync(
-                roomId,
-                startsAt,
-                endsAt,
+                command.RoomId,
+                command.StartsAt,
+                command.EndsAt,
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -65,24 +65,18 @@ public class ExistsConflictingByRoomUseCaseTest
     public async Task ExecuteAsync_WhenNoConflictExists_ReturnsFalse()
     {
         // Arrange
-        const string roomId = "room-123";
-
-        DateTimeOffset startsAt = new(2026, 11, 10, 10, 0, 0, TimeSpan.Zero);
-        DateTimeOffset endsAt = startsAt.AddHours(1);
+        ReservationRoomConflictCommand command = NewCommand();
 
         _reservationRepositoryMock
             .Setup(x => x.ExistsConflictingByRoomAsync(
-                roomId,
-                startsAt,
-                endsAt,
+                command.RoomId,
+                command.StartsAt,
+                command.EndsAt,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         // Act
-        var result = await _sut.ExecuteAsync(
-            roomId,
-            startsAt,
-            endsAt);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         Assert.False(result.IsFailure);
@@ -90,11 +84,97 @@ public class ExistsConflictingByRoomUseCaseTest
 
         _reservationRepositoryMock.Verify(
             x => x.ExistsConflictingByRoomAsync(
-                roomId,
-                startsAt,
-                endsAt,
+                command.RoomId,
+                command.StartsAt,
+                command.EndsAt,
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenRoomIdContainsWhitespace_TrimsRoomId()
+    {
+        // Arrange
+        const string roomId = " room-123 ";
+        const string expectedRoomId = "room-123";
+
+        ReservationRoomConflictCommand command = NewCommand(roomId);
+
+        _reservationRepositoryMock
+            .Setup(x => x.ExistsConflictingByRoomAsync(
+                expectedRoomId,
+                command.StartsAt,
+                command.EndsAt,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _sut.ExecuteAsync(command);
+
+        // Assert
+        Assert.False(result.IsFailure);
+        Assert.False(result.Value);
+
+        _reservationRepositoryMock.Verify(
+            x => x.ExistsConflictingByRoomAsync(
+                expectedRoomId,
+                command.StartsAt,
+                command.EndsAt,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCancellationTokenIsProvided_PassesItToRepository()
+    {
+        // Arrange
+        using CancellationTokenSource cts = new();
+
+        ReservationRoomConflictCommand command = NewCommand();
+
+        _reservationRepositoryMock
+            .Setup(x => x.ExistsConflictingByRoomAsync(
+                command.RoomId,
+                command.StartsAt,
+                command.EndsAt,
+                cts.Token))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _sut.ExecuteAsync(command, cts.Token);
+
+        // Assert
+        Assert.False(result.IsFailure);
+
+        _reservationRepositoryMock.Verify(
+            x => x.ExistsConflictingByRoomAsync(
+                command.RoomId,
+                command.StartsAt,
+                command.EndsAt,
+                cts.Token),
+            Times.Once);
+    }
+
+    // ---------------------------------------------------------------
+    // Validação
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCommandIsNull_ReturnsValidationFailure()
+    {
+        // Act
+        var result = await _sut.ExecuteAsync(null!);
+
+        // Assert
+        Assert.True(result.IsFailure);
+
+        _reservationRepositoryMock.Verify(
+            x => x.ExistsConflictingByRoomAsync(
+                It.IsAny<string>(),
+                It.IsAny<DateTimeOffset>(),
+                It.IsAny<DateTimeOffset>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Theory]
@@ -105,14 +185,10 @@ public class ExistsConflictingByRoomUseCaseTest
         string roomId)
     {
         // Arrange
-        DateTimeOffset startsAt = new(2026, 11, 10, 10, 0, 0, TimeSpan.Zero);
-        DateTimeOffset endsAt = startsAt.AddHours(1);
+        ReservationRoomConflictCommand command = NewCommand(roomId);
 
         // Act
-        var result = await _sut.ExecuteAsync(
-            roomId,
-            startsAt,
-            endsAt);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         Assert.True(result.IsFailure);
@@ -133,16 +209,17 @@ public class ExistsConflictingByRoomUseCaseTest
         int endOffsetMinutes)
     {
         // Arrange
-        const string roomId = "room-123";
+        DateTimeOffset startsAt = new(
+            2026, 11, 10, 10, 0, 0, TimeSpan.Zero);
 
-        DateTimeOffset startsAt = new(2026, 11, 10, 10, 0, 0, TimeSpan.Zero);
         DateTimeOffset endsAt = startsAt.AddMinutes(endOffsetMinutes);
 
+        ReservationRoomConflictCommand command = NewCommand(
+            startsAt: startsAt,
+            endsAt: endsAt);
+
         // Act
-        var result = await _sut.ExecuteAsync(
-            roomId,
-            startsAt,
-            endsAt);
+        var result = await _sut.ExecuteAsync(command);
 
         // Assert
         Assert.True(result.IsFailure);
@@ -156,69 +233,25 @@ public class ExistsConflictingByRoomUseCaseTest
             Times.Never);
     }
 
-    [Fact]
-    public async Task ExecuteAsync_WhenRoomIdContainsWhitespace_TrimsRoomId()
+    // ---------------------------------------------------------------
+    // Cancellation
+    // ---------------------------------------------------------------
+
+    // ---------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------
+
+    private static ReservationRoomConflictCommand NewCommand(
+        string roomId = "room-123",
+        DateTimeOffset? startsAt = null,
+        DateTimeOffset? endsAt = null)
     {
-        // Arrange
-        const string roomId = " room-123 ";
-        const string expectedRoomId = "room-123";
+        DateTimeOffset start = startsAt ?? new DateTimeOffset(
+            2026, 11, 10, 10, 0, 0, TimeSpan.Zero);
 
-        DateTimeOffset startsAt = new(2026, 11, 10, 10, 0, 0, TimeSpan.Zero);
-        DateTimeOffset endsAt = startsAt.AddHours(1);
-
-        _reservationRepositoryMock
-            .Setup(x => x.ExistsConflictingByRoomAsync(
-                expectedRoomId,
-                startsAt,
-                endsAt,
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        // Act
-        var result = await _sut.ExecuteAsync(
+        return new ReservationRoomConflictCommand(
             roomId,
-            startsAt,
-            endsAt);
-
-        // Assert
-        Assert.False(result.IsFailure);
-        Assert.False(result.Value);
-
-        _reservationRepositoryMock.Verify(
-            x => x.ExistsConflictingByRoomAsync(
-                expectedRoomId,
-                startsAt,
-                endsAt,
-                It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenCancellationIsRequested_ThrowsOperationCanceledException()
-    {
-        // Arrange
-        using CancellationTokenSource cts = new();
-        await cts.CancelAsync();
-
-        DateTimeOffset startsAt = new(2026, 11, 10, 10, 0, 0, TimeSpan.Zero);
-        DateTimeOffset endsAt = startsAt.AddHours(1);
-
-        // Act
-        Task act() => _sut.ExecuteAsync(
-            "room-123",
-            startsAt,
-            endsAt,
-            cts.Token);
-
-        // Assert
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(act);
-
-        _reservationRepositoryMock.Verify(
-            x => x.ExistsConflictingByRoomAsync(
-                It.IsAny<string>(),
-                It.IsAny<DateTimeOffset>(),
-                It.IsAny<DateTimeOffset>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+            start,
+            endsAt ?? start.AddHours(1));
     }
 }
