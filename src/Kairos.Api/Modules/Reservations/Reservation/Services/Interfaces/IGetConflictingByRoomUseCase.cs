@@ -1,13 +1,13 @@
+using Kairos.Api.Common.Base.Services;
 using Kairos.Api.Common.Result;
+using Kairos.Api.Modules.Reservations.Reservation.DTOs.Commands;
 using Kairos.Api.Modules.Reservations.Reservation.Models;
 
 namespace Kairos.Api.Modules.Reservations.Reservation.Services.Interfaces;
 
 public interface IGetConflictingByRoomUseCase
+    : IUseCase<
+        ReservationRoomConflictCommand,
+        Result<IReadOnlyList<ReservationModel>>>
 {
-    Task<Result<IReadOnlyList<ReservationModel>>> ExecuteAsync(
-        string roomId,
-        DateTimeOffset startsAt,
-        DateTimeOffset endsAt,
-        CancellationToken ct = default);
 }
