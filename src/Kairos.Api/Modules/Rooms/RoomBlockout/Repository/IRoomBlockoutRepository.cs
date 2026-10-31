@@ -1,4 +1,6 @@
 using Kairos.Api.Common.Base.Repository;
+using Kairos.Api.Common.Page;
+using Kairos.Api.Modules.Rooms.RoomBlockout.DTOs.Request;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
 
 namespace Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
@@ -6,6 +8,10 @@ namespace Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
 public interface IRoomBlockoutRepository
     : IBaseRepository<RoomBlockoutModel>
 {
+    Task<Page<RoomBlockoutModel>> Find(
+        FilterRoomBlockoutDto dto,
+        CancellationToken ct = default);
+
     Task<IReadOnlyList<RoomBlockoutModel>> GetByRoomIdAsync(
         string roomId,
         CancellationToken cancellationToken = default);

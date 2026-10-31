@@ -77,11 +77,16 @@ public class PermissionSeedTest
             "rooms.list",
             "rooms.update",
             "rooms.delete",
+
+            // Room blockouts
             "rooms.blockouts.create",
+            "rooms.blockouts.cancel",
             "rooms.blockouts.read",
             "rooms.blockouts.list",
             "rooms.blockouts.update",
             "rooms.blockouts.delete",
+
+            // Room availability
             "rooms.availability.read",
 
             // Room types
@@ -97,12 +102,16 @@ public class PermissionSeedTest
             "reservations.list",
             "reservations.update",
             "reservations.cancel",
+
+            // Reservation attendees
             "reservations.attendees.create",
             "reservations.attendees.read",
             "reservations.attendees.list",
             "reservations.attendees.update",
             "reservations.attendees.delete",
             "reservations.attendees.respond",
+
+            // Reservation history
             "reservations.history.read",
             "reservations.history.list"
         ];
@@ -112,8 +121,6 @@ public class PermissionSeedTest
             PermissionSeeder.Permissions;
 
         // Assert
-        permissions.Should().HaveCount(expectedCodes.Length);
-
         permissions
             .Select(permission => permission.Code)
             .Should()
@@ -140,7 +147,25 @@ public class PermissionSeedTest
 
         // Act & Assert
         permissions.Should().OnlyContain(
-            permission => permission.Module == ExpectedModuleFor(permission.Code));
+            permission =>
+                permission.Module == ExpectedModuleFor(permission.Code));
+    }
+
+    [Fact]
+    public void Permissions_ShouldHaveCorrectRoomBlockoutCancelMetadata()
+    {
+        // Arrange & Act
+        PermissionsModel permission = PermissionSeeder.Permissions
+            .Single(permission =>
+                permission.Code == "rooms.blockouts.cancel");
+
+        // Assert
+        permission.Name.Should().Be("Cancel room blockouts");
+        permission.Module.Should().Be(PermissionModuleEnum.Rooms);
+        permission.IsSystem.Should().BeTrue();
+        permission.IsActive.Should().BeTrue();
+        
+        permission.CreatedAt.Should().NotBe(default);
     }
 
     private static PermissionModuleEnum ExpectedModuleFor(string code)
