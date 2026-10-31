@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Asp.Versioning;
 using Kairos.Api.Common.Exceptions;
+using Kairos.Api.Common.Page;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.Authentication;
@@ -30,9 +31,95 @@ public sealed class RoomBlockoutController(
     IInboxTransactionUseCase<string, bool, IExistsRoomBlockoutByIdUseCase> existsRoomBlockoutByIdUseCase,
     IInboxTransactionUseCase<UpdateRoomBlockoutCommand, RoomBlockoutModel, IUpdateRoomBlockoutUseCase> updateRoomBlockoutUseCase,
     IFindRoomBlockoutUseCase findRoomBlockoutUseCase,
-    IInboxTransactionUseCase<CancelRoomBlockoutCommand, RoomBlockoutModel, ICancelRoomBlockoutUseCase> cancelRoomBlockoutUseCase
+    IInboxTransactionUseCase<CancelRoomBlockoutCommand, RoomBlockoutModel, ICancelRoomBlockoutUseCase> cancelRoomBlockoutUseCase,
+    IInboxTransactionUseCase<FilterRoomBlockoutDto, Page<RoomBlockoutModel>, IFindAllRoomBlockoutUseCase> findAllRoomBlockouts
 ) : ControllerBase
 {
+    // ---------------------------------------------------------------
+    // Find all
+    // ---------------------------------------------------------------
+
+    /// <summary>
+    /// Retrieves a paginated list of room blockouts.
+    /// </summary>
+    /// <remarks>
+    /// Supports filtering, pagination and sort direction.
+    /// Requires a valid JWT and the X-Inbox-Id header.
+    /// The operation is processed through the Inbox transaction service.
+    /// </remarks>
+    /// <param name="dto">Filters and pagination parameters.</param>
+    /// <param name="inboxId">Inbox identifier supplied through X-Inbox-Id.</param>
+    /// <param name="ct">Cancellation token for the HTTP request.</param>
+    /// <response code="200">The room blockouts were retrieved successfully.</response>
+    /// <response code="400">The filter parameters are invalid.</response>
+    /// <response code="401">Authentication is required or the JWT is invalid.</response>
+    /// <response code="403">The user lacks permission to list room blockouts.</response>
+    /// <response code="409">The Inbox operation cannot be processed.</response>
+    /// <response code="500">An internal error prevented the query.</response>
+    [HttpGet]
+    [RequirePermissions("rooms.blockouts.list")]
+    [ProducesResponseType(
+        typeof(ResponseHttp<Page<RoomBlockoutDto>>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ResponseHttp<ValidationErrorResponse>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<object>),
+        StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<object>),
+        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<object>),
+        StatusCodes.Status409Conflict)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<object>),
+        StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> FindAll(
+        [FromQuery] FilterRoomBlockoutDto dto,
+        [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
+        CancellationToken ct)
+    {
+        string workerId = $"http-{Guid.NewGuid():N}";
+
+        Result<Page<RoomBlockoutModel>> result =
+            await findAllRoomBlockouts.ExecuteAsync(
+                inboxId,
+                workerId,
+                dto,
+                ct);
+
+        if (result.IsFailure || result.Value is null)
+        {
+            return StatusCode(
+                result.StatusCode,
+                new ResponseHttp<Page<RoomBlockoutDto>>(
+                    Data: null,
+                    Message: "Error retrieving room blockouts",
+                    TraceId: inboxId,
+                    Success: false,
+                    Timestamp: DateTimeOffset.UtcNow,
+                    Errors: result.Errors));
+        }
+
+        Page<RoomBlockoutDto> data =
+            Page<RoomBlockoutDto>.Create(
+                result.Value.Data
+                    .Select(RoomBlockoutMapper.ToDto)
+                    .ToArray(),
+                result.Value.TotalCount,
+                result.Value.PageNumber,
+                result.Value.PageSize);
+
+        return Ok(
+            new ResponseHttp<Page<RoomBlockoutDto>>(
+                Data: data,
+                Message: "Room blockouts retrieved successfully",
+                TraceId: inboxId,
+                Success: true,
+                Timestamp: DateTimeOffset.UtcNow));
+    }
+    
     /// <summary>
     /// Retrieves a room blockout by its identifier.
     /// </summary>
