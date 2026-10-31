@@ -62,7 +62,6 @@
     <Folder Include="Modules\Reservations\ReservationHistory\DTOs\" />
     <Folder Include="Modules\Reservations\ReservationHistory\Repositories\" />
     <Folder Include="Modules\Reservations\ReservationHistory\Services\" />
-    <Folder Include="Modules\Reservations\Reservation\Controllers\" />
     <Folder Include="Modules\Rooms\RoomTypes\Configurations\" />
     <Folder Include="Modules\Rooms\RoomTypes\Models\" />
     <Folder Include="Modules\Rooms\Room\Configurations\" />
