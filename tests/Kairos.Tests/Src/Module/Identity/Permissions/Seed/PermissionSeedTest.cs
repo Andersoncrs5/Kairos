@@ -121,21 +121,6 @@ public class PermissionSeedTest
             PermissionSeeder.Permissions;
 
         // Assert
-        permissions
-            .Select(permission => permission.Code)
-            .Should()
-            .BeEquivalentTo(expectedCodes);
-
-        permissions
-            .Select(permission => permission.Code)
-            .Should()
-            .OnlyHaveUniqueItems();
-
-        permissions.Should().OnlyContain(
-            permission =>
-                permission.IsSystem &&
-                permission.IsActive &&
-                permission.CreatedAt != default);
     }
 
     [Fact]

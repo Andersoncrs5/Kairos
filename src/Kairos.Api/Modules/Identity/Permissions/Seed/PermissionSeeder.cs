@@ -230,6 +230,11 @@ public class PermissionSeeder(IUnitOfWork uow) : IPermissionSeeder
                 PermissionModuleEnum.Reservations,
                 "Allows creating reservations."),
             CreatePermission(
+                "reservations.delete",
+                "Delete reservations",
+                PermissionModuleEnum.Reservations,
+                "Allows deleting reservations."),
+            CreatePermission(
                 "reservations.read",
                 "Read reservations",
                 PermissionModuleEnum.Reservations,
