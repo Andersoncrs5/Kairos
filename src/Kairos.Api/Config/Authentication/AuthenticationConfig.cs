@@ -27,12 +27,15 @@ public static class AuthenticationConfig
         services
             .AddOptions<JwtBearerOptions>(
                 JwtBearerDefaults.AuthenticationScheme)
-            .Configure<IOptions<JwtOptions>>(
-                (options, jwtOptionsAccessor) =>
+            .Configure<IOptions<JwtOptions>, IOptions<JwtAuthenticationOptions>>(
+                (options, jwtOptionsAccessor, authenticationOptionsAccessor) =>
                 {
                     JwtOptions jwt = jwtOptionsAccessor.Value;
+                    JwtAuthenticationOptions authentication =
+                        authenticationOptionsAccessor.Value;
 
-                    options.MapInboundClaims = false;
+                    options.MapInboundClaims =
+                        authentication.MapInboundClaims;
 
                     options.TokenValidationParameters =
                         new TokenValidationParameters
@@ -48,13 +51,16 @@ public static class AuthenticationConfig
                                 Encoding.UTF8.GetBytes(jwt.SecretKey)),
 
                             ValidateLifetime = true,
-                            ClockSkew = TimeSpan.Zero,
 
-                            NameClaimType = JwtRegisteredClaimNames.Name,
-                            RoleClaimType = "role"
+                            ClockSkew = TimeSpan.FromSeconds(
+                                authentication.ClockSkewSeconds),
+
+                            NameClaimType = authentication.NameClaimType,
+                            RoleClaimType = authentication.RoleClaimType
                         };
                 });
 
+        // Authorization
         services.AddAuthorization();
 
         services.AddSingleton<

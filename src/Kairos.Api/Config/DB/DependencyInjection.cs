@@ -1,88 +1,136 @@
 using EFCoreSecondLevelCacheInterceptor;
+using EntityFrameworkCore.Locking;
 using EntityFrameworkCore.Locking.PostgreSQL;
+using Kairos.Api.Config.Contracts;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace Kairos.Api.Config.DB;
 
 public static class DependencyInjection
 {
-    private static readonly TimeSpan CacheExpiration =
-        TimeSpan.FromMinutes(5);
-
-    private static readonly TimeSpan CacheProviderRetry =
-        TimeSpan.FromMinutes(1);
-
     public static IServiceCollection AddDatabase(
         this IServiceCollection services,
         IConfiguration configuration,
         IHostEnvironment environment)
     {
+        // ----------------------------------------------------------
+        // Connection strings
+        // ----------------------------------------------------------
+
         string connectionString =
             configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException(
-                "A connection string 'DefaultConnection' não foi configurada.");
+                "Connection string 'DefaultConnection' não foi configurada.");
 
         string redisConnectionString =
             configuration.GetConnectionString("Redis")
             ?? throw new InvalidOperationException(
-                "A connection string 'Redis' não foi configurada.");
+                "Connection string 'Redis' não foi configurada.");
 
         bool isTesting = environment.IsEnvironment("Testing");
 
+        // ----------------------------------------------------------
         // 1. Redis
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
+        // ----------------------------------------------------------
+
+        services.AddSingleton<IConnectionMultiplexer>(serviceProvider =>
         {
+            RedisOptions settings = serviceProvider
+                .GetRequiredService<IOptions<RedisOptions>>()
+                .Value;
+
             ConfigurationOptions redisOptions =
                 ConfigurationOptions.Parse(redisConnectionString);
 
-            redisOptions.AbortOnConnectFail = false;
-            redisOptions.ConnectRetry = 3;
-            redisOptions.ConnectTimeout = 5000;
-            redisOptions.SyncTimeout = 5000;
-            redisOptions.AsyncTimeout = 5000;
-            redisOptions.ClientName = "Kairos.Api";
+            redisOptions.AbortOnConnectFail =
+                settings.AbortOnConnectFail;
+
+            redisOptions.ConnectRetry =
+                settings.ConnectRetry;
+
+            redisOptions.ConnectTimeout =
+                settings.ConnectTimeoutMilliseconds;
+
+            redisOptions.SyncTimeout =
+                settings.SyncTimeoutMilliseconds;
+
+            redisOptions.AsyncTimeout =
+                settings.AsyncTimeoutMilliseconds;
+
+            redisOptions.ClientName =
+                settings.ClientName;
 
             return ConnectionMultiplexer.Connect(redisOptions);
         });
 
-        // 2. EF Core Second Level Cache (sempre Redis)
+        // ----------------------------------------------------------
+        // 2. EF Core Second Level Cache
+        // ----------------------------------------------------------
+
+        SecondLevelCacheOptions cacheSettings =
+            configuration
+                .GetSection(SecondLevelCacheOptions.SectionName)
+                .Get<SecondLevelCacheOptions>()
+            ?? new SecondLevelCacheOptions();
+
         services.AddEFSecondLevelCache(options =>
         {
             options
-                .UseCacheKeyPrefix("Kairos_EF_")
+                .UseCacheKeyPrefix(cacheSettings.CacheKeyPrefix)
                 .ConfigureLogging(environment.IsDevelopment())
-                .UseDbCallsIfCachingProviderIsDown(CacheProviderRetry)
+                .UseDbCallsIfCachingProviderIsDown(
+                    TimeSpan.FromMinutes(
+                        cacheSettings.CacheProviderRetryMinutes))
                 .CacheLockOptions(
-                    EFLockMode.Keyed,
-                    TimeSpan.FromSeconds(15));
+                    cacheSettings.LockMode,
+                    TimeSpan.FromSeconds(
+                        cacheSettings.LockTimeoutSeconds));
 
             options.UseStackExchangeRedisCacheProvider(
                 serviceProvider =>
                     serviceProvider.GetRequiredService<IConnectionMultiplexer>(),
-                CacheExpiration);
+                TimeSpan.FromMinutes(
+                    cacheSettings.CacheExpirationMinutes));
         });
 
+        // ----------------------------------------------------------
         // 3. AppDbContext
+        // ----------------------------------------------------------
+
         services.AddDbContext<AppDbContext>(
             (serviceProvider, options) =>
             {
-                options
-                    .UseNpgsql(
-                        connectionString,
-                        npgsql =>
-                        {
-                            npgsql.EnableRetryOnFailure(
-                                maxRetryCount: 5,
-                                maxRetryDelay: TimeSpan.FromSeconds(7),
-                                errorCodesToAdd: null);
+                PostgresOptions postgresSettings = serviceProvider
+                    .GetRequiredService<IOptions<PostgresOptions>>()
+                    .Value;
 
-                            npgsql.CommandTimeout(30);
-                        })
-                    .UseLocking()
-                    .LogTo(Console.WriteLine, LogLevel.Information)
-                    .EnableDetailedErrors(environment.IsDevelopment());
+                options.UseNpgsql(
+                    connectionString,
+                    npgsql =>
+                    {
+                        npgsql.EnableRetryOnFailure(
+                            maxRetryCount: postgresSettings.MaxRetryCount,
+                            maxRetryDelay: TimeSpan.FromSeconds(
+                                postgresSettings.MaxRetryDelaySeconds),
+                            errorCodesToAdd: null);
+
+                        npgsql.CommandTimeout(
+                            postgresSettings.CommandTimeoutSeconds);
+                    });
+
+                if (postgresSettings.EnableLocking)
+                {
+                    options.UseLocking();
+                }
+
+                options.LogTo(
+                    Console.WriteLine,
+                    LogLevel.Information);
+
+                options.EnableDetailedErrors(
+                    environment.IsDevelopment());
 
                 if (environment.IsDevelopment() || isTesting)
                 {
@@ -90,7 +138,8 @@ public static class DependencyInjection
                 }
 
                 options.AddInterceptors(
-                    serviceProvider.GetRequiredService<SecondLevelCacheInterceptor>());
+                    serviceProvider.GetRequiredService<
+                        SecondLevelCacheInterceptor>());
             });
 
         return services;

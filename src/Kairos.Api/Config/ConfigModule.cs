@@ -14,19 +14,43 @@ public static class ConfigModule
     public static IServiceCollection AddConfigModule(
         this IServiceCollection services)
     {
+        // API
         services.AddApiVersioningConfig();
         services.AddSwaggerConfig();
+
+        // API Behavior
+        services.AddApiBehaviorOptionsConfig();
         services.AddApiBehaviorConfig();
+
+        // Bootstrap
         services.AddApplicationBootstrapConfig();
 
+        // Options
         services.AddJwtOptionsConfig();
+        services.AddJwtAuthenticationOptionsConfig();
         services.AddUserMasterOptionsConfig();
+
+        services.AddPostgresOptionsConfig();
+        services.AddRedisOptionsConfig();
+        services.AddSecondLevelCacheOptionsConfig();
+
+        // Authentication
         services.AddJwtAuthenticationConfig();
+        
+        // API Versioning
+        services.AddApiVersioningOptionsConfig();
+        services.AddApiVersioningConfig();
 
-        services.AddScoped(typeof(IInboxTransactionUseCase<,,>), typeof(InboxTransactionUseCase<,,>));
+        // Transactions
+        services.AddScoped(
+            typeof(IInboxTransactionUseCase<,,>),
+            typeof(InboxTransactionUseCase<,,>));
 
-        services.AddScoped(typeof(ITransactionUseCase<,,>), typeof(TransactionUseCase<,,>));
+        services.AddScoped(
+            typeof(ITransactionUseCase<,,>),
+            typeof(TransactionUseCase<,,>));
 
+        // Unit of Work
         services.AddScoped<IUnitOfWork, UnitOfWork.UnitOfWork>();
 
         return services;
