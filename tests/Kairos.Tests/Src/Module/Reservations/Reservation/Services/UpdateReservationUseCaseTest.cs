@@ -1128,6 +1128,7 @@ public sealed class UpdateReservationUseCaseTest
         {
             Id = id ?? Guid.NewGuid().ToString(),
             Name = "Business",
+            Code = "business-code",
             Description = "Business meetings",
             IsActive = isActive,
             Version = 1,

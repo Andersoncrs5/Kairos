@@ -288,6 +288,7 @@ public sealed class UpdateCategoryUseCaseTest
         {
             Id = id,
             Version = 1,
+            Code = name,
             CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
             UpdatedAt = null,
             Name = name,

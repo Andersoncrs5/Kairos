@@ -116,6 +116,7 @@ public sealed class FindCategoryByIdUseCaseTest
         {
             Id = id.ToString(),
             Name = "Meeting Rooms",
+            Code = "Meeting Rooms",
             Description = "Categories for meeting rooms.",
             IsActive = true,
             Version = 1,

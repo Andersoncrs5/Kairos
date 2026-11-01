@@ -28,7 +28,8 @@ public sealed class CategoryController(
     IExistsCategoryByNameUseCase existsCategoryByNameUseCase,
     IInboxTransactionUseCase<string, CategoryModel, IFindCategoryByIdUseCase> findCategoryByIdUseCase,
     IInboxTransactionUseCase<UpdateCategoryCommand, CategoryModel, IUpdateCategoryUseCase> updateCategoryUseCase,
-    IFilterCategoriesUseCase filterCategoriesUseCase
+    IFilterCategoriesUseCase filterCategoriesUseCase,
+    IExistsCategoryByCodeUseCase existsCategoryByCodeUseCase
 ) : ControllerBase
 {
     /// <summary>
@@ -414,6 +415,59 @@ public sealed class CategoryController(
                 Data: CategoryMapper.ToDto(result.Value),
                 Message: "Category created",
                 TraceId: HttpContext.TraceIdentifier,
+                Success: true,
+                Timestamp: DateTimeOffset.UtcNow));
+    }
+    
+    /// <summary>
+    /// Checks whether a category exists by its code.
+    /// </summary>
+    /// <remarks>
+    /// Requires a valid JWT and the categories.read permission.
+    /// </remarks>
+    /// <param name="code">Code of the category to check.</param>
+    /// <param name="ct">Cancellation token for the HTTP request.</param>
+    /// <response code="200">The check succeeded.</response>
+    /// <response code="400">The category code is invalid.</response>
+    /// <response code="401">Authentication is required or the JWT is invalid.</response>
+    /// <response code="403">The user lacks permission to read categories.</response>
+    /// <response code="500">An internal error prevented the check.</response>
+    [HttpGet("Exists/code/{code}")]
+    [RequirePermissions("categories.read")]
+    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ResponseHttp<ValidationErrorResponse>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ExistsByCode(
+        [FromRoute, Required] string code,
+        [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
+        CancellationToken ct)
+    {
+        Result<bool> result =
+            await existsCategoryByCodeUseCase.ExecuteAsync(code, ct);
+
+        if (result.IsFailure)
+        {
+            return StatusCode(
+                result.StatusCode,
+                new ResponseHttp<bool?>(
+                    Data: null,
+                    Message: "Error checking category code",
+                    TraceId: inboxId,
+                    Success: false,
+                    Timestamp: DateTimeOffset.UtcNow,
+                    Errors: result.Errors));
+        }
+
+        return Ok(
+            new ResponseHttp<bool?>(
+                Data: result.Value,
+                Message: result.Value
+                    ? "Category exists"
+                    : "Category does not exist",
+                TraceId: inboxId,
                 Success: true,
                 Timestamp: DateTimeOffset.UtcNow));
     }

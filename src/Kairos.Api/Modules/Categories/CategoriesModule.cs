@@ -16,6 +16,7 @@ public static class CategoriesModule
         services.AddScoped<ICreateCategoryUseCase, CreateCategoryUseCase>();
         services.AddScoped<IFilterCategoriesUseCase, FilterCategoriesUseCase>();
         services.AddScoped<IExistsCategoryByNameUseCase, ExistsCategoryByNameUseCase>();
+        services.AddScoped<IExistsCategoryByCodeUseCase, ExistsCategoryByCodeUseCase>();
         
         return services;
     }

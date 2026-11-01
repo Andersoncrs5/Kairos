@@ -5,9 +5,16 @@ using Kairos.Api.Modules.Categories.Models;
 
 namespace Kairos.Api.Modules.Categories.Repositories;
 
-public interface ICategoryRepository
-    : IBaseRepository<CategoryModel>
+public interface ICategoryRepository : IBaseRepository<CategoryModel>
 {
+    Task<CategoryModel?> GetByCodeAsync(
+        string code,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> ExistsByCodeAsync(
+        string code,
+        CancellationToken cancellationToken = default);
+
     Task<CategoryModel?> GetByNameAsync(
         string name,
         CancellationToken cancellationToken = default);

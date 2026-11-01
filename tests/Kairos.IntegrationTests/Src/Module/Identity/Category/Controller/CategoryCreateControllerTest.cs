@@ -461,6 +461,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         return new CreateCategoryDto
         {
             Name = name ?? $"Integration Category {Guid.NewGuid():N}",
+            Code = $"integration-category-{Guid.NewGuid():N}",
             Description = description ?? "Created by integration tests."
         };
     }

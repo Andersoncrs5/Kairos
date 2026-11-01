@@ -1426,6 +1426,7 @@ public sealed class CreateReservationUseCaseTest
         {
             Id = categoryId,
             Name = "Meeting",
+            Code = "meeting-code",
             Description = "Meeting category.",
             IsActive = isActive,
             Version = 1,

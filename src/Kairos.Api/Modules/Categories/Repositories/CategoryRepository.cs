@@ -1,5 +1,7 @@
+
 using Kairos.Api.Common.Base.Model;
 using Kairos.Api.Common.Base.Repository;
+using Kairos.Api.Common.Enums;
 using Kairos.Api.Common.Page;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Categories.DTOs.Request;
@@ -11,69 +13,54 @@ namespace Kairos.Api.Modules.Categories.Repositories;
 public sealed class CategoryRepository(AppDbContext context)
     : BaseRepositoryImpl<CategoryModel>(context), ICategoryRepository
 {
+    // ----------------------------------------------------------
+    // Filtering
+    // ----------------------------------------------------------
+
     public async Task<Page<CategoryModel>> FilterAsync(
         CategoryFilterDto filter,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(filter);
 
-        var query = context
-            .Set<CategoryModel>()
+        IQueryable<CategoryModel> query = context.Categories
             .AsNoTracking();
 
-        // Identificador
+        // ------------------------------------------------------
+        // Identification: ID
+        // ------------------------------------------------------
+
         if (!string.IsNullOrWhiteSpace(filter.Id))
         {
-            query = query.Where(category =>
-                category.Id == filter.Id);
+            string id = filter.Id.Trim();
+
+            query = query.Where(category => category.Id == id);
         }
 
-        // Versão
-        if (filter.VersionMin.HasValue)
+        // ------------------------------------------------------
+        // Identification: Code
+        // ------------------------------------------------------
+
+        if (!string.IsNullOrWhiteSpace(filter.Code))
         {
-            query = query.Where(category =>
-                category.Version >= filter.VersionMin.Value);
+            string code = filter.Code.Trim();
+            string pattern = $"%{code}%";
+
+            query = filter.CodeIgnoreCase == true
+                ? query.Where(category =>
+                    EF.Functions.ILike(category.Code, pattern))
+                : query.Where(category =>
+                    EF.Functions.Like(category.Code, pattern));
         }
 
-        if (filter.VersionMax.HasValue)
-        {
-            query = query.Where(category =>
-                category.Version <= filter.VersionMax.Value);
-        }
+        // ------------------------------------------------------
+        // Identification: Name
+        // ------------------------------------------------------
 
-        // Data de criação
-        if (filter.CreatedAtMin.HasValue)
-        {
-            query = query.Where(category =>
-                category.CreatedAt >= filter.CreatedAtMin.Value);
-        }
-
-        if (filter.CreatedAtMax.HasValue)
-        {
-            query = query.Where(category =>
-                category.CreatedAt <= filter.CreatedAtMax.Value);
-        }
-
-        // Data de atualização
-        if (filter.UpdatedAtMin.HasValue)
-        {
-            query = query.Where(category =>
-                category.UpdatedAt.HasValue &&
-                category.UpdatedAt.Value >= filter.UpdatedAtMin.Value);
-        }
-
-        if (filter.UpdatedAtMax.HasValue)
-        {
-            query = query.Where(category =>
-                category.UpdatedAt.HasValue &&
-                category.UpdatedAt.Value <= filter.UpdatedAtMax.Value);
-        }
-
-        // Nome
         if (!string.IsNullOrWhiteSpace(filter.Name))
         {
-            var name = filter.Name.Trim();
-            var pattern = $"%{name}%";
+            string name = filter.Name.Trim();
+            string pattern = $"%{name}%";
 
             query = filter.NameIgnoreCase == true
                 ? query.Where(category =>
@@ -82,11 +69,14 @@ public sealed class CategoryRepository(AppDbContext context)
                     EF.Functions.Like(category.Name, pattern));
         }
 
-        // Descrição
+        // ------------------------------------------------------
+        // Description
+        // ------------------------------------------------------
+
         if (!string.IsNullOrWhiteSpace(filter.Description))
         {
-            var description = filter.Description.Trim();
-            var pattern = $"%{description}%";
+            string description = filter.Description.Trim();
+            string pattern = $"%{description}%";
 
             query = filter.DescriptionIgnoreCase == true
                 ? query.Where(category =>
@@ -97,36 +87,173 @@ public sealed class CategoryRepository(AppDbContext context)
                     EF.Functions.Like(category.Description, pattern));
         }
 
-        // Estado
-        if (filter.IsActive.HasValue)
+        // ------------------------------------------------------
+        // Appearance: Color
+        // ------------------------------------------------------
+
+        if (!string.IsNullOrWhiteSpace(filter.Color))
         {
+            string color = filter.Color.Trim();
+
             query = query.Where(category =>
-                category.IsActive == filter.IsActive.Value);
+                category.Color != null &&
+                EF.Functions.ILike(category.Color, color));
         }
 
-        // Total de registros após aplicar os filtros,
-        // mas antes de aplicar a paginação.
+        // ------------------------------------------------------
+        // Appearance: Icon
+        // ------------------------------------------------------
+
+        if (!string.IsNullOrWhiteSpace(filter.Icon))
+        {
+            string icon = filter.Icon.Trim();
+            string pattern = $"%{icon}%";
+
+            query = filter.IconIgnoreCase == true
+                ? query.Where(category =>
+                    category.Icon != null &&
+                    EF.Functions.ILike(category.Icon, pattern))
+                : query.Where(category =>
+                    category.Icon != null &&
+                    EF.Functions.Like(category.Icon, pattern));
+        }
+
+        // ------------------------------------------------------
+        // Organization: DisplayOrder
+        // ------------------------------------------------------
+
+        if (filter.DisplayOrder.HasValue)
+        {
+            int displayOrder = filter.DisplayOrder.Value;
+
+            query = query.Where(category =>
+                category.DisplayOrder == displayOrder);
+        }
+
+        // ------------------------------------------------------
+        // Version
+        // ------------------------------------------------------
+
+        if (filter.VersionMin.HasValue)
+        {
+            long versionMin = filter.VersionMin.Value;
+
+            query = query.Where(category =>
+                category.Version >= versionMin);
+        }
+
+        if (filter.VersionMax.HasValue)
+        {
+            long versionMax = filter.VersionMax.Value;
+
+            query = query.Where(category =>
+                category.Version <= versionMax);
+        }
+
+        // ------------------------------------------------------
+        // CreatedAt
+        // ------------------------------------------------------
+
+        if (filter.CreatedAtMin.HasValue)
+        {
+            DateTimeOffset createdAtMin = filter.CreatedAtMin.Value;
+
+            query = query.Where(category =>
+                category.CreatedAt >= createdAtMin);
+        }
+
+        if (filter.CreatedAtMax.HasValue)
+        {
+            DateTimeOffset createdAtMax = filter.CreatedAtMax.Value;
+
+            query = query.Where(category =>
+                category.CreatedAt <= createdAtMax);
+        }
+
+        // ------------------------------------------------------
+        // UpdatedAt
+        // ------------------------------------------------------
+
+        if (filter.UpdatedAtMin.HasValue)
+        {
+            DateTimeOffset updatedAtMin = filter.UpdatedAtMin.Value;
+
+            query = query.Where(category =>
+                category.UpdatedAt.HasValue &&
+                category.UpdatedAt.Value >= updatedAtMin);
+        }
+
+        if (filter.UpdatedAtMax.HasValue)
+        {
+            DateTimeOffset updatedAtMax = filter.UpdatedAtMax.Value;
+
+            query = query.Where(category =>
+                category.UpdatedAt.HasValue &&
+                category.UpdatedAt.Value <= updatedAtMax);
+        }
+
+        // ------------------------------------------------------
+        // Status
+        // ------------------------------------------------------
+
+        if (filter.IsActive.HasValue)
+        {
+            bool isActive = filter.IsActive.Value;
+
+            query = query.Where(category =>
+                category.IsActive == isActive);
+        }
+
+        // ------------------------------------------------------
+        // Total count (before pagination)
+        // ------------------------------------------------------
+
         long totalCount = await query.LongCountAsync(
             cancellationToken);
 
-        // Paginação
-        int pageNumber = Math.Max(filter.Page ?? 1, 1);
-        int pageSize = Math.Clamp(filter.PageSize ?? 20, 1, 100);
+        // ------------------------------------------------------
+        // Pagination
+        // ------------------------------------------------------
 
-        // Ordenação determinística.
-        query = filter.ColumnOrder == ColumnOrderEnum.DESC
-            ? query
-                .OrderByDescending(category => category.CreatedAt)
-                .ThenByDescending(category => category.Id)
-            : query
-                .OrderBy(category => category.CreatedAt)
-                .ThenBy(category => category.Id);
+        int pageNumber = Math.Max(filter.Page ?? 1, 1);
+
+        int pageSize = Math.Clamp(
+            filter.PageSize ?? 20,
+            1,
+            100);
+
+        // ------------------------------------------------------
+        // Deterministic ordering
+        // ------------------------------------------------------
+
+        IOrderedQueryable<CategoryModel> orderedQuery =
+            filter.ColumnOrder == ColumnOrderEnum.DESC
+                ? query
+                    .OrderByDescending(category => category.CreatedAt)
+                    .ThenByDescending(category => category.Id)
+                : query
+                    .OrderBy(category => category.CreatedAt)
+                    .ThenBy(category => category.Id);
+
+        // ------------------------------------------------------
+        // Offset
+        // ------------------------------------------------------
 
         long offset = ((long)pageNumber - 1) * pageSize;
-        int skip = (int)Math.Min(offset, int.MaxValue);
 
-        var items = await query
-            .Skip(skip)
+        if (offset > int.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(filter.Page),
+                "The requested page exceeds the supported offset.");
+        }
+
+        // ------------------------------------------------------
+        // Execute query
+        // ------------------------------------------------------
+
+        List<CategoryModel> items = await orderedQuery
+            .Skip((int)offset)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
@@ -136,34 +263,86 @@ public sealed class CategoryRepository(AppDbContext context)
             pageNumber,
             pageSize);
     }
-    
+
+    // ----------------------------------------------------------
+    // Get by Code
+    // ----------------------------------------------------------
+
+    public Task<CategoryModel?> GetByCodeAsync(
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+
+        return context.Categories
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                category => category.Code == code,
+                cancellationToken);
+    }
+
+    // ----------------------------------------------------------
+    // Exists by Code
+    // ----------------------------------------------------------
+
+    public Task<bool> ExistsByCodeAsync(
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+
+        return context.Categories
+            .AnyAsync(
+                category => category.Code == code,
+                cancellationToken);
+    }
+
+    // ----------------------------------------------------------
+    // Get by Name
+    // ----------------------------------------------------------
+
     public Task<CategoryModel?> GetByNameAsync(
         string name,
         CancellationToken cancellationToken = default)
     {
-        return context.Set<CategoryModel>()
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        return context.Categories
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 category => category.Name == name,
                 cancellationToken);
     }
 
+    // ----------------------------------------------------------
+    // Exists by Name
+    // ----------------------------------------------------------
+
     public Task<bool> ExistsByNameAsync(
         string name,
         CancellationToken cancellationToken = default)
     {
-        return context.Set<CategoryModel>()
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        return context.Categories
             .AnyAsync(
-                category => category.Name.ToLower() == name.ToLower(),
+                category => EF.Functions.ILike(category.Name, name),
                 cancellationToken);
     }
+
+    // ----------------------------------------------------------
+    // Get active categories
+    // ----------------------------------------------------------
 
     public async Task<IReadOnlyList<CategoryModel>> GetActiveAsync(
         CancellationToken cancellationToken = default)
     {
-        return await context.Set<CategoryModel>()
+        return await context.Categories
             .AsNoTracking()
             .Where(category => category.IsActive)
+            .OrderBy(category => category.DisplayOrder)
+            .ThenBy(category => category.Name)
+            .ThenBy(category => category.Id)
             .ToListAsync(cancellationToken);
     }
 }

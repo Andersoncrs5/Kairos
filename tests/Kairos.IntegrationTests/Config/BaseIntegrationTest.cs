@@ -344,6 +344,7 @@ public abstract class BaseIntegrationTest
         var dto = new CreateCategoryDto
         {
             Name = $"Integration Category {Guid.NewGuid():N}",
+            Code = $"integration-category-{Guid.NewGuid():N}",
             Description = "Created by integration tests."
         };
 
@@ -739,6 +740,7 @@ public abstract class BaseIntegrationTest
         var category = new CategoryModel
         {
             Id = Guid.NewGuid().ToString(),
+            Code = $"integration-category-{uniqueId}",
             Name = $"Integration Category {uniqueId}",
             Description = "Category created by integration test.",
             IsActive = true,
