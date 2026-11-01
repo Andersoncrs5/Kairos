@@ -2,6 +2,7 @@ using Kairos.Api.Common.Middleware;
 using Kairos.Api.Config;
 using Kairos.Api.Config.Bootstrap;
 using Kairos.Api.Config.DB;
+using Kairos.Api.Config.Observability;
 using Kairos.Api.Config.Swagger;
 using Kairos.Api.Modules.Categories;
 using Kairos.Api.Modules.Identity;
@@ -14,7 +15,19 @@ using Serilog;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((context, services, loggerConfiguration) =>
-    loggerConfiguration.ReadFrom.Configuration(context.Configuration));
+    loggerConfiguration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.FromLogContext()
+        .WriteTo.Console()
+        .WriteToObservability(context.Configuration, context.HostingEnvironment));
+
+builder.Services.AddObservabilityConfig(
+    builder.Configuration,
+    builder.Environment);
+
+builder.Services.AddDatabase(
+    builder.Configuration,
+    builder.Environment);
 
 builder.Services.AddDatabase(
     builder.Configuration,

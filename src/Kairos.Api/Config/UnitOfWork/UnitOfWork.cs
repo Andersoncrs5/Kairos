@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.DB;
+using Kairos.Api.Config.Observability;
 using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
@@ -139,39 +141,70 @@ public sealed class UnitOfWork(
                 "ExecuteTransactionWithInboxAsync must be called outside an existing transaction.");
         }
 
-        bool acquired = await inboxRepository.TryMarkAsProcessingAsync(
-            inboxId,
-            workerId,
-            ct);
+        using Activity? activity =
+            Telemetry.ActivitySource.StartActivity("inbox.transaction");
 
-        if (!acquired)
+        activity?.SetTag("kairos.inbox.id", inboxId);
+        activity?.SetTag("kairos.inbox.worker_id", workerId);
+
+        try
         {
-            return Result<T>.Conflict(
-                "Inbox is not available for processing.");
-        }
+            bool acquired = await inboxRepository.TryMarkAsProcessingAsync(
+                inboxId,
+                workerId,
+                ct);
 
-        return await ExecuteTransactionAsync(
-            async token =>
+            if (!acquired)
             {
-                var result = await operation(token);
+                activity?.SetTag("kairos.inbox.outcome", "not_acquired");
+                Telemetry.InboxConflicts.Add(1);
 
-                if (result.IsFailure)
-                    return result;
+                return Result<T>.Conflict(
+                    "Inbox is not available for processing.");
+            }
 
-                var processed = await inboxRepository.TryMarkAsProcessedAsync(
-                    inboxId,
-                    workerId,
-                    token);
-
-                if (!processed)
+            Result<T> outcome = await ExecuteTransactionAsync(
+                async token =>
                 {
-                    return Result<T>.Conflict(
-                        "Could not complete Inbox processing.");
-                }
+                    var result = await operation(token);
 
-                return result;
-            },
-            ct);
+                    if (result.IsFailure)
+                        return result;
+
+                    var processed = await inboxRepository.TryMarkAsProcessedAsync(
+                        inboxId,
+                        workerId,
+                        token);
+
+                    if (!processed)
+                    {
+                        return Result<T>.Conflict(
+                            "Could not complete Inbox processing.");
+                    }
+
+                    return result;
+                },
+                ct);
+
+            activity?.SetTag(
+                "kairos.inbox.outcome",
+                outcome.IsSuccess ? "processed" : "failed");
+            activity?.SetTag("kairos.result.status_code", outcome.StatusCode);
+
+            // 4xx é erro de negócio, só 5xx marca o span como erro
+            if (outcome.StatusCode >= 500)
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, outcome.FirstError);
+            }
+
+            return outcome;
+        }
+        catch (Exception ex)
+        {
+            activity?.AddException(ex);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            throw;
+        }
     }
 }
 

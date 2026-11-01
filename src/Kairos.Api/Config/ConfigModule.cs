@@ -41,6 +41,8 @@ public static class ConfigModule
         services.AddApiVersioningOptionsConfig();
         services.AddApiVersioningConfig();
     
+        services.AddObservabilityOptionsConfig();
+        
         // Transactions
         services.AddScoped(
             typeof(IInboxTransactionUseCase<,,>),
