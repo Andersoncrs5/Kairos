@@ -15,6 +15,10 @@
   <ItemGroup>
     <PackageReference Include="Asp.Versioning.Mvc" Version="10.2.1" />
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.2.1" />
+    <PackageReference Include="EFCoreSecondLevelCacheInterceptor" Version="5.6.0" />
+    <PackageReference Include="EFCoreSecondLevelCacheInterceptor.MemoryCache" Version="5.6.0" />
+    <PackageReference Include="EFCoreSecondLevelCacheInterceptor.StackExchange.Redis" Version="5.6.0" />
+    <PackageReference Include="EntityFrameworkCore.Locking.PostgreSQL" Version="0.5.0" />
     <PackageReference Include="Mapster" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
