@@ -9,6 +9,12 @@ public class PermissionSeeder(IUnitOfWork uow) : IPermissionSeeder
     public static IReadOnlyList<PermissionsModel> Permissions { get; } =
         Array.AsReadOnly<PermissionsModel>(
         [
+            CreatePermission(
+                "identity.users.status.update",
+                "Update user account status",
+                PermissionModuleEnum.Identity,
+                "Allows activating and deactivating user accounts."),
+            
             // ----------------------------------------------------------
             // Room operating hours
             // ----------------------------------------------------------
