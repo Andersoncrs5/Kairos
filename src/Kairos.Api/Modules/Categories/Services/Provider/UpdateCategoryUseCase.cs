@@ -52,7 +52,7 @@ public sealed class UpdateCategoryUseCase(IUnitOfWork uow)
                 400);
         }
 
-        if (!Guid.TryParse(command.CategoryId, out var categoryId))
+        if (!Guid.TryParse(command.CategoryId, out Guid categoryId))
         {
             return Result<CategoryModel>.Failure(
                 ["Id must be a valid UUID."],
@@ -70,6 +70,55 @@ public sealed class UpdateCategoryUseCase(IUnitOfWork uow)
                 "Category not found.");
         }
 
+        // -----------------------------------------------------------
+        // Validação de código
+        // -----------------------------------------------------------
+
+        if (dto.Code is not null)
+        {
+            string code = dto.Code.Trim();
+
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return Result<CategoryModel>.Failure(
+                    ["Category code cannot be empty."],
+                    400);
+            }
+
+            if (!string.Equals(
+                    category.Code,
+                    code,
+                    StringComparison.Ordinal))
+            {
+                CategoryModel? existingCategory =
+                    await uow.CategoryRepository.GetByCodeAsync(
+                        code,
+                        ct);
+
+                if (existingCategory is not null &&
+                    existingCategory.Id != category.Id)
+                {
+                    return Result<CategoryModel>.Conflict(
+                        $"Category with the code '{code}' already exists.");
+                }
+            }
+
+            dto = new UpdateCategoryDto
+            {
+                Code = code,
+                Name = dto.Name,
+                Description = dto.Description,
+                Color = dto.Color,
+                Icon = dto.Icon,
+                DisplayOrder = dto.DisplayOrder,
+                IsActive = dto.IsActive
+            };
+        }
+
+        // -----------------------------------------------------------
+        // Validação de nome
+        // -----------------------------------------------------------
+
         if (dto.Name is not null &&
             category.Name != dto.Name)
         {
@@ -81,9 +130,13 @@ public sealed class UpdateCategoryUseCase(IUnitOfWork uow)
             if (exists)
             {
                 return Result<CategoryModel>.Conflict(
-                    $"Category with the name {dto.Name} already exists.");
+                    $"Category with the name '{dto.Name}' already exists.");
             }
         }
+
+        // -----------------------------------------------------------
+        // Atualização
+        // -----------------------------------------------------------
 
         CategoryMapper.ApplyUpdate(dto, category);
 
