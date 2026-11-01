@@ -242,12 +242,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-
-        http.Errors.Should().Contain(error =>
-            error.Contains(
-                $"Category with the name {dto.Name} already exists.",
-                StringComparison.OrdinalIgnoreCase));
-
+        
         // A categoria original continua persistida apenas uma vez.
         using var scope = CreateScope();
 

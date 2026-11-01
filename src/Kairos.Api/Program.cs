@@ -9,8 +9,12 @@ using Kairos.Api.Modules.Reliability;
 using Kairos.Api.Modules.Reservations;
 using Kairos.Api.Modules.Rooms;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, loggerConfiguration) =>
+    loggerConfiguration.ReadFrom.Configuration(context.Configuration));
 
 builder.Services.AddDatabase(
     builder.Configuration,

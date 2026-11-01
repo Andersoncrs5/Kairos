@@ -40,7 +40,7 @@ public static class ConfigModule
         // API Versioning
         services.AddApiVersioningOptionsConfig();
         services.AddApiVersioningConfig();
-
+    
         // Transactions
         services.AddScoped(
             typeof(IInboxTransactionUseCase<,,>),
