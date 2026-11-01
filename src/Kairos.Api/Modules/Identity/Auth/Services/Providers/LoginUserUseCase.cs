@@ -20,9 +20,12 @@ public class LoginUserUseCase(
         if (user == null)
             return Result<Tokens>.Unauthorized("Login invalid");
         
+        if (!user.IsActive)
+            return Result<Tokens>.Unauthorized("User is not active");
+        
         if (user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow)
             return Result<Tokens>.Failure("Login invalid", 429);
-
+        
         bool check = await uow.UserRepository.CheckPassword(user, dto.Password);
         
         if (!check)

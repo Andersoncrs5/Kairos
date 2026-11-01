@@ -1,3 +1,4 @@
+
 using FluentAssertions;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.UnitOfWork;
@@ -21,7 +22,9 @@ public class LoginUserUseCaseTest
     public LoginUserUseCaseTest()
     {
         _uow = Substitute.For<IUnitOfWork>();
+
         _createTokenUseCase = Substitute.For<ICreateTokenUseCase>();
+
         _createRefreshTokenUseCase =
             Substitute.For<ICreateRefreshTokenUseCase>();
 
@@ -30,6 +33,10 @@ public class LoginUserUseCaseTest
             _createTokenUseCase,
             _createRefreshTokenUseCase);
     }
+
+    // ------------------------------------------------------------------
+    // User not found
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_ShouldReturnUnauthorized_WhenUserDoesNotExist()
@@ -46,23 +53,86 @@ public class LoginUserUseCaseTest
 
         // Assert
         result.IsSuccess.Should().BeFalse();
+        result.StatusCode.Should().Be(401);
 
-        _createTokenUseCase
+        _uow.UserRepository
+            .DidNotReceive()
+            .CheckPassword(
+                Arg.Any<UserModel>(),
+                Arg.Any<string>());
+
+        await _createTokenUseCase
             .DidNotReceive()
             .ExecuteAsync(Arg.Any<UserModel>());
 
         _createRefreshTokenUseCase
             .DidNotReceive()
             .Execute();
+
+        await _uow.UserRepository
+            .DidNotReceive()
+            .Update(Arg.Any<UserModel>());
     }
+
+    // ------------------------------------------------------------------
+    // User inactive
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldReturnUnauthorized_WhenUserIsInactive()
+    {
+        // Arrange
+        var dto = CreateLoginDto();
+        var user = CreateUser();
+
+        user.IsActive = false;
+
+        _uow.UserRepository
+            .GetByEmail(dto.Email)
+            .Returns(Task.FromResult<UserModel?>(user));
+
+        // Act
+        var result = await _sut.ExecuteAsync(dto);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.StatusCode.Should().Be(401);
+        result.FirstError.Should().Be("User is not active");
+
+        // Password must not be checked.
+        await _uow.UserRepository
+            .DidNotReceive()
+            .CheckPassword(
+                Arg.Any<UserModel>(),
+                Arg.Any<string>());
+
+        // No access token should be generated.
+        await _createTokenUseCase
+            .DidNotReceive()
+            .ExecuteAsync(Arg.Any<UserModel>());
+
+        // No refresh token should be generated.
+        _createRefreshTokenUseCase
+            .DidNotReceive()
+            .Execute();
+
+        // The user must not be updated.
+        await _uow.UserRepository
+            .DidNotReceive()
+            .Update(Arg.Any<UserModel>());
+    }
+
+    // ------------------------------------------------------------------
+    // Lockout
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_ShouldReturnFailure_WhenUserIsLockedOut()
     {
         // Arrange
         var dto = CreateLoginDto();
-
         var user = CreateUser();
+
         user.LockoutEnd = DateTimeOffset.UtcNow.AddHours(1);
 
         _uow.UserRepository
@@ -76,24 +146,37 @@ public class LoginUserUseCaseTest
         result.IsSuccess.Should().BeFalse();
         result.StatusCode.Should().Be(429);
 
-        _uow.UserRepository
+        // Password must not be checked while the user is locked.
+        await _uow.UserRepository
             .DidNotReceive()
             .CheckPassword(
                 Arg.Any<UserModel>(),
                 Arg.Any<string>());
 
-        _createTokenUseCase
+        await _createTokenUseCase
             .DidNotReceive()
             .ExecuteAsync(Arg.Any<UserModel>());
+
+        _createRefreshTokenUseCase
+            .DidNotReceive()
+            .Execute();
+
+        await _uow.UserRepository
+            .DidNotReceive()
+            .Update(Arg.Any<UserModel>());
     }
+
+    // ------------------------------------------------------------------
+    // Failed password
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_ShouldLockUser_WhenPasswordFailsThreeTimes()
     {
         // Arrange
         var dto = CreateLoginDto();
-
         var user = CreateUser();
+
         user.AccessFailedCount = 2;
 
         _uow.UserRepository
@@ -104,22 +187,29 @@ public class LoginUserUseCaseTest
             .CheckPassword(user, dto.Password)
             .Returns(Task.FromResult(false));
 
+        DateTimeOffset beforeExecution = DateTimeOffset.UtcNow;
+
         // Act
         var result = await _sut.ExecuteAsync(dto);
 
         // Assert
         result.IsSuccess.Should().BeFalse();
+        result.StatusCode.Should().Be(401);
 
         user.AccessFailedCount.Should().Be(0);
         user.LockoutEnd.Should().NotBeNull();
-        user.LockoutEnd!.Value.Should()
-            .BeAfter(DateTimeOffset.UtcNow.AddHours(4));
 
-        _uow.UserRepository
+        user.LockoutEnd!.Value.Should()
+            .BeAfter(beforeExecution.AddHours(4));
+
+        user.LockoutEnd.Value.Should()
+            .BeBefore(DateTimeOffset.UtcNow.AddHours(5).AddMinutes(1));
+
+        await _uow.UserRepository
             .Received(1)
             .Update(user);
 
-        _createTokenUseCase
+        await _createTokenUseCase
             .DidNotReceive()
             .ExecuteAsync(Arg.Any<UserModel>());
 
@@ -128,13 +218,18 @@ public class LoginUserUseCaseTest
             .Execute();
     }
 
+    // ------------------------------------------------------------------
+    // Successful authentication
+    // ------------------------------------------------------------------
+
     [Fact]
     public async Task ExecuteAsync_ShouldReturnTokens_WhenCredentialsAreValid()
     {
         // Arrange
         var dto = CreateLoginDto();
-
         var user = CreateUser();
+
+        user.IsActive = true;
         user.AccessFailedCount = 2;
         user.LockoutEnd = DateTimeOffset.UtcNow.AddMinutes(-5);
 
@@ -172,12 +267,16 @@ public class LoginUserUseCaseTest
 
         var tokens = result.Value;
 
+        tokens.Should().NotBeNull();
         tokens.Token.Should().Be("access-token");
         tokens.ExpiredToken.Should().Be(tokenExpiration);
         tokens.RefreshToken.Should().Be("refresh-token");
 
+        // Successful login resets failed attempts and lockout.
         user.AccessFailedCount.Should().Be(0);
         user.LockoutEnd.Should().BeNull();
+
+        // Refresh token must be persisted.
         user.RefreshToken.Should().Be("refresh-token");
 
         await _uow.UserRepository
@@ -192,6 +291,10 @@ public class LoginUserUseCaseTest
             .Received(1)
             .Execute();
     }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
 
     private static LoginUserDTO CreateLoginDto()
     {
@@ -209,7 +312,9 @@ public class LoginUserUseCaseTest
             Id = "user-123",
             UserName = "testuser",
             Email = "test@example.com",
-            CreatedAt = DateTimeOffset.UtcNow
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Permissions = []
         };
     }
 }
