@@ -9,6 +9,40 @@ public class PermissionSeeder(IUnitOfWork uow) : IPermissionSeeder
     public static IReadOnlyList<PermissionsModel> Permissions { get; } =
         Array.AsReadOnly<PermissionsModel>(
         [
+            // ----------------------------------------------------------
+            // Room operating hours
+            // ----------------------------------------------------------
+
+            CreatePermission(
+                "rooms.operating-hours.create",
+                "Create room operating hours",
+                PermissionModuleEnum.Rooms,
+                "Allows creating operating hour configurations for rooms."),
+
+            CreatePermission(
+                "rooms.operating-hours.read",
+                "Read room operating hours",
+                PermissionModuleEnum.Rooms,
+                "Allows retrieving a room operating hour by ID or room."),
+
+            CreatePermission(
+                "rooms.operating-hours.list",
+                "List room operating hours",
+                PermissionModuleEnum.Rooms,
+                "Allows listing room operating hours with filters and pagination."),
+
+            CreatePermission(
+                "rooms.operating-hours.update",
+                "Update room operating hours",
+                PermissionModuleEnum.Rooms,
+                "Allows updating room operating hour configurations."),
+
+            CreatePermission(
+                "rooms.operating-hours.delete",
+                "Delete room operating hours",
+                PermissionModuleEnum.Rooms,
+                "Allows deleting room operating hour configurations."),
+            
             CreatePermission(
                 "identity.users.create",
                 "Create users",

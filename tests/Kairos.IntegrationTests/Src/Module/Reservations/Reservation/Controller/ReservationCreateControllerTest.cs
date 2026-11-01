@@ -46,6 +46,12 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             room.Id,
             category.Id);
 
+        await ConfigureRoomOperatingHoursForReservationHttp(
+            tokens,
+            room.Id,
+            dto.StartsAt,
+            dto.EndsAt);
+
         var inbox = await NewInboxAsync();
 
         // Act
@@ -579,6 +585,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
 
+        // CreateReservationHttp já configura os dias de funcionamento.
         var existingReservation = await CreateReservationHttp(tokens);
 
         var dto = NewReservationDto(
@@ -642,6 +649,12 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             startsAt: startsAt.AddMinutes(30),
             endsAt: endsAt.AddMinutes(30));
 
+        await ConfigureRoomOperatingHoursForReservationHttp(
+            tokens,
+            room.Id,
+            dto.StartsAt,
+            dto.EndsAt);
+
         var inbox = await NewInboxAsync();
 
         // Act
@@ -691,6 +704,12 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             category.Id,
             startsAt: firstDto.StartsAt.AddDays(1),
             idempotencyKey: idempotencyKey);
+
+        await ConfigureRoomOperatingHoursForReservationHttp(
+            tokens,
+            room.Id,
+            firstDto.StartsAt,
+            firstDto.EndsAt);
 
         var firstInbox = await NewInboxAsync();
         var secondInbox = await NewInboxAsync();
@@ -841,6 +860,12 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             room.Id,
             category.Id,
             startsAt: firstDto.EndsAt.AddDays(1));
+
+        await ConfigureRoomOperatingHoursForReservationHttp(
+            tokens,
+            room.Id,
+            firstDto.StartsAt,
+            firstDto.EndsAt);
 
         // Primeiro cadastro.
         using (var firstResponse = await SendCreateAsync(

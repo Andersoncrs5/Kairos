@@ -11,6 +11,8 @@ using Kairos.Api.Modules.Rooms.Room.Models;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
+using Kairos.Api.Modules.Rooms.RoomOperatingHour.Model;
+using Kairos.Api.Modules.Rooms.RoomOperatingHour.Repository;
 using NSubstitute;
 using Xunit;
 
@@ -22,6 +24,7 @@ public sealed class CreateReservationUseCaseTest
     private readonly IReservationRepository _reservationRepository;
     private readonly IRoomRepository _roomRepository;
     private readonly IRoomBlockoutRepository _roomBlockoutRepository;
+    private readonly IRoomOperatingHourRepository _roomOperatingHourRepository;
 
     private readonly CreateReservationUseCase _sut;
 
@@ -32,10 +35,12 @@ public sealed class CreateReservationUseCaseTest
         _reservationRepository = Substitute.For<IReservationRepository>();
         _roomRepository = Substitute.For<IRoomRepository>();
         _roomBlockoutRepository = Substitute.For<IRoomBlockoutRepository>();
+        _roomOperatingHourRepository = Substitute.For<IRoomOperatingHourRepository>();
 
         _unitOfWork.ReservationRepository.Returns(_reservationRepository);
         _unitOfWork.RoomRepository.Returns(_roomRepository);
         _unitOfWork.RoomBlockoutRepository.Returns(_roomBlockoutRepository);
+        _unitOfWork.RoomOperatingHourRepository.Returns(_roomOperatingHourRepository);
 
         _sut = new CreateReservationUseCase(_unitOfWork);
     }
@@ -440,6 +445,11 @@ public sealed class CreateReservationUseCaseTest
             Arg.Any<string>(),
             Arg.Any<CancellationToken>());
 
+        await _roomOperatingHourRepository.DidNotReceive()
+            .GetByRoomIdAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+
         await _reservationRepository.DidNotReceive()
             .ExistsConflictingByRoomAsync(
                 Arg.Any<string>(),
@@ -570,7 +580,333 @@ public sealed class CreateReservationUseCaseTest
     }
 
     // ---------------------------------------------------------------
-    // 7. Conflitos de reservas
+    // 7. Horários de funcionamento da sala
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task ExecuteAsync_WhenRoomHasNoOperatingHours_ReturnsConflict()
+    {
+        // Arrange
+        var command = NewCommand();
+        var room = NewRoom(command.Dto.RoomId);
+
+        SetupValidDependenciesBeforeConflictCheck(
+            command,
+            room,
+            Array.Empty<RoomOperatingHourModel>());
+
+        // Act
+        var result = await _sut.ExecuteAsync(command);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.StatusCode.Should().Be(409);
+
+        result.Errors.Should().Contain(
+            "Room is closed or outside its operating hours during this period.");
+
+        await _roomOperatingHourRepository.Received(1)
+            .GetByRoomIdAsync(
+                command.Dto.RoomId,
+                Arg.Any<CancellationToken>());
+
+        await VerifyNoCallsAfterOperatingHoursValidation();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenOperatingHoursAreInactive_ReturnsConflict()
+    {
+        // Arrange
+        var command = NewCommand();
+        var room = NewRoom(command.Dto.RoomId);
+
+        var operatingHours = Enum.GetValues<DayOfWeek>()
+            .Select(day => NewOperatingHour(
+                command.Dto.RoomId,
+                day,
+                new TimeOnly(8, 0),
+                new TimeOnly(18, 0),
+                isActive: false))
+            .ToArray();
+
+        SetupValidDependenciesBeforeConflictCheck(
+            command,
+            room,
+            operatingHours);
+
+        // Act
+        var result = await _sut.ExecuteAsync(command);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.StatusCode.Should().Be(409);
+
+        result.Errors.Should().Contain(
+            "Room is closed or outside its operating hours during this period.");
+
+        await _roomOperatingHourRepository.Received(1)
+            .GetByRoomIdAsync(
+                command.Dto.RoomId,
+                Arg.Any<CancellationToken>());
+
+        await VerifyNoCallsAfterOperatingHoursValidation();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenRoomIsClosedOnReservationDay_ReturnsConflict()
+    {
+        // Arrange
+        var command = NewCommand();
+        var room = NewRoom(command.Dto.RoomId);
+
+        var reservationDay = command.Dto.StartsAt.DayOfWeek;
+
+        var operatingHours = new[]
+        {
+            NewOperatingHour(
+                command.Dto.RoomId,
+                reservationDay,
+                TimeOnly.MinValue,
+                TimeOnly.MinValue,
+                isClosed: true)
+        };
+
+        SetupValidDependenciesBeforeConflictCheck(
+            command,
+            room,
+            operatingHours);
+
+        // Act
+        var result = await _sut.ExecuteAsync(command);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.StatusCode.Should().Be(409);
+
+        result.Errors.Should().Contain(
+            "Room is closed or outside its operating hours during this period.");
+
+        await _roomOperatingHourRepository.Received(1)
+            .GetByRoomIdAsync(
+                command.Dto.RoomId,
+                Arg.Any<CancellationToken>());
+
+        await VerifyNoCallsAfterOperatingHoursValidation();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenReservationStartsBeforeOpening_ReturnsConflict()
+    {
+        // Arrange
+        var command = NewCommand();
+        var room = NewRoom(command.Dto.RoomId);
+
+        var reservationDay = command.Dto.StartsAt.DayOfWeek;
+
+        var operatingHours = new[]
+        {
+            NewOperatingHour(
+                command.Dto.RoomId,
+                reservationDay,
+                new TimeOnly(10, 0),
+                new TimeOnly(18, 0))
+        };
+
+        SetupValidDependenciesBeforeConflictCheck(
+            command,
+            room,
+            operatingHours);
+
+        // Act
+        var result = await _sut.ExecuteAsync(command);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.StatusCode.Should().Be(409);
+
+        result.Errors.Should().Contain(
+            "Room is closed or outside its operating hours during this period.");
+
+        await _roomOperatingHourRepository.Received(1)
+            .GetByRoomIdAsync(
+                command.Dto.RoomId,
+                Arg.Any<CancellationToken>());
+
+        await VerifyNoCallsAfterOperatingHoursValidation();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenReservationEndsAfterClosing_ReturnsConflict()
+    {
+        // Arrange
+        var command = NewCommand();
+        var room = NewRoom(command.Dto.RoomId);
+
+        var reservationDay = command.Dto.StartsAt.DayOfWeek;
+
+        // Default reservation is from 09:00 to 10:00.
+        // The room closes at 09:30.
+        var operatingHours = new[]
+        {
+            NewOperatingHour(
+                command.Dto.RoomId,
+                reservationDay,
+                new TimeOnly(8, 0),
+                new TimeOnly(9, 30))
+        };
+
+        SetupValidDependenciesBeforeConflictCheck(
+            command,
+            room,
+            operatingHours);
+
+        // Act
+        var result = await _sut.ExecuteAsync(command);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.StatusCode.Should().Be(409);
+
+        result.Errors.Should().Contain(
+            "Room is closed or outside its operating hours during this period.");
+
+        await _roomOperatingHourRepository.Received(1)
+            .GetByRoomIdAsync(
+                command.Dto.RoomId,
+                Arg.Any<CancellationToken>());
+
+        await VerifyNoCallsAfterOperatingHoursValidation();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenReservationCrossesOperatingHoursGap_ReturnsConflict()
+    {
+        // Arrange
+        DateTimeOffset baseDate = DateTimeOffset.UtcNow.AddDays(3);
+        var start = new DateTimeOffset(
+            baseDate.Year,
+            baseDate.Month,
+            baseDate.Day,
+            11,
+            0,
+            0,
+            baseDate.Offset);
+
+        var command = NewCommand(
+            startsAt: start,
+            endsAt: start.AddHours(3));
+
+        var room = NewRoom(command.Dto.RoomId);
+        var reservationDay = command.Dto.StartsAt.DayOfWeek;
+
+        var operatingHours = new[]
+        {
+            NewOperatingHour(
+                command.Dto.RoomId,
+                reservationDay,
+                new TimeOnly(8, 0),
+                new TimeOnly(12, 0)),
+
+            NewOperatingHour(
+                command.Dto.RoomId,
+                reservationDay,
+                new TimeOnly(13, 0),
+                new TimeOnly(18, 0))
+        };
+
+        SetupValidDependenciesBeforeConflictCheck(
+            command,
+            room,
+            operatingHours);
+
+        // Act
+        var result = await _sut.ExecuteAsync(command);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.StatusCode.Should().Be(409);
+
+        result.Errors.Should().Contain(
+            "Room is closed or outside its operating hours during this period.");
+
+        await _roomOperatingHourRepository.Received(1)
+            .GetByRoomIdAsync(
+                command.Dto.RoomId,
+                Arg.Any<CancellationToken>());
+
+        await VerifyNoCallsAfterOperatingHoursValidation();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenReservationFitsSecondOperatingPeriod_CreatesReservation()
+    {
+        // Arrange
+        DateTimeOffset baseDate = DateTimeOffset.UtcNow.AddDays(3);
+        var start = new DateTimeOffset(
+            baseDate.Year,
+            baseDate.Month,
+            baseDate.Day,
+            14,
+            0,
+            0,
+            baseDate.Offset);
+
+        var command = NewCommand(
+            startsAt: start,
+            endsAt: start.AddHours(1));
+
+        var room = NewRoom(command.Dto.RoomId);
+        var reservationDay = command.Dto.StartsAt.DayOfWeek;
+
+        var operatingHours = new[]
+        {
+            NewOperatingHour(
+                command.Dto.RoomId,
+                reservationDay,
+                new TimeOnly(8, 0),
+                new TimeOnly(12, 0)),
+
+            NewOperatingHour(
+                command.Dto.RoomId,
+                reservationDay,
+                new TimeOnly(13, 0),
+                new TimeOnly(18, 0))
+        };
+
+        SetupSuccessfulDependencies(
+            command,
+            room,
+            operatingHours: operatingHours);
+
+        _reservationRepository
+            .AddAsync(
+                Arg.Any<ReservationModel>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _sut.ExecuteAsync(command);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+
+        result.Value!.StartsAt.Should().Be(command.Dto.StartsAt);
+        result.Value.EndsAt.Should().Be(command.Dto.EndsAt);
+
+        await _roomOperatingHourRepository.Received(1)
+            .GetByRoomIdAsync(
+                command.Dto.RoomId,
+                Arg.Any<CancellationToken>());
+
+        await _reservationRepository.Received(1)
+            .AddAsync(
+                Arg.Any<ReservationModel>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    // ---------------------------------------------------------------
+    // 8. Conflitos de reservas
     // ---------------------------------------------------------------
 
     [Fact]
@@ -619,7 +955,7 @@ public sealed class CreateReservationUseCaseTest
     }
 
     // ---------------------------------------------------------------
-    // 8. Conflitos de bloqueios
+    // 9. Conflitos de bloqueios
     // ---------------------------------------------------------------
 
     [Fact]
@@ -709,7 +1045,7 @@ public sealed class CreateReservationUseCaseTest
     }
 
     // ---------------------------------------------------------------
-    // 9. Criação da reserva
+    // 10. Criação da reserva
     // ---------------------------------------------------------------
 
     [Fact]
@@ -802,6 +1138,11 @@ public sealed class CreateReservationUseCaseTest
             normalizedRoomId,
             Arg.Any<CancellationToken>());
 
+        await _roomOperatingHourRepository.Received(1)
+            .GetByRoomIdAsync(
+                normalizedRoomId,
+                Arg.Any<CancellationToken>());
+
         await _reservationRepository.Received(1)
             .ExistsConflictingByRoomAsync(
                 normalizedRoomId,
@@ -830,7 +1171,7 @@ public sealed class CreateReservationUseCaseTest
     }
 
     // ---------------------------------------------------------------
-    // 10. Tratamento de exceções
+    // 11. Tratamento de exceções
     // ---------------------------------------------------------------
 
     [Fact]
@@ -868,7 +1209,7 @@ public sealed class CreateReservationUseCaseTest
     }
 
     // ---------------------------------------------------------------
-    // 11. CancellationToken
+    // 12. CancellationToken
     // ---------------------------------------------------------------
 
     [Fact]
@@ -897,7 +1238,8 @@ public sealed class CreateReservationUseCaseTest
     private void SetupSuccessfulDependencies(
         CreateReservationCommand command,
         RoomModel? room = null,
-        CategoryModel? category = null)
+        CategoryModel? category = null,
+        IReadOnlyList<RoomOperatingHourModel>? operatingHours = null)
     {
         room ??= NewRoom(command.Dto.RoomId);
         category ??= NewCategory(command.Dto.CategoryId);
@@ -905,17 +1247,20 @@ public sealed class CreateReservationUseCaseTest
         SetupCategory(command, category);
         SetupIdempotencyNotFound(command);
         SetupRoom(command, room);
+        SetupOperatingHours(command, operatingHours);
         SetupNoReservationConflict(command);
         SetupOverlappingBlockouts(command);
     }
 
     private void SetupValidDependenciesBeforeConflictCheck(
         CreateReservationCommand command,
-        RoomModel room)
+        RoomModel room,
+        IReadOnlyList<RoomOperatingHourModel>? operatingHours = null)
     {
         SetupExistingCategory(command);
         SetupIdempotencyNotFound(command);
         SetupRoom(command, room);
+        SetupOperatingHours(command, operatingHours);
     }
 
     private void SetupExistingCategory(
@@ -976,6 +1321,20 @@ public sealed class CreateReservationUseCaseTest
             .Returns(Task.FromResult<RoomModel?>(room));
     }
 
+    private void SetupOperatingHours(
+        CreateReservationCommand command,
+        IReadOnlyList<RoomOperatingHourModel>? operatingHours = null)
+    {
+        operatingHours ??= NewWeeklyOperatingHours(
+            command.Dto.RoomId.Trim());
+
+        _roomOperatingHourRepository
+            .GetByRoomIdAsync(
+                command.Dto.RoomId.Trim(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(operatingHours));
+    }
+
     private void SetupNoReservationConflict(
         CreateReservationCommand command)
     {
@@ -1004,7 +1363,7 @@ public sealed class CreateReservationUseCaseTest
     }
 
     // ---------------------------------------------------------------
-    // Helpers: entities
+    // Helpers: entidades
     // ---------------------------------------------------------------
 
     private static CreateReservationCommand NewCommand(
@@ -1117,8 +1476,42 @@ public sealed class CreateReservationUseCaseTest
         };
     }
 
+    private static IReadOnlyList<RoomOperatingHourModel>
+        NewWeeklyOperatingHours(string roomId)
+    {
+        return Enum.GetValues<DayOfWeek>()
+            .Select(day => NewOperatingHour(
+                roomId,
+                day,
+                new TimeOnly(8, 0),
+                new TimeOnly(18, 0)))
+            .ToArray();
+    }
+
+    private static RoomOperatingHourModel NewOperatingHour(
+        string roomId,
+        DayOfWeek dayOfWeek,
+        TimeOnly opensAt,
+        TimeOnly closesAt,
+        bool isClosed = false,
+        bool isActive = true)
+    {
+        return new RoomOperatingHourModel
+        {
+            Id = Guid.NewGuid().ToString(),
+            RoomId = roomId,
+            DayOfWeek = dayOfWeek,
+            OpensAt = opensAt,
+            ClosesAt = closesAt,
+            IsClosed = isClosed,
+            IsActive = isActive,
+            Version = 1,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+    }
+
     // ---------------------------------------------------------------
-    // Helpers: verification
+    // Helpers: verificações
     // ---------------------------------------------------------------
 
     private async Task VerifyNoRepositoryInteractions()
@@ -1158,6 +1551,11 @@ public sealed class CreateReservationUseCaseTest
                 Arg.Any<string>(),
                 Arg.Any<DateTimeOffset>(),
                 Arg.Any<DateTimeOffset>(),
+                Arg.Any<CancellationToken>());
+
+        await _roomOperatingHourRepository.DidNotReceive()
+            .GetByRoomIdAsync(
+                Arg.Any<string>(),
                 Arg.Any<CancellationToken>());
     }
 
@@ -1200,6 +1598,11 @@ public sealed class CreateReservationUseCaseTest
                 Arg.Any<DateTimeOffset>(),
                 Arg.Any<DateTimeOffset>(),
                 Arg.Any<CancellationToken>());
+
+        await _roomOperatingHourRepository.DidNotReceive()
+            .GetByRoomIdAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
     }
 
     private async Task VerifyNoCallsAfterCategoryLookup()
@@ -1233,9 +1636,38 @@ public sealed class CreateReservationUseCaseTest
                 Arg.Any<DateTimeOffset>(),
                 Arg.Any<DateTimeOffset>(),
                 Arg.Any<CancellationToken>());
+
+        await _roomOperatingHourRepository.DidNotReceive()
+            .GetByRoomIdAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
     }
 
     private async Task VerifyNoCallsAfterRoomLookup()
+    {
+        await _roomOperatingHourRepository.DidNotReceive()
+            .GetByRoomIdAsync(
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+
+        await _reservationRepository.DidNotReceive()
+            .ExistsConflictingByRoomAsync(
+                Arg.Any<string>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<CancellationToken>());
+
+        await _roomBlockoutRepository.DidNotReceive()
+            .GetOverlappingAsync(
+                Arg.Any<string>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<CancellationToken>());
+
+        await VerifyAddAsyncWasNotCalled();
+    }
+
+    private async Task VerifyNoCallsAfterOperatingHoursValidation()
     {
         await _reservationRepository.DidNotReceive()
             .ExistsConflictingByRoomAsync(

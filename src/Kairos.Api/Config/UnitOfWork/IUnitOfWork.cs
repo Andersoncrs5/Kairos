@@ -7,6 +7,7 @@ using Kairos.Api.Modules.Reliability.Inbox.Repository;
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
+using Kairos.Api.Modules.Rooms.RoomOperatingHour.Repository;
 using Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -14,6 +15,7 @@ namespace Kairos.Api.Config.UnitOfWork;
 
 public interface IUnitOfWork
 {
+    IRoomOperatingHourRepository RoomOperatingHourRepository { get; }
     IUserRepository UserRepository { get; }
 
     IPermissionRepository PermissionRepository { get; }

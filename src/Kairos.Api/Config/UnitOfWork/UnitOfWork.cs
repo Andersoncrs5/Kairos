@@ -8,6 +8,7 @@ using Kairos.Api.Modules.Reliability.Inbox.Repository;
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
+using Kairos.Api.Modules.Rooms.RoomOperatingHour.Repository;
 using Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -24,7 +25,8 @@ public sealed class UnitOfWork(
     IRoomTypeRepository roomTypeRepository,
     IRoomBlockoutRepository roomBlockoutRepository,
     IReservationRepository reservationRepository,
-    IInboxRepository inboxRepository
+    IInboxRepository inboxRepository,
+    IRoomOperatingHourRepository roomOperatingHourRepository
 ) : IUnitOfWork
 {
     public IUserRepository UserRepository => userRepository;
@@ -36,6 +38,7 @@ public sealed class UnitOfWork(
     public IRoomBlockoutRepository RoomBlockoutRepository => roomBlockoutRepository;
     public IReservationRepository ReservationRepository => reservationRepository;
     public IInboxRepository InboxRepository => inboxRepository;
+    public IRoomOperatingHourRepository RoomOperatingHourRepository => roomOperatingHourRepository;
 
     public Task<int> CommitAsync(
         CancellationToken cancellationToken = default)

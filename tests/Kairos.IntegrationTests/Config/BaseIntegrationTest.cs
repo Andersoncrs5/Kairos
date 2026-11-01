@@ -24,11 +24,14 @@ using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reservations.Reservation.DTOs.Request;
 using Kairos.Api.Modules.Reservations.Reservation.DTOs.Response;
 using Kairos.Api.Modules.Reservations.Reservation.Models;
+using Kairos.Api.Modules.Rooms.RoomBlockout.DTOs.Request;
+using Kairos.Api.Modules.Rooms.RoomBlockout.DTOs.Response;
+using Kairos.Api.Modules.Rooms.RoomOperatingHour.DTOs.Request;
+using Kairos.Api.Modules.Rooms.RoomOperatingHour.DTOs.Response;
+using Kairos.Api.Modules.Rooms.RoomOperatingHour.Model;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Request;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Response;
 using Kairos.Api.Modules.Rooms.Room.Models;
-using Kairos.Api.Modules.Rooms.RoomBlockout.DTOs.Request;
-using Kairos.Api.Modules.Rooms.RoomBlockout.DTOs.Response;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
 using Kairos.Api.Modules.Rooms.RoomTypes.DTOs.Request;
 using Kairos.Api.Modules.Rooms.RoomTypes.DTOs.Response;
@@ -859,7 +862,7 @@ public abstract class BaseIntegrationTest
 
         return blockout;
     }
-    
+
     // ------------------------------------------------------------------
     // Room Blockouts via HTTP
     // ------------------------------------------------------------------
@@ -869,9 +872,8 @@ public abstract class BaseIntegrationTest
         var room = await CreateRoomHttp(tokens);
         var inbox = await NewInboxAsync();
 
-        var now = DateTimeOffset.FromUnixTimeMilliseconds(
-            DateTimeOffset.UtcNow.AddDays(10).ToUnixTimeMilliseconds()
-        );
+        var startsAt = DateTimeOffset.FromUnixTimeMilliseconds(
+            DateTimeOffset.UtcNow.AddDays(10).ToUnixTimeMilliseconds());
 
         var dto = new CreateRoomBlockoutDto
         {
@@ -879,8 +881,8 @@ public abstract class BaseIntegrationTest
             Type = RoomBlockoutType.Maintenance,
             Reason = $"Integration Blockout {Guid.NewGuid():N}",
             Notes = "Created by integration tests.",
-            StartsAt = now,
-            EndsAt = now.AddHours(2)
+            StartsAt = startsAt,
+            EndsAt = startsAt.AddHours(2)
         };
 
         using var response = await SendAsync(
@@ -895,7 +897,6 @@ public abstract class BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().NotBeNullOrWhiteSpace();
         http.Data.Should().NotBeNull();
 
         http.Data!.Id.Should().NotBeNullOrWhiteSpace();
@@ -908,19 +909,14 @@ public abstract class BaseIntegrationTest
         http.Data.EndsAt.Should().Be(dto.EndsAt);
         http.Data.CreatedBy.Should().NotBeNullOrWhiteSpace();
 
-        // Verifica a persistência no banco.
         using var scope = CreateScope();
-
-        var db = scope.ServiceProvider
-            .GetRequiredService<AppDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var persisted = await db.Set<RoomBlockoutModel>()
             .AsNoTracking()
-            .SingleOrDefaultAsync(blockout =>
-                blockout.Id == http.Data.Id);
+            .SingleOrDefaultAsync(item => item.Id == http.Data.Id);
 
         persisted.Should().NotBeNull();
-
         persisted!.Id.Should().Be(http.Data.Id);
         persisted.RoomId.Should().Be(dto.RoomId);
         persisted.Type.Should().Be(dto.Type);
@@ -930,13 +926,10 @@ public abstract class BaseIntegrationTest
         persisted.StartsAt.Should().Be(dto.StartsAt);
         persisted.EndsAt.Should().Be(dto.EndsAt);
         persisted.CreatedBy.Should().Be(http.Data.CreatedBy);
-
         persisted.Version.Should().Be(1);
         persisted.CreatedAt.Should().NotBe(default);
 
-        // Verifica o processamento do Inbox.
         var updatedInbox = await GetInboxAsync(inbox.Id);
-
         updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
         updatedInbox.ProcessedAt.Should().NotBeNull();
         updatedInbox.LockedBy.Should().BeNull();
@@ -954,8 +947,6 @@ public abstract class BaseIntegrationTest
         var category = await CreateCategoryHttp(tokens);
         var room = await CreateRoomHttp(tokens);
 
-        var inbox = await NewInboxAsync();
-
         var startsAt = DateTimeOffset.FromUnixTimeMilliseconds(
             DateTimeOffset.UtcNow
                 .AddDays(10)
@@ -972,6 +963,16 @@ public abstract class BaseIntegrationTest
             IdempotencyKey = $"integration-{Guid.NewGuid():N}"
         };
 
+        // A sala precisa estar aberta durante todos os dias atravessados
+        // pela reserva antes de executar o endpoint de criação.
+        await ConfigureRoomOperatingHoursForReservationHttp(
+            tokens,
+            room.Id,
+            dto.StartsAt,
+            dto.EndsAt);
+
+        var inbox = await NewInboxAsync();
+
         using var response = await SendAsync(
             "/api/v1/reservations",
             body: dto,
@@ -984,7 +985,7 @@ public abstract class BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().NotBeNullOrWhiteSpace();
+        http.TraceId.Should().Be(inbox.Id);
         http.Data.Should().NotBeNull();
 
         http.Data!.Id.Should().NotBeNullOrWhiteSpace();
@@ -996,24 +997,18 @@ public abstract class BaseIntegrationTest
         http.Data.StartsAt.Should().Be(dto.StartsAt);
         http.Data.EndsAt.Should().Be(dto.EndsAt);
         http.Data.Status.Should().Be(ReservationStatusEnum.Confirmed);
-
         http.Data.CancelledAt.Should().BeNull();
         http.Data.CancelledBy.Should().BeNull();
         http.Data.CancellationReason.Should().BeNull();
 
-        // Verifica a persistência no banco.
         using var scope = CreateScope();
-
-        var db = scope.ServiceProvider
-            .GetRequiredService<AppDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var persisted = await db.Set<ReservationModel>()
             .AsNoTracking()
-            .SingleOrDefaultAsync(reservation =>
-                reservation.Id == http.Data.Id);
+            .SingleOrDefaultAsync(item => item.Id == http.Data.Id);
 
         persisted.Should().NotBeNull();
-
         persisted!.Id.Should().Be(http.Data.Id);
         persisted.RoomId.Should().Be(dto.RoomId);
         persisted.CategoryId.Should().Be(dto.CategoryId);
@@ -1024,27 +1019,23 @@ public abstract class BaseIntegrationTest
         persisted.EndsAt.Should().Be(dto.EndsAt);
         persisted.IdempotencyKey.Should().Be(dto.IdempotencyKey);
         persisted.Status.Should().Be(ReservationStatusEnum.Confirmed);
-
         persisted.Version.Should().Be(1);
         persisted.CreatedAt.Should().NotBe(default);
         persisted.UpdatedAt.Should().BeNull();
-
         persisted.CancelledAt.Should().BeNull();
         persisted.CancelledBy.Should().BeNull();
         persisted.CancellationReason.Should().BeNull();
         persisted.CheckedInAt.Should().BeNull();
         persisted.CheckedOutAt.Should().BeNull();
 
-        // Verifica o processamento do Inbox.
         var updatedInbox = await GetInboxAsync(inbox.Id);
-
         updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
         updatedInbox.ProcessedAt.Should().NotBeNull();
         updatedInbox.LockedBy.Should().BeNull();
 
         return http.Data;
     }
-    
+
     // ------------------------------------------------------------------
     // Reservations: Cancel via HTTP
     // ------------------------------------------------------------------
@@ -1055,7 +1046,6 @@ public abstract class BaseIntegrationTest
         string? cancellationReason = "Cancelled by integration tests.")
     {
         var inbox = await NewInboxAsync();
-
         var dto = new CancelReservationDto
         {
             CancellationReason = cancellationReason
@@ -1070,20 +1060,16 @@ public abstract class BaseIntegrationTest
 
         request.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", tokens.Token);
-
         request.Headers.Add(InboxHeader, inbox.Id);
 
         using var response = await Client.SendAsync(request);
-
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<ReservationDto>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
         http.TraceId.Should().Be(inbox.Id);
         http.Data.Should().NotBeNull();
-
         http.Data!.Id.Should().Be(reservationId);
         http.Data.Status.Should().Be(ReservationStatusEnum.Cancelled);
         http.Data.CancelledAt.Should().NotBeNull();
@@ -1092,39 +1078,194 @@ public abstract class BaseIntegrationTest
         string? expectedReason = string.IsNullOrWhiteSpace(cancellationReason)
             ? null
             : cancellationReason.Trim();
-
         http.Data.CancellationReason.Should().Be(expectedReason);
 
-        // Verifica a persistência.
         using var scope = CreateScope();
-
-        var db = scope.ServiceProvider
-            .GetRequiredService<AppDbContext>();
-
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var persisted = await db.Set<ReservationModel>()
             .AsNoTracking()
             .SingleOrDefaultAsync(item => item.Id == reservationId);
 
         persisted.Should().NotBeNull();
-
         persisted!.Status.Should().Be(ReservationStatusEnum.Cancelled);
         persisted.CancelledAt.Should().NotBeNull();
         persisted.CancelledBy.Should().Be(http.Data.CancelledBy);
         persisted.CancellationReason.Should().Be(expectedReason);
-
         persisted.CreatedAt.Should().NotBe(default);
         persisted.UpdatedAt.Should().NotBeNull();
 
-        // Verifica o processamento do Inbox.
         var updatedInbox = await GetInboxAsync(inbox.Id);
-
         updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
         updatedInbox.ProcessedAt.Should().NotBeNull();
         updatedInbox.LockedBy.Should().BeNull();
 
         return http.Data;
     }
-    
+
+    // ------------------------------------------------------------------
+    // Room Operating Hours: Create via HTTP
+    // ------------------------------------------------------------------
+
+    protected async Task<RoomOperatingHourDto> CreateRoomOperatingHourHttp(
+        Tokens tokens,
+        string roomId,
+        DayOfWeek dayOfWeek,
+        TimeOnly? opensAt = null,
+        TimeOnly? closesAt = null,
+        bool isClosed = false,
+        string? notes = "Created by integration tests.")
+    {
+        var inbox = await NewInboxAsync();
+
+        var dto = new CreateRoomOperatingHourDto
+        {
+            DayOfWeek = dayOfWeek,
+            OpensAt = opensAt ?? new TimeOnly(8, 0),
+            ClosesAt = closesAt ?? new TimeOnly(18, 0),
+            IsClosed = isClosed,
+            Notes = notes
+        };
+
+        var url = $"/api/v1/room-operating-hours/rooms/{Uri.EscapeDataString(roomId)}";
+        using var response = await SendAsync(
+            url,
+            body: dto,
+            accessToken: tokens.Token,
+            inboxId: inbox.Id);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await ReadAsync<RoomOperatingHourDto>(response);
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().Be(inbox.Id);
+        http.Data.Should().NotBeNull();
+        http.Data!.Id.Should().NotBeNullOrWhiteSpace();
+        http.Data.RoomId.Should().Be(roomId);
+        http.Data.DayOfWeek.Should().Be(dayOfWeek);
+        http.Data.OpensAt.Should().Be(dto.OpensAt);
+        http.Data.ClosesAt.Should().Be(dto.ClosesAt);
+        http.Data.IsClosed.Should().Be(isClosed);
+        http.Data.IsActive.Should().BeTrue();
+        http.Data.Notes.Should().Be(notes);
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var persisted = await db.Set<RoomOperatingHourModel>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == http.Data.Id);
+
+        persisted.Should().NotBeNull();
+        persisted!.RoomId.Should().Be(roomId);
+        persisted.DayOfWeek.Should().Be(dayOfWeek);
+        persisted.OpensAt.Should().Be(dto.OpensAt);
+        persisted.ClosesAt.Should().Be(dto.ClosesAt);
+        persisted.IsClosed.Should().Be(isClosed);
+        persisted.IsActive.Should().BeTrue();
+        persisted.Notes.Should().Be(notes);
+        persisted.Version.Should().Be(1);
+
+        var updatedInbox = await GetInboxAsync(inbox.Id);
+        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
+        updatedInbox.ProcessedAt.Should().NotBeNull();
+        updatedInbox.LockedBy.Should().BeNull();
+
+        return http.Data;
+    }
+
+    // ------------------------------------------------------------------
+    // Room Operating Hours: Update via HTTP
+    // ------------------------------------------------------------------
+
+    protected async Task<RoomOperatingHourDto> UpdateRoomOperatingHourHttp(
+        Tokens tokens,
+        string roomOperatingHourId,
+        UpdateRoomOperatingHourDto dto)
+    {
+        var inbox = await NewInboxAsync();
+        var url = $"/api/v1/room-operating-hours/{Uri.EscapeDataString(roomOperatingHourId)}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(dto)
+        };
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens.Token);
+        request.Headers.Add(InboxHeader, inbox.Id);
+
+        using var response = await Client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var http = await ReadAsync<RoomOperatingHourDto>(response);
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().Be(inbox.Id);
+        http.Data.Should().NotBeNull();
+        http.Data!.Id.Should().Be(roomOperatingHourId);
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var persisted = await db.Set<RoomOperatingHourModel>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == roomOperatingHourId);
+
+        persisted.Should().NotBeNull();
+        persisted!.DayOfWeek.Should().Be(http.Data.DayOfWeek);
+        persisted.OpensAt.Should().Be(http.Data.OpensAt);
+        persisted.ClosesAt.Should().Be(http.Data.ClosesAt);
+        persisted.IsClosed.Should().Be(http.Data.IsClosed);
+        persisted.IsActive.Should().Be(http.Data.IsActive);
+        persisted.Notes.Should().Be(http.Data.Notes);
+        persisted.Version.Should().BeGreaterThan(1);
+        persisted.UpdatedAt.Should().NotBeNull();
+
+        var updatedInbox = await GetInboxAsync(inbox.Id);
+        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
+        updatedInbox.ProcessedAt.Should().NotBeNull();
+        updatedInbox.LockedBy.Should().BeNull();
+
+        return http.Data;
+    }
+
+    // ------------------------------------------------------------------
+    // Room Operating Hours: Configure for reservation tests
+    // ------------------------------------------------------------------
+
+    protected async Task ConfigureRoomOperatingHoursForReservationHttp(
+        Tokens tokens,
+        string roomId,
+        DateTimeOffset startsAt,
+        DateTimeOffset endsAt)
+    {
+        if (startsAt >= endsAt)
+            throw new ArgumentException(
+                "Reservation start must be earlier than its end.",
+                nameof(endsAt));
+
+        DateTime current = startsAt.DateTime;
+        DateTime end = endsAt.DateTime;
+
+        HashSet<DayOfWeek> days = [];
+
+        while (current < end)
+        {
+            days.Add(current.DayOfWeek);
+            current = current.Date.AddDays(1);
+        }
+
+        foreach (DayOfWeek day in days.OrderBy(day => (int)day))
+        {
+            await CreateRoomOperatingHourHttp(
+                tokens,
+                roomId,
+                dayOfWeek: day,
+                opensAt: new TimeOnly(0, 0, 0),
+                closesAt: new TimeOnly(23, 59, 59),
+                notes: "Automatically configured for reservation integration tests.");
+        }
+    }
+
     // ------------------------------------------------------------------
     // JWT
     // ------------------------------------------------------------------

@@ -1,3 +1,4 @@
+
 using System.ComponentModel.DataAnnotations;
 using Kairos.Api.Common.Enums;
 using Kairos.Api.Common.Result;
@@ -8,6 +9,7 @@ using Kairos.Api.Modules.Reservations.Reservation.DTOs.Request;
 using Kairos.Api.Modules.Reservations.Reservation.Mapper;
 using Kairos.Api.Modules.Reservations.Reservation.Models;
 using Kairos.Api.Modules.Reservations.Reservation.Services.Interfaces;
+using Kairos.Api.Modules.Rooms.RoomOperatingHour.Model;
 
 namespace Kairos.Api.Modules.Reservations.Reservation.Services.Providers;
 
@@ -54,7 +56,11 @@ public sealed class CreateReservationUseCase(IUnitOfWork uow)
 
         validationResults = [];
 
-        if (!Validator.TryValidateObject(dto, new ValidationContext(dto), validationResults, validateAllProperties: true))
+        if (!Validator.TryValidateObject(
+                dto,
+                new ValidationContext(dto),
+                validationResults,
+                validateAllProperties: true))
         {
             return Result<ReservationModel>.ValidationFailure(
                 validationResults
@@ -69,10 +75,16 @@ public sealed class CreateReservationUseCase(IUnitOfWork uow)
         // ---------------------------------------------------------------
 
         if (string.IsNullOrWhiteSpace(command.UserId))
-            return Result<ReservationModel>.ValidationFailure(["Reservation user ID is required."]);
+        {
+            return Result<ReservationModel>.ValidationFailure(
+                ["Reservation user ID is required."]);
+        }
 
         if (!Guid.TryParse(command.UserId.Trim(), out Guid userGuid))
-            return Result<ReservationModel>.ValidationFailure(["Reservation user ID must be a valid UUID."]);
+        {
+            return Result<ReservationModel>.ValidationFailure(
+                ["Reservation user ID must be a valid UUID."]);
+        }
 
         string userId = userGuid.ToString();
 
@@ -104,13 +116,20 @@ public sealed class CreateReservationUseCase(IUnitOfWork uow)
 
         string categoryId = categoryGuid.ToString();
 
-        CategoryModel? categoryModel = await uow.CategoryRepository.GetByIdAsync(categoryId, ct);
+        CategoryModel? categoryModel =
+            await uow.CategoryRepository.GetByIdAsync(categoryId, ct);
+
         if (categoryModel is null)
+        {
             return Result<ReservationModel>.NotFound("Category not found.");
-        
+        }
+
         if (!categoryModel.IsActive)
-            return Result<ReservationModel>.BadRequest("Category is not active.");
-        
+        {
+            return Result<ReservationModel>.BadRequest(
+                "Category is not active.");
+        }
+
         // ---------------------------------------------------------------
         // 4. Validate reservation period
         // ---------------------------------------------------------------
@@ -155,8 +174,7 @@ public sealed class CreateReservationUseCase(IUnitOfWork uow)
 
             if (existingReservation is not null)
             {
-                return Result<ReservationModel>.Success(
-                    existingReservation);
+                return Result<ReservationModel>.Success(existingReservation);
             }
         }
 
@@ -185,53 +203,94 @@ public sealed class CreateReservationUseCase(IUnitOfWork uow)
         }
 
         // ---------------------------------------------------------------
-        // 8. Check reservation conflicts
+        // 8. Validate room operating hours
         // ---------------------------------------------------------------
 
-        bool hasReservationConflict = await uow.ReservationRepository.ExistsConflictingByRoomAsync(roomId, dto.StartsAt, dto.EndsAt, ct);
+        IReadOnlyList<RoomOperatingHourModel> operatingHours =
+            await uow.RoomOperatingHourRepository.GetByRoomIdAsync(
+                roomId,
+                ct);
+
+        bool isRoomOpen = IsWithinOperatingHours(
+            operatingHours,
+            dto.StartsAt,
+            dto.EndsAt);
+
+        if (!isRoomOpen)
+        {
+            return Result<ReservationModel>.Conflict(
+                "Room is closed or outside its operating hours during this period.");
+        }
+
+        // ---------------------------------------------------------------
+        // 9. Check reservation conflicts
+        // ---------------------------------------------------------------
+
+        bool hasReservationConflict =
+            await uow.ReservationRepository.ExistsConflictingByRoomAsync(
+                roomId,
+                dto.StartsAt,
+                dto.EndsAt,
+                ct);
 
         if (hasReservationConflict)
-            return Result<ReservationModel>.Conflict("Room already has a reservation during this period.");
+        {
+            return Result<ReservationModel>.Conflict(
+                "Room already has a reservation during this period.");
+        }
 
         // ---------------------------------------------------------------
-        // 9. Check room blockout conflicts
+        // 10. Check room blockout conflicts
         // ---------------------------------------------------------------
 
-        var overlappingBlockouts = await uow.RoomBlockoutRepository.GetOverlappingAsync(roomId, dto.StartsAt, dto.EndsAt, ct);
+        var overlappingBlockouts =
+            await uow.RoomBlockoutRepository.GetOverlappingAsync(
+                roomId,
+                dto.StartsAt,
+                dto.EndsAt,
+                ct);
 
-        bool hasActiveBlockout = overlappingBlockouts.Any(blockout => blockout.Status != RoomBlockoutStatus.Cancelled);
+        bool hasActiveBlockout = overlappingBlockouts
+            .Any(blockout =>
+                blockout.Status != RoomBlockoutStatus.Cancelled);
 
         if (hasActiveBlockout)
-            return Result<ReservationModel>.Conflict("Room is blocked during this period.");
+        {
+            return Result<ReservationModel>.Conflict(
+                "Room is blocked during this period.");
+        }
 
         // ---------------------------------------------------------------
-        // 10. Create reservation
+        // 11. Create reservation
         // ---------------------------------------------------------------
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
 
-        ReservationModel reservation = ReservationMapper.ToModel(dto, Guid.NewGuid().ToString(), userId, now);
+        ReservationModel reservation = ReservationMapper.ToModel(
+            dto,
+            Guid.NewGuid().ToString(),
+            userId,
+            now);
 
         reservation.RoomId = roomId;
         reservation.Room = room;
 
         reservation.UserId = userId;
+
         reservation.CategoryId = categoryId;
         reservation.Category = categoryModel;
 
         reservation.Title = title;
         reservation.Description = description;
-
         reservation.IdempotencyKey = idempotencyKey;
 
         reservation.Status = ReservationStatusEnum.Confirmed;
-
         reservation.Version = 1;
         reservation.CreatedAt = now;
         reservation.UpdatedAt = null;
 
         // ---------------------------------------------------------------
-        // 11. Persist reservation
+        // 12. Persist reservation
         // ---------------------------------------------------------------
 
         await uow.ReservationRepository.AddAsync(
@@ -239,5 +298,71 @@ public sealed class CreateReservationUseCase(IUnitOfWork uow)
             ct);
 
         return Result<ReservationModel>.Success(reservation);
+    }
+
+    // ---------------------------------------------------------------
+    // Validate reservation against room operating hours
+    // ---------------------------------------------------------------
+
+    private static bool IsWithinOperatingHours(
+        IReadOnlyList<RoomOperatingHourModel> operatingHours,
+        DateTimeOffset startsAt,
+        DateTimeOffset endsAt)
+    {
+        DateTime current = startsAt.DateTime;
+        DateTime reservationEnd = endsAt.DateTime;
+
+        while (current < reservationEnd)
+        {
+            DateTime currentDay = current.Date;
+            DateTime nextDay = currentDay.AddDays(1);
+
+            DateTime segmentEnd = reservationEnd < nextDay
+                ? reservationEnd
+                : nextDay;
+
+            RoomOperatingHourModel[] dayOperatingHours = operatingHours
+                .Where(hour =>
+                    hour.IsActive &&
+                    hour.DayOfWeek == current.DayOfWeek)
+                .ToArray();
+
+            // No active configuration means the room is closed.
+            if (dayOperatingHours.Length == 0)
+            {
+                return false;
+            }
+
+            // An active closed record blocks the entire day.
+            if (dayOperatingHours.Any(hour => hour.IsClosed))
+            {
+                return false;
+            }
+
+            // The entire daily reservation segment must fit
+            // inside one continuous operating period.
+            bool isInsideOperatingPeriod = dayOperatingHours
+                .Where(hour => !hour.IsClosed)
+                .Any(hour =>
+                {
+                    DateTime opensAt = currentDay.Add(
+                        hour.OpensAt.ToTimeSpan());
+
+                    DateTime closesAt = currentDay.Add(
+                        hour.ClosesAt.ToTimeSpan());
+
+                    return current >= opensAt &&
+                           segmentEnd <= closesAt;
+                });
+
+            if (!isInsideOperatingPeriod)
+            {
+                return false;
+            }
+
+            current = segmentEnd;
+        }
+
+        return true;
     }
 }
