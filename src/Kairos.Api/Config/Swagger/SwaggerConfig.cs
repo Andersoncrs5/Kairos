@@ -31,6 +31,21 @@ public static class SwaggerConfig
                     Name = "Kairos API",
                 }
             });
+            
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT",
+                In = ParameterLocation.Header,
+                Name = "Authorization",
+                Description = "Cole apenas o token JWT. O prefixo 'Bearer ' é adicionado automaticamente."
+            });
+
+            options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+            });
 
             // XML documentation from controllers and DTOs.
             var xmlFile =
