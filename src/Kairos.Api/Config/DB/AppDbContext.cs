@@ -34,25 +34,46 @@ public class AppDbContext(DbContextOptions options)
     public DbSet<ReservationModel> Reservations =>
         Set<ReservationModel>();
 
-    public DbSet<InboxModel> Inbox =>
-        Set<InboxModel>();
+    public DbSet<InboxModel> Inbox => Set<InboxModel>();
+
+    // ---------------------------------------------------------------
+    // SaveChanges
+    // ---------------------------------------------------------------
 
     public override int SaveChanges()
+        => SaveChanges(acceptAllChangesOnSuccess: true);
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         SetAuditDates();
-        return base.SaveChanges();
+
+        return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(
         CancellationToken cancellationToken = default)
+        => SaveChangesAsync(
+            acceptAllChangesOnSuccess: true,
+            cancellationToken);
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
     {
         SetAuditDates();
-        return base.SaveChangesAsync(cancellationToken);
+
+        return base.SaveChangesAsync(
+            acceptAllChangesOnSuccess,
+            cancellationToken);
     }
+
+    // ---------------------------------------------------------------
+    // Audit
+    // ---------------------------------------------------------------
 
     private void SetAuditDates()
     {
-        var now = DateTimeOffset.UtcNow;
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
         foreach (var entry in ChangeTracker.Entries<BaseModel>())
         {
@@ -73,13 +94,20 @@ public class AppDbContext(DbContextOptions options)
             if (entry.State == EntityState.Added)
             {
                 entry.Entity.CreatedAt = now;
+                entry.Entity.Version = 1;
+                entry.Entity.UpdatedAt = null;
             }
             else if (entry.State == EntityState.Modified)
             {
                 entry.Entity.UpdatedAt = now;
+                entry.Entity.Version++;
             }
         }
     }
+
+    // ---------------------------------------------------------------
+    // Model configuration
+    // ---------------------------------------------------------------
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -87,27 +115,6 @@ public class AppDbContext(DbContextOptions options)
 
         modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(AppDbContext).Assembly);
-
-        modelBuilder.Entity<UserModel>(entity =>
-        {
-            entity.ToTable("app_users");
-
-            entity.Property(user => user.FullName)
-                .HasMaxLength(250)
-                .IsRequired(false);
-
-            entity.Property(user => user.Permissions)
-                .HasColumnName("permissions")
-                .HasColumnType("text[]")
-                .IsRequired();
-
-            entity.Property(user => user.CreatedAt)
-                .HasColumnName("created_at")
-                .IsRequired();
-
-            entity.Property(user => user.UpdatedAt)
-                .HasColumnName("updated_at");
-        });
 
         modelBuilder.Entity<IdentityRole>()
             .ToTable("app_roles");
