@@ -28,6 +28,17 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnType("text")
                         .HasColumnName("id");
 
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("code");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("color");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -36,6 +47,17 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("description");
+
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("display_order");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("icon");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -59,8 +81,15 @@ namespace Kairos.Api.Config.DB.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("DisplayOrder");
+
                     b.HasIndex("Name")
                         .IsUnique();
+
+                    b.HasIndex("IsActive", "DisplayOrder");
 
                     b.ToTable("categories", (string)null);
                 });

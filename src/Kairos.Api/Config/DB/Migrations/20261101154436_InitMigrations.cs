@@ -64,8 +64,12 @@ namespace Kairos.Api.Config.DB.Migrations
                 columns: table => new
                 {
                     id = table.Column<string>(type: "text", nullable: false),
+                    code = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
                     name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     description = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    color = table.Column<string>(type: "character varying(12)", maxLength: 12, nullable: true),
+                    icon = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    display_order = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -468,6 +472,22 @@ namespace Kairos.Api.Config.DB.Migrations
                 table: "app_users",
                 column: "NormalizedUserName",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_categories_code",
+                table: "categories",
+                column: "code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_categories_display_order",
+                table: "categories",
+                column: "display_order");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_categories_is_active_display_order",
+                table: "categories",
+                columns: new[] { "is_active", "display_order" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_categories_name",
