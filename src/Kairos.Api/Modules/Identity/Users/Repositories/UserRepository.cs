@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Locking;
 using Kairos.Api.Common.Base.Model;
 using Kairos.Api.Common.Page;
 using Kairos.Api.Config.DB;
@@ -338,4 +339,20 @@ public class UserRepository(AppDbContext context, UserManager<UserModel> manager
             newPassword);
     }
 
+    public async Task<UserModel?> FindByIdWithForUpdateAsync(
+        string id,
+        CancellationToken cancellationToken = default)
+    {
+        if (context.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException(
+                "A pessimistic lock requires an active transaction.");
+        }
+
+        return await context.Users
+            .Where(user => user.Id == id)
+            .ForUpdate()
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+    
 }

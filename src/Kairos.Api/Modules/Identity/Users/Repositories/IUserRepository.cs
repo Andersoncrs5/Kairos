@@ -24,4 +24,5 @@ public interface IUserRepository
     Task<IdentityResult> DeleteByIdAsync(string id);
     Task<bool> ExistsPermission(string permission, string userId);
     Task<IdentityResult> ChangePassword(UserModel user, string currentPassword, string newPassword);
+    Task<UserModel?> FindByIdWithForUpdateAsync(string id, CancellationToken cancellationToken = default);
 }
