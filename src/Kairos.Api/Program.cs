@@ -16,24 +16,36 @@ using Serilog;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+// ==========================================
+// Logging & Observability
+// ==========================================
+
 builder.Host.UseSerilog((context, services, loggerConfiguration) =>
     loggerConfiguration
         .ReadFrom.Configuration(context.Configuration)
         .Enrich.FromLogContext()
         .WriteTo.Console()
-        .WriteToObservability(context.Configuration, context.HostingEnvironment));
+        .WriteToObservability(
+            context.Configuration,
+            context.HostingEnvironment));
 
 builder.Services.AddObservabilityConfig(
     builder.Configuration,
     builder.Environment);
 
-builder.Services.AddDatabase(
-    builder.Configuration,
-    builder.Environment);
+// ==========================================
+// Infrastructure
+// ==========================================
 
 builder.Services.AddDatabase(
     builder.Configuration,
     builder.Environment);
+
+builder.Services.AddProblemDetails();
+
+// ==========================================
+// Modules
+// ==========================================
 
 builder.Services
     .AddRoomsModule()
@@ -43,21 +55,43 @@ builder.Services
     .AddReliabilityModule()
     .AddAuthModule();
 
-builder.Services.AddProblemDetails();
+// ==========================================
+// Application
+// ==========================================
 
 WebApplication app = builder.Build();
 
+// ==========================================
+// Swagger
+// ==========================================
+
 app.UseSwaggerConfig();
 
-app.UseMiddleware<RequireInboxIdMiddleware>();
+// ==========================================
+// Routing & CORS
+// ==========================================
+
+app.UseRouting();
+
+// CORS must execute before middleware that requires
+// authentication or custom request headers.
+app.UseCors(CorsOptions.PolicyName);
+
+// ==========================================
+// HTTP Pipeline
+// ==========================================
+
 app.UseHttpsRedirection();
 
+app.UseMiddleware<RequireInboxIdMiddleware>();
+
 app.UseAuthentication();
+
 app.UseAuthorization();
 
-app.MapControllers();
-
-app.UseCors(CorsOptions.PolicyName);
+// ==========================================
+// Database Migration & Bootstrap
+// ==========================================
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
@@ -72,7 +106,17 @@ await using (var scope = app.Services.CreateAsyncScope())
     await bootstrapper.Execute();
 }
 
+// ==========================================
+// Endpoints
+// ==========================================
+
+app.MapControllers();
+
 app.MapHealthChecksConfig();
+
+// ==========================================
+// Run
+// ==========================================
 
 app.Run();
 
