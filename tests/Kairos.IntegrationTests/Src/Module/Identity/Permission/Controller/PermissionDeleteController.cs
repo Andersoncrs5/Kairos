@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Modules.Identity.Permissions.Models;
 using Kairos.IntegrationTests.Config;
 using Xunit.Abstractions;
@@ -30,12 +29,12 @@ public sealed class PermissionDeleteControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendDeleteAsync(
             permission.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -57,11 +56,7 @@ public sealed class PermissionDeleteControllerTest : BaseIntegrationTest
         persisted.Should().BeNull();
 
         // O Inbox deve ter sido processado.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -72,12 +67,12 @@ public sealed class PermissionDeleteControllerTest : BaseIntegrationTest
     public async Task Delete_ReturnsBadRequest_WhenIdIsNotValidUuid()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendDeleteAsync(
             "invalid-uuid",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -99,12 +94,12 @@ public sealed class PermissionDeleteControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendDeleteAsync(
             nonexistentId,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -131,12 +126,12 @@ public sealed class PermissionDeleteControllerTest : BaseIntegrationTest
                 permission => permission.IsSystem = true);
         }
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendDeleteAsync(
             systemPermission.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -170,12 +165,12 @@ public sealed class PermissionDeleteControllerTest : BaseIntegrationTest
         var permission = await CreatePermissionHttp(masterTokens);
 
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendDeleteAsync(
             permission.Id,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
@@ -215,34 +210,38 @@ public sealed class PermissionDeleteControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Delete_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task Delete_ReturnsOk_WhenInboxDoesNotExist()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
+        string inboxId = Guid.NewGuid().ToString();
 
+        // Act
         using var response = await SendDeleteAsync(
             permission.Id,
             tokens.Token,
-            nonexistentInboxId);
+            inboxId);
 
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
+        _output.WriteLine(
+            await response.Content.ReadAsStringAsync());
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<object>(response);
 
         http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Inbox is not available for processing.");
+        http!.Success.Should().BeTrue();
 
         using var scope = CreateScope();
 
         var persisted = await GetPermissionRepository(scope)
             .GetByIdAsync(permission.Id);
 
-        persisted.Should().NotBeNull();
+        persisted.Should().BeNull();
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -250,12 +249,12 @@ public sealed class PermissionDeleteControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using (var firstResponse = await SendDeleteAsync(
                    permission.Id,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         }
@@ -264,7 +263,7 @@ public sealed class PermissionDeleteControllerTest : BaseIntegrationTest
         using var response = await SendDeleteAsync(
             permission.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -275,8 +274,7 @@ public sealed class PermissionDeleteControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
 
         using var scope = CreateScope();
 

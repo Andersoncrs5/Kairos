@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Modules.Identity.Permissions.DTOs.Response;
 using Kairos.IntegrationTests.Config;
 using Xunit;
@@ -31,12 +30,12 @@ public sealed class PermissionFindByIdControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             permission.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -57,11 +56,7 @@ public sealed class PermissionFindByIdControllerTest : BaseIntegrationTest
         http.Data.IsSystem.Should().BeFalse();
         http.Data.Description.Should().Be(permission.Description);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -72,12 +67,12 @@ public sealed class PermissionFindByIdControllerTest : BaseIntegrationTest
     public async Task FindById_ReturnsBadRequest_WhenIdIsNotValidUuid()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             "invalid-uuid",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -99,12 +94,12 @@ public sealed class PermissionFindByIdControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             nonexistentId,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -128,12 +123,12 @@ public sealed class PermissionFindByIdControllerTest : BaseIntegrationTest
         var permission = await CreatePermissionHttp(masterTokens);
 
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             permission.Id,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -143,12 +138,12 @@ public sealed class PermissionFindByIdControllerTest : BaseIntegrationTest
     [Fact]
     public async Task FindById_ReturnsUnauthorized_WhenTokenIsMissing()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             Guid.NewGuid().ToString(),
             accessToken: null,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -181,27 +176,35 @@ public sealed class PermissionFindByIdControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task FindById_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task FindById_ReturnsOk_WhenInboxDoesNotExist()
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             permission.Id,
             tokens.Token,
-            nonexistentInboxId);
+            inboxId);
 
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
+        _output.WriteLine(
+            await response.Content.ReadAsStringAsync());
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<PermissionDto>(response);
 
         http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Inbox is not available for processing.");
+        http!.Success.Should().BeTrue();
+        http.Message.Should().Be("Permission found");
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Id.Should().Be(permission.Id);
+        http.Data.Code.Should().Be(permission.Code);
+        http.Data.Name.Should().Be(permission.Name);
+        http.Data.Module.Should().Be(permission.Module);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -209,12 +212,12 @@ public sealed class PermissionFindByIdControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using (var firstResponse = await SendFindByIdAsync(
                    permission.Id,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         }
@@ -222,7 +225,7 @@ public sealed class PermissionFindByIdControllerTest : BaseIntegrationTest
         using var response = await SendFindByIdAsync(
             permission.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -233,8 +236,7 @@ public sealed class PermissionFindByIdControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------

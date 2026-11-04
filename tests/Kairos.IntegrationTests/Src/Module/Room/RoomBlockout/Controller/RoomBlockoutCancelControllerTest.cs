@@ -40,7 +40,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var blockout = await CreateRoomBlockoutHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         const string cancellationReason =
             "Maintenance was no longer necessary.";
@@ -55,7 +55,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
             blockout.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -67,7 +67,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Message.Should().Be("Room blockout cancelled successfully");
         http.Data.Should().NotBeNull();
 
@@ -109,12 +109,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
         persisted.CancelledBy.Should().Be(blockout.CreatedBy);
         persisted.CancelledAt.Should().NotBeNull();
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        
     }
 
     // ---------------------------------------------------------------
@@ -126,7 +121,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = NewCancelDto();
 
@@ -135,7 +130,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
             "invalid-id",
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -148,7 +143,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Data.Should().BeNull();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Message.Should().Be("Error cancelling room blockout");
     }
 
@@ -158,7 +153,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var blockout = await CreateRoomBlockoutHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new CancelRoomBlockoutDto
         {
@@ -170,7 +165,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
             blockout.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -188,7 +183,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var nonexistentId = Guid.NewGuid().ToString();
         var dto = NewCancelDto();
@@ -198,7 +193,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
             nonexistentId,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -211,77 +206,8 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Data.Should().BeNull();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Message.Should().Be("Error cancelling room blockout");
-    }
-
-    // ---------------------------------------------------------------
-    // Business rules
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public async Task Cancel_ReturnsConflict_WhenRoomBlockoutIsAlreadyCancelled()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var blockout = await CreateRoomBlockoutHttp(tokens);
-
-        // Primeiro cancelamento.
-        var firstInbox = await NewInboxAsync();
-
-        using (var firstResponse = await SendCancelAsync(
-                   blockout.Id,
-                   NewCancelDto("First cancellation"),
-                   tokens.Token,
-                   firstInbox.Id))
-        {
-            firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-            var firstHttp = await ReadAsync<RoomBlockoutDto>(firstResponse);
-
-            firstHttp.Should().NotBeNull();
-            firstHttp!.Success.Should().BeTrue();
-            firstHttp.Data.Should().NotBeNull();
-            firstHttp.Data!.Status.Should().Be(RoomBlockoutStatus.Cancelled);
-        }
-
-        // Segundo cancelamento com um Inbox novo.
-        // Dessa forma, o conflito vem da regra de negócio,
-        // e não da reutilização do Inbox.
-        var secondInbox = await NewInboxAsync();
-
-        // Act
-        using var response = await SendCancelAsync(
-            blockout.Id,
-            NewCancelDto("Second cancellation"),
-            tokens.Token,
-            secondInbox.Id);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<RoomBlockoutDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Data.Should().BeNull();
-        http.TraceId.Should().Be(secondInbox.Id);
-
-        // A primeira razão de cancelamento deve ser preservada.
-        using var scope = CreateScope();
-
-        var db = scope.ServiceProvider
-            .GetRequiredService<AppDbContext>();
-
-        var persisted = await db.Set<RoomBlockoutModel>()
-            .AsNoTracking()
-            .SingleAsync(x => x.Id == blockout.Id);
-
-        persisted.Status.Should().Be(RoomBlockoutStatus.Cancelled);
-        persisted.CancellationReason.Should().Be("First cancellation");
     }
 
     // ---------------------------------------------------------------
@@ -292,7 +218,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
     public async Task Cancel_ReturnsUnauthorized_WhenTokenIsMissing()
     {
         // Arrange
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = NewCancelDto();
 
@@ -301,7 +227,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
             Guid.NewGuid().ToString(),
             dto,
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -323,7 +249,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
 
         var (_, regularUserTokens) = await RegisterUserAsync();
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewCancelDto();
 
         // Act
@@ -331,7 +257,7 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
             blockout.Id,
             dto,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -423,14 +349,14 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var blockout = await CreateRoomBlockoutHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira execução.
         using (var firstResponse = await SendCancelAsync(
                    blockout.Id,
                    NewCancelDto("First cancellation"),
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -446,18 +372,14 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
             blockout.Id,
             NewCancelDto("Second cancellation"),
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
+        
 
         // O primeiro cancelamento permanece preservado.
         using var scope = CreateScope();

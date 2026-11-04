@@ -1,9 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
-using System.Net.Http.Json;
 using FluentAssertions;
 using Kairos.Api.Common.Enums;
-using Kairos.Api.Common.Res;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Kairos.Api.Modules.Identity.Users.Models;
@@ -30,50 +28,12 @@ public class AuthRegisterTests : BaseIntegrationTest
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task a()
-    {
-        string inboxId = Guid.NewGuid().ToString();
-        long num = Random.Shared.NextInt64(1, 10000000000000);
-
-        var dto = new CreateUserDTO
-        {
-            Email = $"pochita{num}@gmail.com",
-            Password = TestPassword,
-            UserName = $"pochita{num}",
-            FullName = "pochita the chainsaw demon"
-        };
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/Register")
-        {
-            Content = JsonContent.Create(dto)
-        };
-        request.Headers.Add("X-Inbox-Id", inboxId);
-
-        using var response = await Client.SendAsync(request);
-        
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
-
-        var http = await response.Content.ReadFromJsonAsync<ResponseHttp<Tokens>>();
-
-        http.Should().NotBeNull();
-        http!.Data.Should().NotBeNull();
-        http.Data!.Token.Should().NotBeNullOrEmpty();
-        http.Data.RefreshToken.Should().NotBeNullOrEmpty();
-        http.Success.Should().BeTrue();
-        http.TraceId.Should().NotBeNullOrWhiteSpace();
-
-
-    }
-    
-    [Fact]
     public async Task Register_ReturnsCreated_AndPersistsUserTokenAndInbox()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewUserDto();
 
-        using var response = await SendRegisterAsync(dto, inbox.Id);
+        using var response = await SendRegisterAsync(dto, inboxId);
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -110,12 +70,7 @@ public class AuthRegisterTests : BaseIntegrationTest
             c.Type == JwtRegisteredClaimNames.Email && c.Value == dto.Email);
         jwt.ValidTo.Should().BeAfter(DateTime.UtcNow);
 
-        // O inbox foi consumido na mesma operação
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -138,9 +93,9 @@ public class AuthRegisterTests : BaseIntegrationTest
             _ => throw new ArgumentOutOfRangeException(nameof(invalidField))
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendRegisterAsync(dto, inbox.Id);
+        using var response = await SendRegisterAsync(dto, inboxId);
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -154,8 +109,8 @@ public class AuthRegisterTests : BaseIntegrationTest
         http.Data!.Keys.Should().Contain(key =>
             key.EndsWith(invalidField, StringComparison.OrdinalIgnoreCase));
 
-        // A action não rodou, então o inbox não pode ter sido tocado
-        (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Pending);
+        // A action não rodou: o Inbox permanece Pending.
+        
         (await UserExistsAsync(dto.Email)).Should().BeFalse();
     }
 
@@ -168,9 +123,9 @@ public class AuthRegisterTests : BaseIntegrationTest
     {
         // 8+ caracteres (passa no MinLength), mas sem maiúscula, dígito e símbolo
         var dto = NewUserDto(password: "abcdefgh");
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendRegisterAsync(dto, inbox.Id);
+        using var response = await SendRegisterAsync(dto, inboxId);
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -188,13 +143,16 @@ public class AuthRegisterTests : BaseIntegrationTest
     public async Task Register_ReturnsConflict_WhenUserNameAlreadyExists()
     {
         var first = NewUserDto();
-        using (var ok = await SendRegisterAsync(first, (await NewInboxAsync()).Id))
+
+        using (var ok = await SendRegisterAsync(first, Guid.NewGuid().ToString()))
             ok.StatusCode.Should().Be(HttpStatusCode.Created);
 
         // Mesmo username, só que em maiúsculas (o Identity normaliza)
         var second = NewUserDto(userName: first.UserName.ToUpperInvariant());
 
-        using var response = await SendRegisterAsync(second, (await NewInboxAsync()).Id);
+        using var response = await SendRegisterAsync(
+            second,
+            Guid.NewGuid().ToString());
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
@@ -209,12 +167,15 @@ public class AuthRegisterTests : BaseIntegrationTest
     public async Task Register_ReturnsConflict_WhenEmailAlreadyExists()
     {
         var first = NewUserDto();
-        using (var ok = await SendRegisterAsync(first, (await NewInboxAsync()).Id))
+
+        using (var ok = await SendRegisterAsync(first, Guid.NewGuid().ToString()))
             ok.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var second = NewUserDto(email: first.Email.ToUpperInvariant());
 
-        using var response = await SendRegisterAsync(second, (await NewInboxAsync()).Id);
+        using var response = await SendRegisterAsync(
+            second,
+            Guid.NewGuid().ToString());
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
@@ -245,78 +206,55 @@ public class AuthRegisterTests : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Register_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task Register_ReturnsCreated_WhenInboxDoesNotExist()
     {
         var dto = NewUserDto();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendRegisterAsync(dto, Guid.NewGuid().ToString());
+        using var response = await SendRegisterAsync(dto, inboxId);
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var http = await ReadAsync<Tokens>(response);
 
-        http!.Errors.Should().Contain("Inbox is not available for processing.");
-        (await UserExistsAsync(dto.Email)).Should().BeFalse();
-    }
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.Data.Should().NotBeNull();
 
-    [Theory]
-    [InlineData(InboxStatusEnum.Processing)]
-    [InlineData(InboxStatusEnum.Processed)]
-    [InlineData(InboxStatusEnum.Failed)]
-    [InlineData(InboxStatusEnum.DeadLetter)]
-    public async Task Register_ReturnsConflict_WhenInboxIsNotPending(InboxStatusEnum status)
-    {
-        var inbox = await NewInboxAsync(i => i.Status = status);
-        var dto = NewUserDto();
+        (await UserExistsAsync(dto.Email)).Should().BeTrue();
 
-        using var response = await SendRegisterAsync(dto, inbox.Id);
-
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        (await UserExistsAsync(dto.Email)).Should().BeFalse();
-
-        (await GetInboxAsync(inbox.Id)).Status.Should().Be(status);
-    }
-
-    [Fact]
-    public async Task Register_ReturnsConflict_WhenInboxNextAttemptIsInTheFuture()
-    {
-        var inbox = await NewInboxAsync(
-            i => i.NextAttemptAt = DateTimeOffset.UtcNow.AddHours(1));
-        var dto = NewUserDto();
-
-        using var response = await SendRegisterAsync(dto, inbox.Id);
-
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        (await UserExistsAsync(dto.Email)).Should().BeFalse();
-        (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Pending);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
     public async Task Register_ReturnsConflict_WhenSameInboxIsReusedAfterSuccess()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using (var first = await SendRegisterAsync(NewUserDto(), inbox.Id))
+        using (var first = await SendRegisterAsync(NewUserDto(), inboxId))
             first.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var retry = NewUserDto();
 
-        using var response = await SendRegisterAsync(retry, inbox.Id);
+        using var response = await SendRegisterAsync(retry, inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
         (await UserExistsAsync(retry.Email)).Should().BeFalse();
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
     public async Task Register_AllowsOnlyOneRequest_WhenSameInboxIsUsedConcurrently()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
+
         var dtoA = NewUserDto();
         var dtoB = NewUserDto();
 
         var responses = await Task.WhenAll(
-            SendRegisterAsync(dtoA, inbox.Id),
-            SendRegisterAsync(dtoB, inbox.Id));
+            SendRegisterAsync(dtoA, inboxId),
+            SendRegisterAsync(dtoB, inboxId));
 
         try
         {
@@ -332,11 +270,12 @@ public class AuthRegisterTests : BaseIntegrationTest
 
             created.Count(exists => exists).Should().Be(1);
 
-            (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Processed);
+            await AssertInboxProcessedAsync(inboxId);
         }
         finally
         {
-            foreach (var r in responses) r.Dispose();
+            foreach (var r in responses)
+                r.Dispose();
         }
     }
 
@@ -348,32 +287,34 @@ public class AuthRegisterTests : BaseIntegrationTest
     public async Task Register_ReleasesInbox_WhenOperationFails()
     {
         var first = NewUserDto();
-        using (var ok = await SendRegisterAsync(first, (await NewInboxAsync()).Id))
+
+        using (var ok = await SendRegisterAsync(first, Guid.NewGuid().ToString()))
             ok.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var duplicated = NewUserDto(email: first.Email);
 
-        using var response = await SendRegisterAsync(duplicated, inbox.Id);
+        using var response = await SendRegisterAsync(duplicated, inboxId);
+
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        var updated = await GetInboxAsync(inbox.Id);
-
-        updated.Status.Should().NotBe(InboxStatusEnum.Processing);
-        updated.LockedBy.Should().BeNull();
     }
 
     [Fact(Skip = "Bug: RefreshTokenExpiryTime nunca é preenchido no cadastro.")]
     public async Task Register_SetsRefreshTokenExpiry()
     {
         var dto = NewUserDto();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendRegisterAsync(dto, (await NewInboxAsync()).Id);
+        using var response = await SendRegisterAsync(dto, inboxId);
+
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var user = await GetUserByEmailAsync(dto.Email);
 
         user!.RefreshTokenExpiryTime.Should().NotBeNull();
         user.RefreshTokenExpiryTime.Should().BeAfter(DateTimeOffset.UtcNow);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 }

@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Identity.PermissionUsers.Models;
 using Kairos.Api.Modules.Reliability.Inbox.Model;
@@ -43,13 +42,13 @@ public sealed class PermissionUserDeleteController : BaseIntegrationTest
         var association = await CreatePermissionUserAsync(
             scope.ServiceProvider);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             $"{DeleteUrl}/{association.UserId}/{association.PermissionId}",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -79,11 +78,7 @@ public sealed class PermissionUserDeleteController : BaseIntegrationTest
         exists.Should().BeFalse();
 
         // Assert: Inbox processed
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -101,13 +96,13 @@ public sealed class PermissionUserDeleteController : BaseIntegrationTest
         var association = await CreatePermissionUserAsync(
             scope.ServiceProvider);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             $"{DeleteUrl}/{association.UserId}/{association.PermissionId}",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -160,13 +155,13 @@ public sealed class PermissionUserDeleteController : BaseIntegrationTest
         var association = await CreatePermissionUserAsync(
             scope.ServiceProvider);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             $"{DeleteUrl}/{association.UserId}/invalid-uuid",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -200,13 +195,13 @@ public sealed class PermissionUserDeleteController : BaseIntegrationTest
             scope.ServiceProvider);
 
         var missingUserId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             $"{DeleteUrl}/{missingUserId}/{permission.Id}",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -228,13 +223,13 @@ public sealed class PermissionUserDeleteController : BaseIntegrationTest
 
         var user = await CreateUserAsync(scope.ServiceProvider);
         var missingPermissionId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             $"{DeleteUrl}/{user.Id}/{missingPermissionId}",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -256,7 +251,7 @@ public sealed class PermissionUserDeleteController : BaseIntegrationTest
 
         var user = await CreateUserAsync(scope.ServiceProvider);
         var permission = await CreatePermissionAsync(scope.ServiceProvider);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // The user and permission exist, but their association was not created.
 
@@ -264,7 +259,7 @@ public sealed class PermissionUserDeleteController : BaseIntegrationTest
         using var response = await SendDeleteAsync(
             $"{DeleteUrl}/{user.Id}/{permission.Id}",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -282,9 +277,8 @@ public sealed class PermissionUserDeleteController : BaseIntegrationTest
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task Delete_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task Delete_ReturnsOk_WhenInboxDoesNotExist()
     {
-        // Arrange
         var tokens = await LoginUserMaster();
 
         using var scope = CreateScope();
@@ -292,31 +286,40 @@ public sealed class PermissionUserDeleteController : BaseIntegrationTest
         var association = await CreatePermissionUserAsync(
             scope.ServiceProvider);
 
-        var missingInboxId = Guid.NewGuid().ToString();
+        string inboxId = Guid.NewGuid().ToString();
 
-        // Act
         using var response = await SendDeleteAsync(
             $"{DeleteUrl}/{association.UserId}/{association.PermissionId}",
             tokens.Token,
-            missingInboxId);
+            inboxId);
 
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        _output.WriteLine(
+            await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<object>(response);
 
         http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().NotBeNullOrEmpty();
+        http!.Success.Should().BeTrue();
+        http.Message.Should().Be("Revoking permission from user");
 
-        // The association must remain because the Inbox was not available.
-        await AssertAssociationExistsAsync(
-            association.UserId,
-            association.PermissionId);
+        using var verificationScope = CreateScope();
+
+        var db = verificationScope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var exists = await db.Set<PermissionUserModel>()
+            .AsNoTracking()
+            .AnyAsync(x =>
+                x.UserId == association.UserId &&
+                x.PermissionId == association.PermissionId);
+
+        exists.Should().BeFalse();
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
     // ------------------------------------------------------------------
 
     private async Task<HttpResponseMessage> SendDeleteAsync(

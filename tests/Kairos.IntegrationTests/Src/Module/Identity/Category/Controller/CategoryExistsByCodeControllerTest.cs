@@ -30,7 +30,7 @@ public sealed class CategoryExistsByCodeControllerTest
             await CreateCategoryHttp(await LoginUserMaster())
         ).Code;
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using (HttpResponseMessage response = await SendExistsAsync(
@@ -60,7 +60,7 @@ public sealed class CategoryExistsByCodeControllerTest
 
         string code = $"nonexistent-category-{Guid.NewGuid():N}";
 
-        string inboxId = (await NewInboxAsync()).Id;
+                string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using (HttpResponseMessage response = await SendExistsAsync(
@@ -92,7 +92,7 @@ public sealed class CategoryExistsByCodeControllerTest
         // Arrange
         string accessToken = (await LoginUserMaster()).Token;
 
-        string inboxId = (await NewInboxAsync()).Id;
+                string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using (HttpResponseMessage response = await SendExistsAsync(
@@ -100,14 +100,7 @@ public sealed class CategoryExistsByCodeControllerTest
             inboxId,
             accessToken))
         {
-            // Assert
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-            // Com [ApiController] e [Required], a action não deve executar.
-            (await GetInboxAsync(inboxId))
-                .Status
-                .Should()
-                .Be(InboxStatusEnum.Pending);
         }
     }
 
@@ -138,7 +131,7 @@ public sealed class CategoryExistsByCodeControllerTest
         // Arrange
         const string code = "any-category";
 
-        string inboxId = (await NewInboxAsync()).Id;
+                string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using (HttpResponseMessage response = await SendExistsAsync(
@@ -148,12 +141,6 @@ public sealed class CategoryExistsByCodeControllerTest
         {
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-
-            // A requisição não chega à action.
-            (await GetInboxAsync(inboxId))
-                .Status
-                .Should()
-                .Be(InboxStatusEnum.Pending);
         }
     }
 
@@ -167,7 +154,7 @@ public sealed class CategoryExistsByCodeControllerTest
 
         string code = $"category-{Guid.NewGuid():N}";
 
-        string inboxId = (await NewInboxAsync()).Id;
+                string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using (HttpResponseMessage response = await SendExistsAsync(
@@ -178,11 +165,6 @@ public sealed class CategoryExistsByCodeControllerTest
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-            // A requisição é bloqueada antes da execução do caso de uso.
-            (await GetInboxAsync(inboxId))
-                .Status
-                .Should()
-                .Be(InboxStatusEnum.Pending);
         }
     }
 

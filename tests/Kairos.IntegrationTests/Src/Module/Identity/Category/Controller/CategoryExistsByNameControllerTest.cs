@@ -30,12 +30,12 @@ public sealed class CategoryExistsByNameControllerTest
         // Arrange
         var tokens = await LoginUserMaster();
         var category = await CreateCategoryHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsAsync(
             category.Name,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
@@ -48,7 +48,6 @@ public sealed class CategoryExistsByNameControllerTest
         http.Data.Should().BeTrue();
         http.TraceId.Should().NotBeNullOrWhiteSpace();
         http.Message.Should().Be("Category exists");
-
     }
 
     [Fact]
@@ -57,12 +56,12 @@ public sealed class CategoryExistsByNameControllerTest
         // Arrange
         var tokens = await LoginUserMaster();
         var name = $"Nonexistent Category {Guid.NewGuid():N}";
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsAsync(
             name,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
@@ -87,21 +86,16 @@ public sealed class CategoryExistsByNameControllerTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsAsync(
             " ",
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        // Com [ApiController] e [Required], a action não deve executar
-        // quando o nome falha na validação automática.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     [Fact]
@@ -128,20 +122,16 @@ public sealed class CategoryExistsByNameControllerTest
     public async Task ExistsByName_ReturnsUnauthorized_WhenTokenIsMissing()
     {
         // Arrange
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsAsync(
             "Any Category",
-            inbox.Id,
+            inboxId,
             accessToken: null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-
-        // A requisição não chega à action.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     [Fact]
@@ -149,21 +139,17 @@ public sealed class CategoryExistsByNameControllerTest
     {
         // Arrange
         var (_, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var name = $"Category {Guid.NewGuid():N}";
 
         // Act
         using var response = await SendExistsAsync(
             name,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-
-        // A requisição é bloqueada antes da execução do caso de uso.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     // ---------------------------------------------------------------

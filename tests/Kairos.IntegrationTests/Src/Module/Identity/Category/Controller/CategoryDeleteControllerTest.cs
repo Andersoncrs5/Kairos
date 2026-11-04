@@ -37,12 +37,12 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var category = await CreateCategoryHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             category.Id,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
@@ -67,11 +67,7 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
         exists.Should().BeFalse();
 
         // Confirma o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -83,12 +79,12 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             "invalid-id",
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -113,13 +109,13 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var nonexistentId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             nonexistentId,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -185,36 +181,31 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Delete_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task Delete_ReturnsOk_WhenInboxDoesNotExist()
     {
         // Arrange
         var tokens = await LoginUserMaster();
         var category = await CreateCategoryHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             category.Id,
-            nonexistentInboxId,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<object>(response);
 
         http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
+        http!.Success.Should().BeTrue();
 
-        http.Errors.Should().Contain(error =>
-            error.Contains(
-                "Inbox is not available for processing.",
-                StringComparison.OrdinalIgnoreCase));
-
-        // A categoria deve permanecer persistida.
+        // A categoria foi removida.
         using var scope = CreateScope();
 
         var exists = await scope.ServiceProvider
@@ -223,7 +214,9 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
             .AsNoTracking()
             .AnyAsync(item => item.Id == category.Id);
 
-        exists.Should().BeTrue();
+        exists.Should().BeFalse();
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -235,12 +228,12 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
         var firstCategory = await CreateCategoryHttp(tokens);
         var secondCategory = await CreateCategoryHttp(tokens);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira exclusão
         using (var firstResponse = await SendDeleteAsync(
                    firstCategory.Id,
-                   inbox.Id,
+                   inboxId,
                    tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -249,7 +242,7 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
         // Segunda exclusão utilizando o mesmo Inbox
         using var response = await SendDeleteAsync(
             secondCategory.Id,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -279,8 +272,7 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
         firstExists.Should().BeFalse();
         secondExists.Should().BeTrue();
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -295,12 +287,12 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
         var category = await CreateCategoryHttp(
             await LoginUserMaster());
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             category.Id,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
@@ -316,9 +308,6 @@ public sealed class CategoryDeleteControllerTest : BaseIntegrationTest
             .AnyAsync(item => item.Id == category.Id);
 
         exists.Should().BeTrue();
-
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     // ---------------------------------------------------------------

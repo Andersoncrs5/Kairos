@@ -197,9 +197,9 @@ public sealed class PermissionUserFindFilterController : BaseIntegrationTest
             HttpMethod.Get,
             url);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        request.Headers.Add(InboxHeader, inbox.Id);
+        request.Headers.Add(InboxHeader, inboxId);
 
         if (!string.IsNullOrWhiteSpace(accessToken))
         {

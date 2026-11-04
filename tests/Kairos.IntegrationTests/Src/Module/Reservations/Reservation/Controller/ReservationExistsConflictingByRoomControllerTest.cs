@@ -36,7 +36,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         // Arrange
         var tokens = await LoginUserMaster();
         var reservation = await CreateReservationHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var startsAt = reservation.StartsAt.AddMinutes(30);
         var endsAt = reservation.EndsAt.AddMinutes(-30);
@@ -47,7 +47,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
             startsAt,
             endsAt,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -61,14 +61,10 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
         http.Message.Should().Be("Room has conflicting reservations");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -77,7 +73,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var startsAt = DateTimeOffset.UtcNow.AddDays(10);
         var endsAt = startsAt.AddHours(2);
@@ -88,7 +84,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
             startsAt,
             endsAt,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -102,14 +98,10 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeFalse();
         http.Message.Should().Be("Room has no conflicting reservations");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -121,7 +113,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var startsAt = DateTimeOffset.UtcNow.AddDays(10);
         var endsAt = startsAt.AddHours(2);
@@ -132,7 +124,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
             startsAt,
             endsAt,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -148,7 +140,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var startsAt = DateTimeOffset.UtcNow.AddDays(10);
         var endsAt = startsAt.AddHours(-1);
@@ -159,7 +151,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
             startsAt,
             endsAt,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -174,7 +166,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var startsAt = DateTimeOffset.UtcNow.AddDays(10);
 
@@ -184,7 +176,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
             startsAt,
             startsAt,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -206,7 +198,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         var reservation = await CreateReservationHttp(masterTokens);
 
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsConflictingByRoomAsync(
@@ -214,7 +206,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
             reservation.StartsAt,
             reservation.EndsAt,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -223,10 +215,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         // A autorização impede a execução da action.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Pending);
-        updatedInbox.ProcessedAt.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -239,7 +228,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var startsAt = DateTimeOffset.UtcNow.AddDays(10);
         var endsAt = startsAt.AddHours(2);
@@ -250,15 +239,12 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
             startsAt,
             endsAt,
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Pending);
-        updatedInbox.ProcessedAt.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -323,7 +309,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         // Arrange
         var tokens = await LoginUserMaster();
         var reservation = await CreateReservationHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira consulta: deve ser processada com sucesso.
         using (var firstResponse = await SendExistsConflictingByRoomAsync(
@@ -331,7 +317,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
                    reservation.StartsAt,
                    reservation.EndsAt,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -348,7 +334,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
             reservation.StartsAt,
             reservation.EndsAt,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -356,11 +342,7 @@ public sealed class ReservationExistsConflictingByRoomControllerTest
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------

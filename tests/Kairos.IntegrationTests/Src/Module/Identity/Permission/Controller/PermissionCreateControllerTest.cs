@@ -53,11 +53,11 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
             _ => throw new ArgumentOutOfRangeException(nameof(invalidField))
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -73,11 +73,7 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
             key.EndsWith(
                 invalidField,
                 StringComparison.OrdinalIgnoreCase));
-
-        // A validação automática impede a execução da action.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
-
+        
         using var scope = CreateScope();
 
         var persisted = await GetPermissionRepository(scope)
@@ -91,11 +87,11 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var dto = NewPermissionDto(code: new string('a', 101));
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -109,9 +105,6 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
         http.Data.Should().NotBeNull();
         http.Data!.Keys.Should().Contain(key =>
             key.EndsWith("Code", StringComparison.OrdinalIgnoreCase));
-
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     [Fact]
@@ -122,11 +115,11 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
         var dto = NewPermissionDto(
             description: new string('a', 256));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -140,9 +133,6 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
         http.Data.Should().NotBeNull();
         http.Data!.Keys.Should().Contain(key =>
             key.EndsWith("Description", StringComparison.OrdinalIgnoreCase));
-
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     // ---------------------------------------------------------------
@@ -157,7 +147,7 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
 
         using (var firstResponse = await SendCreateAsync(
                    dto,
-                   (await NewInboxAsync()).Id,
+                   Guid.NewGuid().ToString(),
                    tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -165,7 +155,7 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
 
         using var response = await SendCreateAsync(
             dto,
-            (await NewInboxAsync()).Id,
+            Guid.NewGuid().ToString(),
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -227,34 +217,38 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Create_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task Create_ReturnsCreated_WhenInboxDoesNotExist()
     {
         var tokens = await LoginUserMaster();
         var dto = NewPermissionDto();
-        var nonexistentInboxId = Guid.NewGuid().ToString();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendCreateAsync(
             dto,
-            nonexistentInboxId,
+            inboxId,
             tokens.Token);
 
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
+        _output.WriteLine(
+            await response.Content.ReadAsStringAsync());
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var http = await ReadAsync<PermissionDto>(response);
 
         http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Inbox is not available for processing.");
+        http!.Success.Should().BeTrue();
+        http.Data.Should().NotBeNull();
+        http.Data!.Code.Should().Be(dto.Code);
+        http.Data.Name.Should().Be(dto.Name);
 
         using var scope = CreateScope();
 
         var persisted = await GetPermissionRepository(scope)
             .GetByCodeAsync(dto.Code);
 
-        persisted.Should().BeNull();
+        persisted.Should().NotBeNull();
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -262,13 +256,13 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var firstDto = NewPermissionDto();
         var secondDto = NewPermissionDto();
 
         using (var firstResponse = await SendCreateAsync(
                    firstDto,
-                   inbox.Id,
+                   inboxId,
                    tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -276,7 +270,7 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
 
         using var response = await SendCreateAsync(
             secondDto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -298,8 +292,7 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
         first.Should().NotBeNull();
         second.Should().BeNull();
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------

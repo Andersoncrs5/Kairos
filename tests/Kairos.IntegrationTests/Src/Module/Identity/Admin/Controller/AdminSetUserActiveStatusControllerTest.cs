@@ -9,6 +9,7 @@ using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.IntegrationTests.Config;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Kairos.IntegrationTests.Module.Identity.Admin.Controller;
 
@@ -17,11 +18,15 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
 {
     private const string Url = "/api/v1/admin/Users";
     private const string StatusPermission = "identity.users.status.update";
+    private readonly ITestOutputHelper _output;
 
     public AdminSetUserActiveStatusControllerTest(
-        KairosApiFactory factory)
+        KairosApiFactory factory, ITestOutputHelper output
+        )
         : base(factory)
     {
+        _output = output;
+        
     }
 
     // ------------------------------------------------------------------
@@ -95,16 +100,7 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
 
         return await Client.SendAsync(request);
     }
-
-    private async Task AssertInboxProcessedAsync(string inboxId)
-    {
-        var inbox = await GetInboxAsync(inboxId);
-
-        inbox.Status.Should().Be(InboxStatusEnum.Processed);
-        inbox.ProcessedAt.Should().NotBeNull();
-        inbox.LockedBy.Should().BeNull();
-    }
-
+    
     // ------------------------------------------------------------------
     // Success
     // ------------------------------------------------------------------
@@ -113,20 +109,19 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
     public async Task SetUserActiveStatus_ReturnsOk_AndDeactivatesUser()
     {
         // Arrange
+        string inboxId = Guid.NewGuid().ToString();
         Tokens admin = await LoginAdminAsync();
         var (_, targetUser) = await CreateTargetUserAsync();
 
         targetUser.IsActive.Should().BeTrue();
         targetUser.RefreshToken.Should().NotBeNullOrWhiteSpace();
 
-        var inbox = await NewInboxAsync();
-
         // Act
         using var response = await SendSetUserActiveStatusAsync(
             targetUser.Id,
             isActive: false,
             admin.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert - HTTP response
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -137,7 +132,7 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
         http.Message.Should().Be("User account deactivated successfully");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         // Assert - persistence
         var updatedUser = await GetUserByEmailAsync(targetUser.Email!);
@@ -150,7 +145,7 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         updatedUser.RefreshTokenExpiryTime.Should().BeNull();
 
         // Assert - Inbox
-        await AssertInboxProcessedAsync(inbox.Id);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -176,14 +171,13 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
                 user.RefreshTokenExpiryTime = refreshTokenExpiry;
             });
 
-        var inbox = await NewInboxAsync();
-
+        string inboxId = Guid.NewGuid().ToString();
         // Act
         using var response = await SendSetUserActiveStatusAsync(
             targetUser.Id,
             isActive: true,
             admin.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert - HTTP response
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -194,7 +188,7 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
         http.Message.Should().Be("User account activated successfully");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         // Assert - persistence
         var updatedUser = await GetUserByEmailAsync(targetUser.Email!);
@@ -207,7 +201,7 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         updatedUser.RefreshTokenExpiryTime.Should().Be(refreshTokenExpiry);
 
         // Assert - Inbox
-        await AssertInboxProcessedAsync(inbox.Id);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -222,15 +216,17 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         long originalVersion = targetUser.Version;
         string? originalRefreshToken = targetUser.RefreshToken;
 
-        var inbox = await NewInboxAsync();
-
+        string inboxId = Guid.NewGuid().ToString();
+                
         // Act
         using var response = await SendSetUserActiveStatusAsync(
             targetUser.Id,
             isActive: true,
             admin.Token,
-            inbox.Id);
-
+            inboxId);
+        
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
+        
         // Assert - HTTP response
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -239,7 +235,7 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         // Assert - no unnecessary database update
         var updatedUser = await GetUserByEmailAsync(targetUser.Email!);
@@ -250,7 +246,7 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         updatedUser.RefreshToken.Should().Be(originalRefreshToken);
 
         // Assert - Inbox
-        await AssertInboxProcessedAsync(inbox.Id);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -264,14 +260,15 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         Tokens admin = await LoginAdminAsync();
         string userId = Guid.NewGuid().ToString();
 
-        var inbox = await NewInboxAsync();
+                string inboxId = Guid.NewGuid().ToString();
+
 
         // Act
         using var response = await SendSetUserActiveStatusAsync(
             userId,
             isActive: false,
             admin.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -281,7 +278,7 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain("User not found.");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -293,14 +290,15 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
     {
         // Arrange
         var (_, targetUser) = await CreateTargetUserAsync();
-        var inbox = await NewInboxAsync();
+                string inboxId = Guid.NewGuid().ToString();
+
 
         // Act
         using var response = await SendSetUserActiveStatusAsync(
             targetUser.Id,
             isActive: false,
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -311,14 +309,15 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
     {
         // Arrange
         var (_, targetUser) = await CreateTargetUserAsync();
-        var inbox = await NewInboxAsync();
+                string inboxId = Guid.NewGuid().ToString();
+
 
         // Act
         using var response = await SendSetUserActiveStatusAsync(
             targetUser.Id,
             isActive: false,
             accessToken: "not-a-valid-jwt",
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -331,14 +330,15 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         Tokens unauthorizedUser = await CreateUserHttp();
         var (_, targetUser) = await CreateTargetUserAsync();
 
-        var inbox = await NewInboxAsync();
+                string inboxId = Guid.NewGuid().ToString();
+
 
         // Act
         using var response = await SendSetUserActiveStatusAsync(
             targetUser.Id,
             isActive: false,
             unauthorizedUser.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -388,14 +388,15 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
         Tokens admin = await LoginAdminAsync();
         var (_, targetUser) = await CreateTargetUserAsync();
 
-        var inbox = await NewInboxAsync();
+                string inboxId = Guid.NewGuid().ToString();
+
 
         // Act - first request
         using (var firstResponse = await SendSetUserActiveStatusAsync(
             targetUser.Id,
             isActive: false,
             admin.Token,
-            inbox.Id))
+            inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -410,13 +411,13 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
             targetUser.Id,
             isActive: false,
             admin.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         secondResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         // The first request must have completed successfully.
-        await AssertInboxProcessedAsync(inbox.Id);
+        await AssertInboxProcessedAsync(inboxId);
 
         // The user must remain deactivated.
         var updatedUser = await GetUserByEmailAsync(targetUser.Email!);

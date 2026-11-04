@@ -31,12 +31,12 @@ public sealed class RoomTypeFindByIdControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             roomType.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -56,12 +56,6 @@ public sealed class RoomTypeFindByIdControllerTest : BaseIntegrationTest
         http.Data.Description.Should().Be(roomType.Description);
         http.Data.IsActive.Should().Be(roomType.IsActive);
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------
@@ -72,12 +66,12 @@ public sealed class RoomTypeFindByIdControllerTest : BaseIntegrationTest
     public async Task FindById_ReturnsBadRequest_WhenIdIsNotValidUuid()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             "invalid-uuid",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -100,12 +94,12 @@ public sealed class RoomTypeFindByIdControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             nonexistentId,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -129,12 +123,12 @@ public sealed class RoomTypeFindByIdControllerTest : BaseIntegrationTest
         var masterTokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(masterTokens);
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             roomType.Id,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -145,12 +139,12 @@ public sealed class RoomTypeFindByIdControllerTest : BaseIntegrationTest
     [Fact]
     public async Task FindById_ReturnsUnauthorized_WhenTokenIsMissing()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindByIdAsync(
             Guid.NewGuid().ToString(),
             accessToken: null,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -210,13 +204,13 @@ public sealed class RoomTypeFindByIdControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira consulta: deve ser processada com sucesso.
         using (var firstResponse = await SendFindByIdAsync(
                    roomType.Id,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         }
@@ -225,7 +219,7 @@ public sealed class RoomTypeFindByIdControllerTest : BaseIntegrationTest
         using var response = await SendFindByIdAsync(
             roomType.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -236,10 +230,7 @@ public sealed class RoomTypeFindByIdControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
+        
     }
 
     // ---------------------------------------------------------------

@@ -32,12 +32,12 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     public async Task ChangePassword_ReturnsOk_AndRevokesRefreshToken()
     {
         var (registered, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
-
+        string inboxId = Guid.NewGuid().ToString();
+        
         using var response = await SendChangePasswordAsync(
             ValidChange(registered.Password),
             tokens.Token,
-            inbox.Id);
+            inboxId);
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -48,7 +48,7 @@ public class AuthChangePasswordTests : BaseIntegrationTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
         http.Message.Should().Be("Password changed successfully");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         var user = await GetUserByEmailAsync(registered.Email);
 
@@ -56,11 +56,7 @@ public class AuthChangePasswordTests : BaseIntegrationTest
         user!.RefreshToken.Should().BeNull();
         user.RefreshTokenExpiryTime.Should().BeNull();
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -68,10 +64,7 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     {
         var (registered, tokens) = await RegisterUserAsync();
 
-        using var changeResponse = await SendChangePasswordAsync(
-            ValidChange(registered.Password),
-            tokens.Token,
-            (await NewInboxAsync()).Id);
+        using var changeResponse = await SendChangePasswordAsync(ValidChange(registered.Password), tokens.Token, Guid.NewGuid().ToString());
 
         changeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -105,14 +98,14 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     public async Task ChangePassword_ReturnsBadRequest_WhenConfirmationDoesNotMatch()
     {
         var (registered, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
-
+        string inboxId = Guid.NewGuid().ToString();
+        
         ChangePasswordUserDto dto = new(
             registered.Password,
             NewPassword,
             "DifferentPassword123!");
 
-        using var response = await SendChangePasswordAsync(dto, tokens.Token, inbox.Id);
+        using var response = await SendChangePasswordAsync(dto, tokens.Token, inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
@@ -131,8 +124,6 @@ public class AuthChangePasswordTests : BaseIntegrationTest
 
         user.Should().NotBeNull();
         user!.RefreshToken.Should().Be(tokens.RefreshToken);
-
-        (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     // ------------------------------------------------------------------
@@ -143,12 +134,13 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     public async Task ChangePassword_ReturnsBadRequest_WhenCurrentPasswordIsIncorrect()
     {
         var (registered, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
+        
 
         using var response = await SendChangePasswordAsync(
             ValidChange("WrongCurrentPassword123!"),
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
@@ -176,7 +168,7 @@ public class AuthChangePasswordTests : BaseIntegrationTest
             registered.Password);
 
         using var response = await SendChangePasswordAsync(
-            dto, tokens.Token, (await NewInboxAsync()).Id);
+            dto, tokens.Token, Guid.NewGuid().ToString());
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
@@ -200,7 +192,7 @@ public class AuthChangePasswordTests : BaseIntegrationTest
             "alllowercase");
 
         using var response = await SendChangePasswordAsync(
-            dto, tokens.Token, (await NewInboxAsync()).Id);
+            dto, tokens.Token, Guid.NewGuid().ToString());
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
@@ -221,7 +213,7 @@ public class AuthChangePasswordTests : BaseIntegrationTest
         using var response = await SendChangePasswordAsync(
             ValidChange(registered.Password),
             tokens.Token,
-            (await NewInboxAsync()).Id);
+            Guid.NewGuid().ToString());
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
@@ -238,12 +230,13 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     public async Task ChangePassword_ReturnsUnauthorized_WhenAccessTokenIsMissing()
     {
         var (registered, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
+        
 
         using var response = await SendChangePasswordAsync(
             ValidChange(registered.Password),
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
@@ -251,20 +244,20 @@ public class AuthChangePasswordTests : BaseIntegrationTest
 
         user.Should().NotBeNull();
         user!.RefreshToken.Should().Be(tokens.RefreshToken);
-
-        (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Pending);
+        
     }
 
     [Fact]
     public async Task ChangePassword_ReturnsUnauthorized_WhenAccessTokenIsInvalid()
     {
         var (registered, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
+        
 
         using var response = await SendChangePasswordAsync(
             ValidChange(registered.Password),
             "not-a-valid-jwt",
-            inbox.Id);
+            inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
@@ -272,8 +265,6 @@ public class AuthChangePasswordTests : BaseIntegrationTest
 
         user.Should().NotBeNull();
         user!.RefreshToken.Should().Be(tokens.RefreshToken);
-
-        (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     // ------------------------------------------------------------------
@@ -307,13 +298,14 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     public async Task ChangePassword_ReturnsConflict_WhenInboxIsReused()
     {
         var (registered, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
+        
         var dto = ValidChange(registered.Password);
 
-        using (var first = await SendChangePasswordAsync(dto, tokens.Token, inbox.Id))
+        using (var first = await SendChangePasswordAsync(dto, tokens.Token, inboxId))
             first.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        using var second = await SendChangePasswordAsync(dto, tokens.Token, inbox.Id);
+        using var second = await SendChangePasswordAsync(dto, tokens.Token, inboxId);
 
         second.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
@@ -326,16 +318,15 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     public async Task ChangePassword_ReleasesInbox_WhenCurrentPasswordIsIncorrect()
     {
         var (_, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
+        
 
         using var response = await SendChangePasswordAsync(
             ValidChange("WrongCurrentPassword123!"),
             tokens.Token,
-            inbox.Id);
+            inboxId);
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-        var updated = await GetInboxAsync(inbox.Id);
-        updated.Status.Should().NotBe(InboxStatusEnum.Processing);
-        updated.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 }

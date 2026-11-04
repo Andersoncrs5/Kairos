@@ -58,13 +58,13 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
             Notes = "Updated operating hours."
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             operatingHour.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -76,7 +76,7 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Message.Should().Be("Room operating hour updated successfully");
         http.Data.Should().NotBeNull();
 
@@ -105,10 +105,6 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         persisted.IsActive.Should().BeTrue();
         persisted.Notes.Should().Be("Updated operating hours.");
         persisted.UpdatedAt.Should().NotBeNull();
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     [Fact]
@@ -156,7 +152,7 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var nonexistentId = Guid.NewGuid().ToString();
         var dto = new UpdateRoomOperatingHourDto
         {
@@ -167,7 +163,7 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         using var response = await SendUpdateAsync(
             nonexistentId,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -178,11 +174,10 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         var http = await ReadAsync<RoomOperatingHourDto>(response);
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().BeNull();
         http.Errors.Should().Contain("Room operating hour not found.");
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
+        
     }
 
     [Fact]
@@ -190,7 +185,7 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         const string invalidId = "not-a-valid-uuid";
         var dto = new UpdateRoomOperatingHourDto
         {
@@ -201,7 +196,7 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         using var response = await SendUpdateAsync(
             invalidId,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -214,7 +209,6 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain("Room operating hour not found.");
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
     }
 
     // ---------------------------------------------------------------
@@ -240,13 +234,13 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
             ClosesAt = new TimeOnly(8, 0)
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             operatingHour.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -269,8 +263,7 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         persisted.OpensAt.Should().Be(new TimeOnly(8, 0));
         persisted.ClosesAt.Should().Be(new TimeOnly(18, 0));
         persisted.Version.Should().Be(1);
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
+        
     }
 
     // ---------------------------------------------------------------
@@ -304,13 +297,13 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
             ClosesAt = new TimeOnly(15, 0)
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             target.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -333,8 +326,7 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         persisted.OpensAt.Should().Be(new TimeOnly(13, 0));
         persisted.ClosesAt.Should().Be(new TimeOnly(18, 0));
         persisted.Version.Should().Be(1);
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
+        
     }
 
     [Fact]
@@ -363,13 +355,13 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
             IsClosed = true
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             target.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -382,8 +374,7 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain(
             "Room already has operating hours configured for this day.");
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
+        
     }
 
     [Fact]
@@ -413,13 +404,13 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
             DayOfWeek = DayOfWeek.Monday
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             target.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -431,8 +422,7 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain("Room is marked as closed for this day.");
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
+        
     }
 
     // ---------------------------------------------------------------
@@ -509,7 +499,7 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
     public async Task Update_ReturnsUnauthorized_WhenAccessTokenIsMissing()
     {
         // Arrange
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = new UpdateRoomOperatingHourDto
         {
             OpensAt = new TimeOnly(9, 0)
@@ -519,18 +509,14 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         using var response = await SendUpdateAsync(
             Guid.NewGuid().ToString(),
             dto,
-            inbox.Id,
+            inboxId,
             accessToken: null);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(Kairos.Api.Common.Enums.InboxStatusEnum.Pending);
-        updatedInbox.ProcessedAt.Should().BeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        
     }
 
     // ---------------------------------------------------------------

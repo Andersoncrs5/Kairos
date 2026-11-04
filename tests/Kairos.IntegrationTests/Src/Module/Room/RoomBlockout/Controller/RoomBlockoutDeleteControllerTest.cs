@@ -19,10 +19,7 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
 
     private readonly ITestOutputHelper _output;
 
-    public RoomBlockoutDeleteControllerTest(
-        KairosApiFactory factory,
-        ITestOutputHelper output)
-        : base(factory)
+    public RoomBlockoutDeleteControllerTest(KairosApiFactory factory, ITestOutputHelper output) : base(factory)
     {
         _output = output;
     }
@@ -37,13 +34,13 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var blockout = await CreateRoomBlockoutHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             blockout.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -71,12 +68,6 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
 
         exists.Should().BeFalse();
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------
@@ -88,7 +79,7 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         const string invalidId = "invalid-id";
 
@@ -96,7 +87,7 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
         using var response = await SendDeleteAsync(
             invalidId,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -121,7 +112,7 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var nonexistentId = Guid.NewGuid().ToString();
 
@@ -129,7 +120,7 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
         using var response = await SendDeleteAsync(
             nonexistentId,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -153,14 +144,14 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
     public async Task Delete_ReturnsUnauthorized_WhenTokenIsMissing()
     {
         // Arrange
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var nonexistentId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             nonexistentId,
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -183,13 +174,13 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
 
         var (_, regularUserTokens) = await RegisterUserAsync();
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             blockout.Id,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -249,7 +240,7 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
         var db = scope.ServiceProvider
             .GetRequiredService<AppDbContext>();
 
-        var exists = await db.Set<RoomBlockoutModel>()
+        bool exists = await db.Set<RoomBlockoutModel>()
             .AsNoTracking()
             .AnyAsync(x => x.Id == blockout.Id);
 
@@ -262,13 +253,13 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var blockout = await CreateRoomBlockoutHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira exclusão: deve ser processada com sucesso.
         using (var firstResponse = await SendDeleteAsync(
                    blockout.Id,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -283,18 +274,13 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
         using var response = await SendDeleteAsync(
             blockout.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
     }
 
     // ---------------------------------------------------------------

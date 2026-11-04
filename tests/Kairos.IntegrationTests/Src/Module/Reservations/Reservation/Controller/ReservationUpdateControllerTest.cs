@@ -49,14 +49,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             Description = "Updated by integration tests."
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -71,7 +71,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         http.Data.Should().NotBeNull();
 
         http.Message.Should().Be("Reservation updated successfully");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         http.Data!.Id.Should().Be(reservation.Id);
         http.Data.RoomId.Should().Be(reservation.RoomId);
@@ -108,11 +108,8 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         persisted.UpdatedAt.Should().NotBeNull();
 
         // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
+        await AssertInboxProcessedAsync(inboxId);
 
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     [Fact]
@@ -136,14 +133,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             EndsAt = newEndsAt
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -177,8 +174,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         persisted.StartsAt.Should().Be(newStartsAt);
         persisted.EndsAt.Should().Be(newEndsAt);
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -194,14 +190,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             Description = null
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -227,14 +223,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             Description = "   "
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -266,7 +262,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateReservationDto
         {
@@ -278,7 +274,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             "invalid-uuid",
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -301,7 +297,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateReservationDto
         {
@@ -313,7 +309,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             nonexistentId,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -345,14 +341,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             Title = new string('a', 151)
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -361,8 +357,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         // A validação automática impede a execução da action.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -377,14 +372,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             Title = "   "
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -416,14 +411,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             RoomId = ""
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -446,14 +441,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             RoomId = "invalid-room-id"
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -477,14 +472,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             CategoryId = " "
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -507,14 +502,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             CategoryId = "invalid-category-id"
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -542,14 +537,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             StartsAt = default(DateTimeOffset)
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -576,14 +571,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             EndsAt = default(DateTimeOffset)
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -607,14 +602,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             StartsAt = reservation.EndsAt.AddHours(1)
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -645,14 +640,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             RoomId = Guid.NewGuid().ToString()
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -693,14 +688,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             RoomId = newRoom.Id
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -741,14 +736,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             RoomId = newRoom.Id
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -780,14 +775,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             CategoryId = Guid.NewGuid().ToString()
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -828,14 +823,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             CategoryId = newCategory.Id
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -872,14 +867,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             EndsAt = otherReservation.EndsAt
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -935,14 +930,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             EndsAt = blockoutEndsAt
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendUpdateAsync(
             reservation.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -977,7 +972,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         var reservation = await CreateReservationHttp(masterTokens);
 
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateReservationDto
         {
@@ -989,16 +984,14 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             reservation.Id,
             dto,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
+        await AssertInboxProcessedAsync(inboxId);
 
         await AssertReservationTitleAsync(
             reservation.Id,
@@ -1015,7 +1008,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var reservation = await CreateReservationHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateReservationDto
         {
@@ -1027,14 +1020,11 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             reservation.Id,
             dto,
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
-
+        await AssertInboxProcessedAsync(inboxId);
         await AssertReservationTitleAsync(
             reservation.Id,
             reservation.Title);
@@ -1112,7 +1102,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var reservation = await CreateReservationHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var firstDto = new UpdateReservationDto
         {
@@ -1129,7 +1119,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
                    reservation.Id,
                    firstDto,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -1146,7 +1136,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             reservation.Id,
             secondDto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -1154,11 +1144,7 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
 
         // A segunda atualização não deve ter sido executada.
         await AssertReservationTitleAsync(

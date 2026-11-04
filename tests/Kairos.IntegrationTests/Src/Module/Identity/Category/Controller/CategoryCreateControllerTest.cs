@@ -1,6 +1,5 @@
 using System.Net;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Categories.DTOs.Request;
@@ -59,12 +58,12 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var dto = NewCategoryDto(name: "");
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -86,8 +85,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
                 StringComparison.OrdinalIgnoreCase));
 
         // A validação automática impede a execução da action.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
+        await AssertInboxProcessedAsync(inboxId);
 
         using var scope = CreateScope();
 
@@ -106,12 +104,12 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var dto = NewCategoryDto(name: new string('a', 101));
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -132,8 +130,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
                 "Name",
                 StringComparison.OrdinalIgnoreCase));
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
+        await AssertInboxProcessedAsync(inboxId);
 
         using var scope = CreateScope();
 
@@ -155,12 +152,12 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         var dto = NewCategoryDto(
             description: new string('a', 256));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -181,8 +178,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
                 "Description",
                 StringComparison.OrdinalIgnoreCase));
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
+        await AssertInboxProcessedAsync(inboxId);
 
         using var scope = CreateScope();
 
@@ -206,12 +202,12 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         var tokens = await LoginUserMaster();
         var dto = NewCategoryDto();
 
-        var firstInbox = await NewInboxAsync();
+        string firstInboxId = Guid.NewGuid().ToString();
 
         // Primeiro cadastro
         using (var firstResponse = await SendCreateAsync(
                    dto,
-                   firstInbox.Id,
+                   firstInboxId,
                    tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -225,11 +221,11 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         }
 
         // Segundo cadastro com o mesmo nome
-        var secondInbox = await NewInboxAsync();
+        string secondInboxId = Guid.NewGuid().ToString();
 
         using var response = await SendCreateAsync(
             dto,
-            secondInbox.Id,
+            secondInboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -300,44 +296,33 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Create_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task Create_ReturnsCreated_WhenInboxDoesNotExist()
     {
         // Arrange
         var tokens = await LoginUserMaster();
         var dto = NewCategoryDto();
-        var nonexistentInboxId = Guid.NewGuid().ToString();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            nonexistentInboxId,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var http = await ReadAsync<CategoryDto>(response);
 
         http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
+        http!.Success.Should().BeTrue();
+        http.Data.Should().NotBeNull();
+        http.Data!.Name.Should().Be(dto.Name);
 
-        http.Errors.Should().Contain(error =>
-            error.Contains(
-                "Inbox is not available for processing.",
-                StringComparison.OrdinalIgnoreCase));
-
-        using var scope = CreateScope();
-
-        var persisted = await scope.ServiceProvider
-            .GetRequiredService<AppDbContext>()
-            .Categories
-            .AsNoTracking()
-            .SingleOrDefaultAsync(category => category.Name == dto.Name);
-
-        persisted.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -345,7 +330,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var firstDto = NewCategoryDto();
         var secondDto = NewCategoryDto();
@@ -353,7 +338,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         // Primeiro cadastro
         using (var firstResponse = await SendCreateAsync(
                    firstDto,
-                   inbox.Id,
+                   inboxId,
                    tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -362,7 +347,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         // Reutilização do mesmo Inbox
         using var response = await SendCreateAsync(
             secondDto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -394,8 +379,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         first.Should().NotBeNull();
         second.Should().BeNull();
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -408,12 +392,12 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         // Arrange
         var (_, tokens) = await RegisterUserAsync();
         var dto = NewCategoryDto();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
@@ -429,8 +413,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
 
         persisted.Should().BeNull();
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------

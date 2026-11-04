@@ -36,12 +36,12 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
         var dto = NewRoomDto(roomType.Id);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -96,12 +96,7 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
         persisted.Version.Should().Be(1);
         persisted.CreatedAt.Should().NotBe(default);
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -234,12 +229,12 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
         var dto = NewRoomDto(
             roomTypeId: "invalid-uuid");
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -277,12 +272,12 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
         var dto = NewRoomDto(
             roomTypeId: Guid.NewGuid().ToString());
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -322,17 +317,14 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
             existingRoom = await CreateRoomAsync(
                 scope.ServiceProvider);
         }
+        var dto = NewRoomDto(roomTypeId: existingRoom.RoomTypeId, code: existingRoom.Code);
 
-        var dto = NewRoomDto(
-            roomTypeId: existingRoom.RoomTypeId,
-            code: existingRoom.Code);
-
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -449,7 +441,7 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var firstDto = NewRoomDto(roomType.Id);
         var secondDto = NewRoomDto(roomType.Id);
@@ -457,7 +449,7 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
         // Primeira criação.
         using (var firstResponse = await SendCreateAsync(
                    firstDto,
-                   inbox.Id,
+                   inboxId,
                    tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(
@@ -467,7 +459,7 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
         // Segunda criação usando o mesmo Inbox.
         using var response = await SendCreateAsync(
             secondDto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -499,8 +491,7 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
         firstRoom.Should().NotBeNull();
         secondRoom.Should().BeNull();
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -524,11 +515,11 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
         string expectedField,
         string accessToken)
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             accessToken);
 
         _output.WriteLine(
@@ -547,12 +538,7 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
             key.EndsWith(
                 expectedField,
                 StringComparison.OrdinalIgnoreCase));
-
-        // A validação automática impede a execução da action.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
-
-        // O use case não deve ter persistido a sala.
+        
         using var scope = CreateScope();
 
         var persisted = await scope.ServiceProvider

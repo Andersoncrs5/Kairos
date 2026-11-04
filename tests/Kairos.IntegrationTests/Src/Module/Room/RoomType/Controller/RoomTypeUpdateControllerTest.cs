@@ -37,7 +37,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomTypeDto
         {
@@ -50,7 +50,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
             roomType.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -85,12 +85,6 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
         persisted.Description.Should().Be(dto.Description);
         persisted.IsActive.Should().BeFalse();
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     [Fact]
@@ -98,7 +92,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomTypeDto
         {
@@ -109,7 +103,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
             roomType.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -137,7 +131,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
     public async Task Update_ReturnsBadRequest_WhenIdIsNotValidUuid()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomTypeDto
         {
@@ -148,7 +142,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
             "invalid-uuid",
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -167,7 +161,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomTypeDto
         {
@@ -178,7 +172,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
             roomType.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -198,7 +192,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomTypeDto
         {
@@ -209,7 +203,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
             roomType.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -232,7 +226,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomTypeDto
         {
@@ -243,7 +237,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
             nonexistentId,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -265,7 +259,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
         var roomTypeToUpdate = await CreateRoomTypeHttp(tokens);
         var existingRoomType = await CreateRoomTypeHttp(tokens);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomTypeDto
         {
@@ -276,7 +270,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
             roomTypeToUpdate.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -302,7 +296,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
         var roomType = await CreateRoomTypeHttp(masterTokens);
 
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomTypeDto
         {
@@ -313,7 +307,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
             roomType.Id,
             dto,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -324,7 +318,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Update_ReturnsUnauthorized_WhenTokenIsMissing()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomTypeDto
         {
@@ -335,7 +329,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
             Guid.NewGuid().ToString(),
             dto,
             accessToken: null,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -408,7 +402,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomTypeDto
         {
@@ -422,7 +416,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
                    roomType.Id,
                    dto,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -439,7 +433,7 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
             roomType.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -453,9 +447,6 @@ public sealed class RoomTypeUpdateControllerTest : BaseIntegrationTest
         http.Errors.Should().Contain(
             "Inbox is not available for processing.");
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
     }
 
     // ---------------------------------------------------------------

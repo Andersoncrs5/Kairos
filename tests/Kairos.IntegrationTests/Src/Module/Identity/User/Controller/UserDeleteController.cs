@@ -55,12 +55,12 @@ public class UserDeleteController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -74,7 +74,7 @@ public class UserDeleteController : BaseIntegrationTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
         http.Message.Should().Be("User deleted successfully");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         // Assert - usuário removido do banco
         var deletedUser = await GetUserByEmailAsync(tokens.User.Email);
@@ -82,11 +82,7 @@ public class UserDeleteController : BaseIntegrationTest
         deletedUser.Should().BeNull();
 
         // Assert - inbox processada
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -96,12 +92,12 @@ public class UserDeleteController : BaseIntegrationTest
         Tokens userToDelete = await CreateUserHttp();
         Tokens otherUser = await CreateUserHttp();
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             userToDelete.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -129,12 +125,12 @@ public class UserDeleteController : BaseIntegrationTest
 
         await DeleteUserAsync(tokens.User.Email);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -153,12 +149,12 @@ public class UserDeleteController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -167,9 +163,6 @@ public class UserDeleteController : BaseIntegrationTest
         var user = await GetUserByEmailAsync(tokens.User.Email);
 
         user.Should().NotBeNull();
-
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     [Fact]
@@ -177,12 +170,12 @@ public class UserDeleteController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             accessToken: "not-a-valid-jwt",
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -191,8 +184,6 @@ public class UserDeleteController : BaseIntegrationTest
 
         user.Should().NotBeNull();
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     // ------------------------------------------------------------------
@@ -226,12 +217,12 @@ public class UserDeleteController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act - primeira requisição
         using (var firstResponse = await SendDeleteAsync(
             tokens.Token,
-            inbox.Id))
+            inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         }
@@ -239,7 +230,7 @@ public class UserDeleteController : BaseIntegrationTest
         // Act - tenta reutilizar a mesma inbox
         using var secondResponse = await SendDeleteAsync(
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         secondResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);

@@ -34,12 +34,12 @@ public sealed class RoomBlockoutFindByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var blockout = await CreateRoomBlockoutHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             blockout.Id,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -52,7 +52,7 @@ public sealed class RoomBlockoutFindByIdControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Message.Should().Be("Room blockout found");
         http.Data.Should().NotBeNull();
 
@@ -78,14 +78,14 @@ public sealed class RoomBlockoutFindByIdControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         const string invalidId = "invalid-id";
 
         // Act
         using var response = await SendFindByIdAsync(
             invalidId,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -98,7 +98,7 @@ public sealed class RoomBlockoutFindByIdControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().BeNull();
     }
 
@@ -111,14 +111,14 @@ public sealed class RoomBlockoutFindByIdControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var nonexistentId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             nonexistentId,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -131,7 +131,7 @@ public sealed class RoomBlockoutFindByIdControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().BeNull();
     }
 
@@ -143,7 +143,7 @@ public sealed class RoomBlockoutFindByIdControllerTest : BaseIntegrationTest
     public async Task FindById_ReturnsUnauthorized_WhenTokenIsMissing()
     {
         // Arrange
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         const string nonexistentId =
             "00000000-0000-0000-0000-000000000001";
@@ -151,7 +151,7 @@ public sealed class RoomBlockoutFindByIdControllerTest : BaseIntegrationTest
         // Act
         using var response = await SendFindByIdAsync(
             nonexistentId,
-            inbox.Id,
+            inboxId,
             accessToken: null);
 
         _output.WriteLine(
@@ -176,12 +176,12 @@ public sealed class RoomBlockoutFindByIdControllerTest : BaseIntegrationTest
         // User must not have the rooms.blockouts.read permission.
         var userTokens = await CreateUserHttp();
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             blockout.Id,
-            inbox.Id,
+            inboxId,
             userTokens.Token);
 
         _output.WriteLine(

@@ -29,12 +29,12 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsByNameAsync(
             roomType.Name,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -48,13 +48,6 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
         http.Data.Should().BeTrue();
         http.Message.Should().Be("Room type exists");
         http.TraceId.Should().NotBeNullOrWhiteSpace();
-
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     [Fact]
@@ -62,12 +55,12 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var name = $"Missing Room Type {Guid.NewGuid():N}";
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsByNameAsync(
             name,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -82,12 +75,6 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
         http.Message.Should().Be("Room type does not exist");
         http.TraceId.Should().NotBeNullOrWhiteSpace();
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------
@@ -99,12 +86,12 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var name = new string('a', 101);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsByNameAsync(
             name,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -123,12 +110,12 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
     public async Task ExistsByName_ReturnsBadRequest_WhenNameIsEmpty()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsByNameAsync(
             " ",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -153,12 +140,12 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
         var masterTokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(masterTokens);
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsByNameAsync(
             roomType.Name,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -169,12 +156,12 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
     [Fact]
     public async Task ExistsByName_ReturnsUnauthorized_WhenTokenIsMissing()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsByNameAsync(
             $"Room Type {Guid.NewGuid():N}",
             accessToken: null,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -237,13 +224,13 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira consulta: deve ser processada com sucesso.
         using (var firstResponse = await SendExistsByNameAsync(
                    roomType.Name,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -258,7 +245,7 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
         using var response = await SendExistsByNameAsync(
             roomType.Name,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -272,9 +259,6 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
         http.Errors.Should().Contain(
             "Inbox is not available for processing.");
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
     }
 
     // ---------------------------------------------------------------

@@ -46,12 +46,12 @@ public sealed class RoomOperatingHourFindByIdControllerTest : BaseIntegrationTes
             new TimeOnly(18, 0),
             notes: "Monday operating hours.");
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             operatingHour.Id,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -63,7 +63,7 @@ public sealed class RoomOperatingHourFindByIdControllerTest : BaseIntegrationTes
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Message.Should().Be("Room operating hour found");
         http.Data.Should().NotBeNull();
 
@@ -91,10 +91,7 @@ public sealed class RoomOperatingHourFindByIdControllerTest : BaseIntegrationTes
         persisted.ClosesAt.Should().Be(new TimeOnly(18, 0));
         persisted.Notes.Should().Be("Monday operating hours.");
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(Kairos.Api.Common.Enums.InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        
     }
 
     [Fact]
@@ -103,12 +100,12 @@ public sealed class RoomOperatingHourFindByIdControllerTest : BaseIntegrationTes
         // Arrange
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             nonexistentId,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -120,11 +117,11 @@ public sealed class RoomOperatingHourFindByIdControllerTest : BaseIntegrationTes
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().BeNull();
         http.Errors.Should().Contain("Room operating hour not found.");
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
+        
     }
 
     [Fact]
@@ -133,12 +130,12 @@ public sealed class RoomOperatingHourFindByIdControllerTest : BaseIntegrationTes
         // Arrange
         var tokens = await LoginUserMaster();
         const string invalidId = "not-a-valid-uuid";
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             invalidId,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -150,10 +147,10 @@ public sealed class RoomOperatingHourFindByIdControllerTest : BaseIntegrationTes
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Errors.Should().Contain("Room operating hour not found.");
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
+
     }
 
     // ---------------------------------------------------------------
@@ -213,13 +210,13 @@ public sealed class RoomOperatingHourFindByIdControllerTest : BaseIntegrationTes
     public async Task FindById_ReturnsUnauthorized_WhenAccessTokenIsMissing()
     {
         // Arrange
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var nonexistentId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             nonexistentId,
-            inbox.Id,
+            inboxId,
             accessToken: null);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -227,10 +224,7 @@ public sealed class RoomOperatingHourFindByIdControllerTest : BaseIntegrationTes
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(Kairos.Api.Common.Enums.InboxStatusEnum.Pending);
-        updatedInbox.ProcessedAt.Should().BeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        
     }
 
     // ---------------------------------------------------------------

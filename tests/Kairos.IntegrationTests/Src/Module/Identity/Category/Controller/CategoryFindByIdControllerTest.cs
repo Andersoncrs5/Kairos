@@ -33,12 +33,12 @@ public sealed class CategoryFindByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var category = await CreateCategoryHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             category.Id,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
@@ -57,11 +57,7 @@ public sealed class CategoryFindByIdControllerTest : BaseIntegrationTest
         http.Data.Description.Should().Be(category.Description);
 
         // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -73,12 +69,12 @@ public sealed class CategoryFindByIdControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             "invalid-id",
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
@@ -121,12 +117,12 @@ public sealed class CategoryFindByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             nonexistentId,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
@@ -179,12 +175,12 @@ public sealed class CategoryFindByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var category = await CreateCategoryHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira consulta
         using (var firstResponse = await SendFindByIdAsync(
                    category.Id,
-                   inbox.Id,
+                   inboxId,
                    tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -193,7 +189,7 @@ public sealed class CategoryFindByIdControllerTest : BaseIntegrationTest
         // Segunda consulta utilizando o mesmo Inbox
         using var response = await SendFindByIdAsync(
             category.Id,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
@@ -204,9 +200,7 @@ public sealed class CategoryFindByIdControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
 
-        // A consulta inicial deve ter processado o Inbox.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -223,22 +217,17 @@ public sealed class CategoryFindByIdControllerTest : BaseIntegrationTest
         // não possui a permissão categories.create.
         var masterTokens = await LoginUserMaster();
         var category = await CreateCategoryHttp(masterTokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             category.Id,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-        // A autorização deve bloquear a requisição antes do processamento.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
-
-        // A categoria continua persistida.
         using var scope = CreateScope();
 
         var exists = await scope.ServiceProvider

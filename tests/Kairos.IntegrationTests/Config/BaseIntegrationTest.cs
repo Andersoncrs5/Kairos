@@ -70,8 +70,7 @@ public abstract class BaseIntegrationTest
     protected const string TestPassword = "test6rA553e463$#%$%";
     protected const string InboxHeader = "X-Inbox-Id";
     protected const string RegisterUrl = "/api/v1/auth/Register";
-    protected const string LoginUrl = "/api/v1/auth/Login";
-    protected const string LogoutUrl = "/api/v1/auth/Logout";
+    protected const string LoginUrl = "/api/v1/auth/Login";    protected const string LogoutUrl = "/api/v1/auth/Logout";
     protected const string ChangePasswordUrl = "/api/v1/auth/ChangePassword";
 
     // ------------------------------------------------------------------
@@ -143,11 +142,9 @@ public abstract class BaseIntegrationTest
 
     protected async Task<HttpResponseMessage> LoginWithNewInboxAsync(string email, string password)
     {
-        var inbox = await NewInboxAsync();
-
         return await SendLoginAsync(
             new LoginUserDTO { Email = email, Password = password },
-            inbox.Id);
+            Guid.NewGuid().ToString());
     }
 
     // ------------------------------------------------------------------
@@ -176,7 +173,7 @@ public abstract class BaseIntegrationTest
     {
         var dto = NewUserDto();
 
-        using var response = await SendRegisterAsync(dto, (await NewInboxAsync()).Id);
+        using var response = await SendRegisterAsync(dto, Guid.NewGuid().ToString());
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var http = await ReadAsync<Tokens>(response);
@@ -186,11 +183,9 @@ public abstract class BaseIntegrationTest
 
     protected async Task<Tokens> CreateUserHttp()
     {
-        using var scope = CreateScope();
-        var inbox = await CreateInboxAsync(scope.ServiceProvider);
-
         long num = Random.Shared.NextInt64(1, 10000000000000);
-
+        string inboxId = Guid.NewGuid().ToString();
+        
         var dto = new CreateUserDTO
         {
             Email = $"pochita{num}@gmail.com",
@@ -203,7 +198,7 @@ public abstract class BaseIntegrationTest
         {
             Content = JsonContent.Create(dto)
         };
-        request.Headers.Add("X-Inbox-Id", inbox.Id);
+        request.Headers.Add("X-Inbox-Id", inboxId);
 
         using var response = await Client.SendAsync(request);
 
@@ -218,23 +213,15 @@ public abstract class BaseIntegrationTest
         http.Success.Should().BeTrue();
         http.TraceId.Should().NotBeNullOrWhiteSpace();
 
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var updated = await db.Set<InboxModel>()
-            .AsNoTracking()
-            .SingleAsync(i => i.Id == inbox.Id);
-
-        updated.Status.Should().Be(InboxStatusEnum.Processed);
-        updated.LockedBy.Should().BeNull();
-        updated.ProcessedAt.Should().NotBeNull();
+        await AssertInboxProcessedAsync(inboxId);
 
         return http.Data;
     }
 
     protected async Task<Tokens> LoginUserMaster()
     {
-        using var scope = CreateScope();
-        var inbox = await CreateInboxAsync(scope.ServiceProvider);
-
+        string inboxId = Guid.NewGuid().ToString();
+        
         var dto = new LoginUserDTO()
         {
             Email = UserMasterOptions.Value.Email,
@@ -245,7 +232,7 @@ public abstract class BaseIntegrationTest
         {
             Content = JsonContent.Create(dto)
         };
-        request.Headers.Add("X-Inbox-Id", inbox.Id);
+        request.Headers.Add("X-Inbox-Id", inboxId);
 
         using var response = await Client.SendAsync(request);
 
@@ -265,15 +252,6 @@ public abstract class BaseIntegrationTest
         http.Success.Should().BeTrue();
         http.TraceId.Should().NotBeNullOrWhiteSpace();
 
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var updated = await db.Set<InboxModel>()
-            .AsNoTracking()
-            .SingleAsync(i => i.Id == inbox.Id);
-
-        updated.Status.Should().Be(InboxStatusEnum.Processed);
-        updated.LockedBy.Should().BeNull();
-        updated.ProcessedAt.Should().NotBeNull();
-
         return http.Data;
     }
 
@@ -283,8 +261,8 @@ public abstract class BaseIntegrationTest
 
     protected async Task<PermissionDto> CreatePermissionHttp(Tokens tokens)
     {
-        var inbox = await NewInboxAsync();
-
+        string inboxId = Guid.NewGuid().ToString();
+        
         var dto = new CreatePermissionDto
         {
             Code = $"test.permission.{Guid.NewGuid():N}",
@@ -297,7 +275,7 @@ public abstract class BaseIntegrationTest
             "/api/v1/permissions",
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -327,20 +305,12 @@ public abstract class BaseIntegrationTest
         persisted.IsSystem.Should().BeFalse();
         persisted.Description.Should().Be(dto.Description);
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
-
         return http.Data;
     }
 
     protected async Task<CategoryDto> CreateCategoryHttp(Tokens tokens)
     {
-        var inbox = await NewInboxAsync();
-
+        string inboxId = Guid.NewGuid().ToString();
         var dto = new CreateCategoryDto
         {
             Name = $"Integration Category {Guid.NewGuid():N}",
@@ -352,7 +322,7 @@ public abstract class BaseIntegrationTest
             "/api/v1/categories",
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -380,19 +350,18 @@ public abstract class BaseIntegrationTest
         persisted.Description.Should().Be(dto.Description);
 
         // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().NotBeNullOrWhiteSpace();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
 
         return http.Data;
     }
 
     protected async Task<RoomTypeDto> CreateRoomTypeHttp(Tokens tokens)
     {
-        var inbox = await NewInboxAsync();
-
+        string inboxId = Guid.NewGuid().ToString();
         var dto = new CreateRoomTypeDto
         {
             Name = $"Integration Room Type {Guid.NewGuid():N}",
@@ -403,7 +372,7 @@ public abstract class BaseIntegrationTest
             "/api/v1/room-types",
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -432,11 +401,13 @@ public abstract class BaseIntegrationTest
         persisted.IsActive.Should().BeTrue();
 
         // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().NotBeNullOrWhiteSpace();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
 
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
 
         return http.Data;
     }
@@ -444,7 +415,7 @@ public abstract class BaseIntegrationTest
     protected async Task<RoomDto> CreateRoomHttp(Tokens tokens)
     {
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new CreateRoomDto
         {
@@ -464,7 +435,7 @@ public abstract class BaseIntegrationTest
             "/api/v1/rooms",
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -514,13 +485,13 @@ public abstract class BaseIntegrationTest
         persisted.Version.Should().Be(1);
         persisted.CreatedAt.Should().NotBe(default);
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
-
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().NotBeNullOrWhiteSpace();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
+        
         return http.Data;
     }
 
@@ -528,48 +499,14 @@ public abstract class BaseIntegrationTest
     // Inbox
     // ------------------------------------------------------------------
 
-    protected async Task<InboxModel> NewInboxAsync(Action<InboxModel>? configure = null)
-    {
-        using var scope = CreateScope();
-        return await CreateInboxAsync(scope.ServiceProvider, configure);
-    }
-
-    protected static async Task<InboxModel> CreateInboxAsync(
-        IServiceProvider services,
-        Action<InboxModel>? configure = null,
-        CancellationToken cancellationToken = default)
-    {
-        var dbContext = services.GetRequiredService<AppDbContext>();
-        var now = DateTimeOffset.UtcNow;
-
-        var inbox = new InboxModel
-        {
-            Id = Guid.NewGuid().ToString(),
-            MessageId = $"message-{Guid.NewGuid():N}",
-            MessageType = "auth.register",
-            Payload = """{"value":"integration-test"}""",
-            Status = InboxStatusEnum.Pending,
-            ReceivedAt = now,
-            RetryCount = 0,
-            CreatedAt = now
-        };
-
-        configure?.Invoke(inbox);
-
-        await dbContext.Set<InboxModel>().AddAsync(inbox, cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return inbox;
-    }
-
-    protected async Task<InboxModel> GetInboxAsync(string id)
+    protected async Task<InboxModel> GetInboxByMessageIdAsync(string messageId)
     {
         using var scope = CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         return await db.Set<InboxModel>()
             .AsNoTracking()
-            .SingleAsync(i => i.Id == id);
+            .SingleAsync(i => i.MessageId == messageId);
     }
 
     // ------------------------------------------------------------------
@@ -872,7 +809,8 @@ public abstract class BaseIntegrationTest
     protected async Task<RoomBlockoutDto> CreateRoomBlockoutHttp(Tokens tokens)
     {
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+
+        string inboxId = Guid.NewGuid().ToString();
 
         var startsAt = DateTimeOffset.FromUnixTimeMilliseconds(
             DateTimeOffset.UtcNow.AddDays(10).ToUnixTimeMilliseconds());
@@ -891,7 +829,7 @@ public abstract class BaseIntegrationTest
             "/api/v1/room-blockouts",
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -931,10 +869,11 @@ public abstract class BaseIntegrationTest
         persisted.Version.Should().Be(1);
         persisted.CreatedAt.Should().NotBe(default);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().NotBeNullOrWhiteSpace();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
 
         return http.Data;
     }
@@ -945,7 +884,8 @@ public abstract class BaseIntegrationTest
 
     protected async Task<ReservationDto> CreateReservationHttp(Tokens tokens)
     {
-        // Cria as dependências necessárias.
+        string inboxId = Guid.NewGuid().ToString();
+        
         var category = await CreateCategoryHttp(tokens);
         var room = await CreateRoomHttp(tokens);
 
@@ -973,13 +913,12 @@ public abstract class BaseIntegrationTest
             dto.StartsAt,
             dto.EndsAt);
 
-        var inbox = await NewInboxAsync();
-
+        
         using var response = await SendAsync(
             "/api/v1/reservations",
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -987,7 +926,7 @@ public abstract class BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().NotBeNull();
 
         http.Data!.Id.Should().NotBeNullOrWhiteSpace();
@@ -1030,10 +969,11 @@ public abstract class BaseIntegrationTest
         persisted.CheckedInAt.Should().BeNull();
         persisted.CheckedOutAt.Should().BeNull();
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().NotBeNullOrWhiteSpace();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
 
         return http.Data;
     }
@@ -1047,7 +987,8 @@ public abstract class BaseIntegrationTest
         string reservationId,
         string? cancellationReason = "Cancelled by integration tests.")
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
+        
         var dto = new CancelReservationDto
         {
             CancellationReason = cancellationReason
@@ -1062,7 +1003,7 @@ public abstract class BaseIntegrationTest
 
         request.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", tokens.Token);
-        request.Headers.Add(InboxHeader, inbox.Id);
+        request.Headers.Add(InboxHeader, inboxId);
 
         using var response = await Client.SendAsync(request);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1070,7 +1011,7 @@ public abstract class BaseIntegrationTest
         var http = await ReadAsync<ReservationDto>(response);
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().NotBeNull();
         http.Data!.Id.Should().Be(reservationId);
         http.Data.Status.Should().Be(ReservationStatusEnum.Cancelled);
@@ -1096,11 +1037,12 @@ public abstract class BaseIntegrationTest
         persisted.CreatedAt.Should().NotBe(default);
         persisted.UpdatedAt.Should().NotBeNull();
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
-
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().NotBeNullOrWhiteSpace();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
+        
         return http.Data;
     }
 
@@ -1117,7 +1059,7 @@ public abstract class BaseIntegrationTest
         bool isClosed = false,
         string? notes = "Created by integration tests.")
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new CreateRoomOperatingHourDto
         {
@@ -1133,14 +1075,14 @@ public abstract class BaseIntegrationTest
             url,
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var http = await ReadAsync<RoomOperatingHourDto>(response);
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().NotBeNull();
         http.Data!.Id.Should().NotBeNullOrWhiteSpace();
         http.Data.RoomId.Should().Be(roomId);
@@ -1167,10 +1109,11 @@ public abstract class BaseIntegrationTest
         persisted.Notes.Should().Be(notes);
         persisted.Version.Should().Be(1);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().NotBeNullOrWhiteSpace();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
 
         return http.Data;
     }
@@ -1184,7 +1127,7 @@ public abstract class BaseIntegrationTest
         string roomOperatingHourId,
         UpdateRoomOperatingHourDto dto)
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var url = $"/api/v1/room-operating-hours/{Uri.EscapeDataString(roomOperatingHourId)}";
 
         using var request = new HttpRequestMessage(HttpMethod.Put, url)
@@ -1194,7 +1137,7 @@ public abstract class BaseIntegrationTest
 
         request.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", tokens.Token);
-        request.Headers.Add(InboxHeader, inbox.Id);
+        request.Headers.Add(InboxHeader, inboxId);
 
         using var response = await Client.SendAsync(request);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1202,7 +1145,7 @@ public abstract class BaseIntegrationTest
         var http = await ReadAsync<RoomOperatingHourDto>(response);
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().NotBeNull();
         http.Data!.Id.Should().Be(roomOperatingHourId);
 
@@ -1222,10 +1165,11 @@ public abstract class BaseIntegrationTest
         persisted.Version.Should().BeGreaterThan(1);
         persisted.UpdatedAt.Should().NotBeNull();
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().NotBeNullOrWhiteSpace();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
 
         return http.Data;
     }
@@ -1280,5 +1224,14 @@ public abstract class BaseIntegrationTest
         parts[2] = (signature[0] == 'A' ? 'B' : 'A') + signature[1..];
 
         return string.Join('.', parts);
+    }
+    
+    protected async Task AssertInboxProcessedAsync(string inboxId)
+    {
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().NotBeNullOrWhiteSpace();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
     }
 }

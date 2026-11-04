@@ -1,6 +1,5 @@
 using System.Net;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Identity.PermissionUsers.DTOs.Request;
 using Kairos.Api.Modules.Identity.PermissionUsers.DTOs.Response;
@@ -36,7 +35,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
 
         var user = await CreateUserAsync(scope.ServiceProvider);
         var permission = await CreatePermissionAsync(scope.ServiceProvider);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new CreatePermissionUserDTO
         {
@@ -48,7 +47,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
             CreateUrl,
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -81,11 +80,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
         persisted.IsActive.Should().BeTrue();
 
         // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -97,7 +92,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
 
         var user = await CreateUserAsync(scope.ServiceProvider);
         var permission = await CreatePermissionAsync(scope.ServiceProvider);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new CreatePermissionUserDTO
         {
@@ -109,7 +104,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
             CreateUrl,
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -146,7 +141,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Create_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task Create_ReturnsCreated_WhenInboxDoesNotExist()
     {
         var tokens = await LoginUserMaster();
 
@@ -161,32 +156,44 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
             PermissionId = permission.Id
         };
 
+        string inboxId = Guid.NewGuid().ToString();
+
         using var response = await SendAsync(
             CreateUrl,
             body: dto,
             accessToken: tokens.Token,
-            inboxId: Guid.NewGuid().ToString());
+            inboxId: inboxId);
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        _output.WriteLine(
+            await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var http = await ReadAsync<PermissionUserDTO>(response);
 
         http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().NotBeNullOrEmpty();
+        http!.Success.Should().BeTrue();
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Id.Should().NotBeNullOrWhiteSpace();
+        http.Data.UserId.Should().Be(user.Id);
+        http.Data.PermissionId.Should().Be(permission.Id);
+        http.Data.IsActive.Should().BeTrue();
 
         using var verificationScope = CreateScope();
 
         var db = verificationScope.ServiceProvider
             .GetRequiredService<AppDbContext>();
 
-        var exists = await db.Set<PermissionUserModel>()
+        var persisted = await db.Set<PermissionUserModel>()
             .AsNoTracking()
-            .AnyAsync(x =>
+            .SingleAsync(x =>
                 x.UserId == user.Id &&
                 x.PermissionId == permission.Id);
 
-        exists.Should().BeFalse();
+        persisted.IsActive.Should().BeTrue();
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -197,7 +204,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
         using var scope = CreateScope();
 
         var user = await CreateUserAsync(scope.ServiceProvider);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new CreatePermissionUserDTO
         {
@@ -209,7 +216,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
             CreateUrl,
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
@@ -228,7 +235,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
         using var scope = CreateScope();
 
         var user = await CreateUserAsync(scope.ServiceProvider);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var missingPermissionId = Guid.NewGuid().ToString();
 
         var dto = new CreatePermissionUserDTO
@@ -241,7 +248,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
             CreateUrl,
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
@@ -277,7 +284,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
             scope.ServiceProvider,
             p => p.IsActive = false);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new CreatePermissionUserDTO
         {
@@ -289,7 +296,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
             CreateUrl,
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
@@ -328,7 +335,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
 
         await db.SaveChangesAsync();
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = new CreatePermissionUserDTO
         {
@@ -340,7 +347,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
             CreateUrl,
             body: dto,
             accessToken: tokens.Token,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 

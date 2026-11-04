@@ -1,6 +1,5 @@
 using System.Net;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.IntegrationTests.Config;
 using Xunit.Abstractions;
 
@@ -46,12 +45,12 @@ public sealed class AuthUserExistsByEmail : BaseIntegrationTest
     {
         // Arrange
         var (registered, _) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act: endpoint público, sem token de acesso.
         using var response = await SendExistsByEmailAsync(
             registered.Email,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -67,12 +66,7 @@ public sealed class AuthUserExistsByEmail : BaseIntegrationTest
         http.Message.Should().Be("User exists");
         http.TraceId.Should().NotBeNullOrWhiteSpace();
 
-        // Assert: inbox processada
-        var processedInbox = await GetInboxAsync(inbox.Id);
-
-        processedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        processedInbox.ProcessedAt.Should().NotBeNull();
-        processedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -80,12 +74,10 @@ public sealed class AuthUserExistsByEmail : BaseIntegrationTest
     {
         // Arrange
         string email = $"missing-{Guid.NewGuid():N}@example.com";
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
-        using var response = await SendExistsByEmailAsync(
-            email,
-            inbox.Id);
+        using var response = await SendExistsByEmailAsync(email, inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -101,11 +93,7 @@ public sealed class AuthUserExistsByEmail : BaseIntegrationTest
         http.Message.Should().Be("User does not exist");
         http.TraceId.Should().NotBeNullOrWhiteSpace();
 
-        var processedInbox = await GetInboxAsync(inbox.Id);
-
-        processedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        processedInbox.ProcessedAt.Should().NotBeNull();
-        processedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -117,12 +105,12 @@ public sealed class AuthUserExistsByEmail : BaseIntegrationTest
     {
         // Arrange
         var (registered, _) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByEmailAsync(
             registered.Email.ToUpperInvariant(),
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -134,8 +122,7 @@ public sealed class AuthUserExistsByEmail : BaseIntegrationTest
         http.Data.Should().BeTrue();
         http.Message.Should().Be("User exists");
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -174,24 +161,24 @@ public sealed class AuthUserExistsByEmail : BaseIntegrationTest
     {
         // Arrange
         var (registered, _) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act: primeira requisição
         using (var firstResponse = await SendExistsByEmailAsync(
                    registered.Email,
-                   inbox.Id))
+                   inboxId))
         {
-            firstResponse.StatusCode.Should().Be(
-                HttpStatusCode.Created);
+            firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         }
 
-        // Act: segunda requisição com a mesma inbox
+        // Act: segunda requisição com o mesmo Inbox
         using var secondResponse = await SendExistsByEmailAsync(
             registered.Email,
-            inbox.Id);
+            inboxId);
 
         // Assert
-        secondResponse.StatusCode.Should().Be(
-            HttpStatusCode.Conflict);
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 }

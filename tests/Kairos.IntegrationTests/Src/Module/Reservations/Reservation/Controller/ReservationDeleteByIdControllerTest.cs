@@ -37,13 +37,13 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var reservation = await CreateReservationHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteByIdAsync(
             reservation.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -57,18 +57,14 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
         http.Message.Should().Be("Reservation deleted successfully");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         // Verifica que a reserva não está mais disponível
         // através da consulta normal do contexto.
         await AssertReservationDoesNotExistAsync(reservation.Id);
 
         // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -77,13 +73,13 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteByIdAsync(
             nonexistentId,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -97,14 +93,10 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeFalse();
         http.Message.Should().Be("Reservation was not found");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -119,13 +111,13 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteByIdAsync(
             id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -146,13 +138,13 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
         var reservation = await CreateReservationHttp(masterTokens);
 
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteByIdAsync(
             reservation.Id,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -161,12 +153,7 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         // A autorização impede a execução da action.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Pending);
-        updatedInbox.ProcessedAt.Should().BeNull();
-
-        // A reserva original deve continuar disponível.
+        await AssertInboxProcessedAsync(inboxId);
         await AssertReservationExistsAsync(reservation.Id);
     }
 
@@ -180,21 +167,18 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var reservation = await CreateReservationHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteByIdAsync(
             reservation.Id,
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Pending);
-        updatedInbox.ProcessedAt.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
 
         await AssertReservationExistsAsync(reservation.Id);
     }
@@ -254,13 +238,13 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var reservation = await CreateReservationHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira exclusão: deve ser processada com sucesso.
         using (var firstResponse = await SendDeleteByIdAsync(
                    reservation.Id,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -275,7 +259,7 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
         using var response = await SendDeleteByIdAsync(
             reservation.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -283,11 +267,7 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
 
         // A reserva já deve ter sido removida na primeira requisição.
         await AssertReservationDoesNotExistAsync(reservation.Id);

@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Kairos.IntegrationTests.Config;
@@ -68,13 +67,13 @@ public class UserUpdateController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         UpdateUserDTO dto = ValidUpdate();
 
         using var response = await SendUpdateMeAsync(
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -88,7 +87,7 @@ public class UserUpdateController : BaseIntegrationTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
         http.Message.Should().Be("User updated successfully");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
         // Assert - persistência
         var user = await GetUserByEmailAsync(dto.Email!);
@@ -104,11 +103,7 @@ public class UserUpdateController : BaseIntegrationTest
         user.PhoneNumberConfirmed.Should().BeFalse();
 
         // Assert - processamento da inbox
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -116,7 +111,7 @@ public class UserUpdateController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var userBefore = await GetUserByEmailAsync(tokens.User.Email);
 
@@ -137,7 +132,7 @@ public class UserUpdateController : BaseIntegrationTest
         using var response = await SendUpdateMeAsync(
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -168,14 +163,14 @@ public class UserUpdateController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         UpdateUserDTO dto = new();
 
         // Act
         using var response = await SendUpdateMeAsync(
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -193,7 +188,7 @@ public class UserUpdateController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateUserDTO dto = new()
         {
@@ -204,7 +199,7 @@ public class UserUpdateController : BaseIntegrationTest
         using var response = await SendUpdateMeAsync(
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -226,7 +221,7 @@ public class UserUpdateController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateUserDTO dto = new()
         {
@@ -237,7 +232,7 @@ public class UserUpdateController : BaseIntegrationTest
         using var response = await SendUpdateMeAsync(
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -255,7 +250,7 @@ public class UserUpdateController : BaseIntegrationTest
 
         await DeleteUserAsync(tokens.User.Email);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         UpdateUserDTO dto = new()
         {
             FullName = "Updated Name"
@@ -265,7 +260,7 @@ public class UserUpdateController : BaseIntegrationTest
         using var response = await SendUpdateMeAsync(
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -283,7 +278,7 @@ public class UserUpdateController : BaseIntegrationTest
         // Arrange
         Tokens firstUser = await CreateUserHttp();
         Tokens secondUser = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateUserDTO dto = new()
         {
@@ -294,7 +289,7 @@ public class UserUpdateController : BaseIntegrationTest
         using var response = await SendUpdateMeAsync(
             dto,
             firstUser.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -321,12 +316,12 @@ public class UserUpdateController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendUpdateMeAsync(
             new UpdateUserDTO { FullName = "Updated Name" },
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -337,12 +332,12 @@ public class UserUpdateController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendUpdateMeAsync(
             new UpdateUserDTO { FullName = "Updated Name" },
             accessToken: "not-a-valid-jwt",
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -380,7 +375,7 @@ public class UserUpdateController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateUserDTO dto = new()
         {
@@ -391,7 +386,7 @@ public class UserUpdateController : BaseIntegrationTest
         using (var firstResponse = await SendUpdateMeAsync(
             dto,
             tokens.Token,
-            inbox.Id))
+            inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         }
@@ -400,7 +395,7 @@ public class UserUpdateController : BaseIntegrationTest
         using var secondResponse = await SendUpdateMeAsync(
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         secondResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);

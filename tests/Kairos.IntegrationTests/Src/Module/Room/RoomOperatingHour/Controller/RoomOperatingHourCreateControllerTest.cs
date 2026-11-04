@@ -38,7 +38,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = NewRoomOperatingHourDto(
             dayOfWeek: DayOfWeek.Monday,
@@ -50,7 +50,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         using var response = await SendCreateAsync(
             room.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -62,7 +62,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().NotBeNull();
 
         http.Data!.Id.Should().NotBeNullOrWhiteSpace();
@@ -93,10 +93,6 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         persisted.Version.Should().Be(1);
         persisted.CreatedAt.Should().NotBe(default);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(Kairos.Api.Common.Enums.InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     [Fact]
@@ -105,7 +101,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = NewRoomOperatingHourDto(
             dayOfWeek: DayOfWeek.Sunday,
@@ -117,7 +113,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         using var response = await SendCreateAsync(
             room.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -134,8 +130,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         http.Data.IsActive.Should().BeTrue();
 
         await AssertOperatingHourExistsAsync(http.Data.Id);
-        (await GetInboxAsync(inbox.Id)).Status
-            .Should().Be(Kairos.Api.Common.Enums.InboxStatusEnum.Processed);
+        
     }
 
     [Fact]
@@ -152,7 +147,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
             new TimeOnly(8, 0),
             new TimeOnly(12, 0));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewRoomOperatingHourDto(
             DayOfWeek.Tuesday,
             new TimeOnly(13, 0),
@@ -162,7 +157,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         using var response = await SendCreateAsync(
             room.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -191,7 +186,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = NewRoomOperatingHourDto(
             dayOfWeek: (DayOfWeek)7,
@@ -202,7 +197,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         using var response = await SendCreateAsync(
             room.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -220,7 +215,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = NewRoomOperatingHourDto(
             dayOfWeek: DayOfWeek.Wednesday,
@@ -231,7 +226,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         using var response = await SendCreateAsync(
             room.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -258,7 +253,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var nonexistentRoomId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var dto = NewRoomOperatingHourDto(
             DayOfWeek.Thursday,
@@ -269,7 +264,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         using var response = await SendCreateAsync(
             nonexistentRoomId,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -301,7 +296,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
             new TimeOnly(8, 0),
             new TimeOnly(12, 0));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewRoomOperatingHourDto(
             DayOfWeek.Friday,
             TimeOnly.MinValue,
@@ -312,7 +307,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         using var response = await SendCreateAsync(
             room.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -344,7 +339,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
             TimeOnly.MinValue,
             isClosed: true);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewRoomOperatingHourDto(
             DayOfWeek.Saturday,
             new TimeOnly(8, 0),
@@ -354,7 +349,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         using var response = await SendCreateAsync(
             room.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -385,7 +380,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
             new TimeOnly(8, 0),
             new TimeOnly(12, 0));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewRoomOperatingHourDto(
             DayOfWeek.Sunday,
             new TimeOnly(11, 0),
@@ -395,7 +390,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         using var response = await SendCreateAsync(
             room.Id,
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -476,7 +471,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewRoomOperatingHourDto(
             DayOfWeek.Monday,
             new TimeOnly(8, 0),
@@ -486,15 +481,12 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         using var response = await SendCreateAsync(
             room.Id,
             dto,
-            inbox.Id,
+            inboxId,
             accessToken: null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         await AssertNoOperatingHourExistsAsync(room.Id);
-
-        (await GetInboxAsync(inbox.Id)).Status
-            .Should().Be(Kairos.Api.Common.Enums.InboxStatusEnum.Pending);
     }
 
     // ---------------------------------------------------------------

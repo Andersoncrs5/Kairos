@@ -14,6 +14,11 @@ public interface IInboxRepository: IBaseRepository<InboxModel>
         string messageId,
         string lockedBy,
         CancellationToken cancellationToken = default);
+
+    Task<bool> MarkAsProcessedAsync(
+        string messageId,
+        string source,
+        CancellationToken ct = default);
     
     Task<InboxModel?> GetByMessageIdAsync(
         string messageId,
@@ -21,6 +26,11 @@ public interface IInboxRepository: IBaseRepository<InboxModel>
 
     Task<bool> ExistsByMessageIdAsync(
         string messageId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> ExistsByMessageIdAndSourceAsync(
+        string messageId,
+        string source,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<InboxModel>> GetPendingAsync(

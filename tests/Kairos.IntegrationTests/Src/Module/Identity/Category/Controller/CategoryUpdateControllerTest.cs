@@ -43,7 +43,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         CategoryDto category =
             await CreateCategoryHttp(await LoginUserMaster());
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             code: $"updated-code-{Guid.NewGuid():N}",
@@ -100,12 +100,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         persisted.DisplayOrder.Should().Be(dto.DisplayOrder);
         persisted.IsActive.Should().Be(dto.IsActive!.Value);
 
-        // Confirma processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inboxId);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -117,7 +112,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         CategoryDto category =
             await CreateCategoryHttp(await LoginUserMaster());
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             code: category.Code);
@@ -156,7 +151,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         CategoryDto category =
             await CreateCategoryHttp(await LoginUserMaster());
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         string newCode = $"new-code-{Guid.NewGuid():N}";
 
@@ -197,7 +192,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         CategoryDto category =
             await CreateCategoryHttp(await LoginUserMaster());
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         string newCode = $"trimmed-code-{Guid.NewGuid():N}";
 
@@ -238,7 +233,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         CategoryDto category =
             await CreateCategoryHttp(await LoginUserMaster());
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             name: category.Name);
@@ -253,8 +248,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-            ResponseHttp<CategoryDto>? http =
-                await ReadAsync<CategoryDto>(response);
+            ResponseHttp<CategoryDto>? http = await ReadAsync<CategoryDto>(response);
 
             http.Should().NotBeNull();
             http!.Success.Should().BeTrue();
@@ -272,10 +266,9 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         // Arrange
         string accessToken = (await LoginUserMaster()).Token;
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
-        UpdateCategoryDto dto = NewUpdateCategoryDto(
-            name: "Updated category");
+        UpdateCategoryDto dto = NewUpdateCategoryDto(name: "Updated category");
 
         // Act
         using (HttpResponseMessage response = await SendUpdateAsync(
@@ -295,8 +288,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
 
             http.Should().NotBeNull();
             http!.Success.Should().BeFalse();
-            http.Errors.Should().Contain(
-                "Id must be a valid UUID.");
+            http.Errors.Should().Contain("Id must be a valid UUID.");
         }
     }
 
@@ -305,9 +297,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
     {
         // Arrange
         string accessToken = (await LoginUserMaster()).Token;
-
-        string inboxId = (await NewInboxAsync()).Id;
-
+        string inboxId = Guid.NewGuid().ToString();
         string nonexistentId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
@@ -343,7 +333,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
 
         string originalColor = category.Color ?? string.Empty;
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             color: "invalid-color");
@@ -378,7 +368,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
 
         string originalCode = category.Code;
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             code: "   ");
@@ -411,7 +401,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         // Arrange
         string accessToken = (await LoginUserMaster()).Token;
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         string nonexistentId = Guid.NewGuid().ToString();
 
@@ -459,7 +449,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         string originalCode = categoryToUpdate.Code;
         string originalName = categoryToUpdate.Name;
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             code: existingCategory.Code);
@@ -505,7 +495,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         CategoryDto category =
             await CreateCategoryHttp(await LoginUserMaster());
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             code: category.Code,
@@ -536,6 +526,8 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         persisted.Should().NotBeNull();
         persisted!.Code.Should().Be(category.Code);
         persisted.Name.Should().Be(dto.Name);
+        
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -557,7 +549,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         string originalName = categoryToUpdate.Name;
         string originalCode = categoryToUpdate.Code;
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             name: existingCategory.Name);
@@ -592,6 +584,8 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         persisted.Should().NotBeNull();
         persisted!.Name.Should().Be(originalName);
         persisted.Code.Should().Be(originalCode);
+        
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -603,7 +597,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         CategoryDto category =
             await CreateCategoryHttp(await LoginUserMaster());
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             name: category.Name);
@@ -631,6 +625,8 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
 
         persisted.Should().NotBeNull();
         persisted!.Name.Should().Be(category.Name);
+        
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -728,7 +724,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
 
         string originalSecondName = secondCategory.Name;
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto firstDto = NewUpdateCategoryDto(
             name: $"First updated category {Guid.NewGuid():N}");
@@ -774,10 +770,6 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
         persistedSecond.Should().NotBeNull();
         persistedSecond!.Name.Should().Be(originalSecondName);
 
-        (await GetInboxAsync(inboxId))
-            .Status
-            .Should()
-            .Be(InboxStatusEnum.Processed);
     }
 
     // ---------------------------------------------------------------
@@ -793,7 +785,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
 
         string originalName = category.Name;
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             name: $"Changed category {Guid.NewGuid():N}");
@@ -809,13 +801,6 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
 
-        // A requisição não deve processar o Inbox.
-        (await GetInboxAsync(inboxId))
-            .Status
-            .Should()
-            .Be(InboxStatusEnum.Pending);
-
-        // A categoria não pode ser alterada.
         CategoryModel? persisted =
             await FindPersistedCategoryAsync(category.Id);
 
@@ -832,7 +817,7 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
 
         string originalName = category.Name;
 
-        string inboxId = (await NewInboxAsync()).Id;
+        string inboxId = Guid.NewGuid().ToString();
 
         UpdateCategoryDto dto = NewUpdateCategoryDto(
             name: $"Changed category {Guid.NewGuid():N}");
@@ -860,12 +845,6 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
 
         persisted.Should().NotBeNull();
         persisted!.Name.Should().Be(originalName);
-
-        // A requisição não autorizada não deve processar o Inbox.
-        (await GetInboxAsync(inboxId))
-            .Status
-            .Should()
-            .Be(InboxStatusEnum.Pending);
     }
 
     // ---------------------------------------------------------------

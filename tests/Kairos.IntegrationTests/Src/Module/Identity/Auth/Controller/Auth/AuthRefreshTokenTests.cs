@@ -14,12 +14,14 @@ namespace Kairos.IntegrationTests.Module.Identity.Auth.Controller.Auth;
 public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTest(factory)
 {
     protected const string RefreshTokenUrl = "/api/v1/auth/RefreshToken";
-    
-    protected Task<HttpResponseMessage> SendRefreshTokenAsync(string? refreshToken, string? inboxId)
+
+    protected Task<HttpResponseMessage> SendRefreshTokenAsync(
+        string? refreshToken,
+        string? inboxId)
         => SendAsync(RefreshTokenUrl, new { RefreshToken = refreshToken }, inboxId: inboxId);
 
-    protected async Task<HttpResponseMessage> RefreshWithNewInboxAsync(string refreshToken)
-        => await SendRefreshTokenAsync(refreshToken, (await NewInboxAsync()).Id);
+    protected Task<HttpResponseMessage> RefreshWithNewInboxAsync(string refreshToken)
+        => SendRefreshTokenAsync(refreshToken, Guid.NewGuid().ToString());
 
     protected async Task<(CreateUserDTO Dto, Tokens Tokens)> RegisterUserWithRefreshExpiryAsync()
     {
@@ -30,14 +32,18 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
 
         return (dto, tokens);
     }
-    
-     [Fact]
+
+    // ------------------------------------------------------------------
+    // Sucesso
+    // ------------------------------------------------------------------
+
+    [Fact]
     public async Task RefreshToken_ReturnsOk_AndRotatesTokens()
     {
         var (registered, tokens) = await RegisterUserWithRefreshExpiryAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendRefreshTokenAsync(tokens.RefreshToken, inbox.Id);
+        using var response = await SendRefreshTokenAsync(tokens.RefreshToken, inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -46,7 +52,7 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
         http.Message.Should().Be("Refresh token successfully");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().NotBeNull();
         http.Data!.Token.Should().NotBeNullOrWhiteSpace();
         http.Data.ExpiredToken.Should().BeAfter(DateTimeOffset.UtcNow);
@@ -65,12 +71,7 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(http.Data.Token);
         jwt.Subject.Should().Be(user.Id);
 
-        // O inbox foi consumido
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -100,7 +101,9 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
 
         var rotated = (await ReadAsync<Tokens>(refresh))!.Data!;
 
-        using var logout = await SendLogoutAsync(rotated.Token, (await NewInboxAsync()).Id);
+        using var logout = await SendLogoutAsync(
+            rotated.Token,
+            Guid.NewGuid().ToString());
 
         logout.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -192,8 +195,12 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
     {
         var (_, tokens) = await RegisterUserWithRefreshExpiryAsync();
 
-        using (var logout = await SendLogoutAsync(tokens.Token, (await NewInboxAsync()).Id))
+        using (var logout = await SendLogoutAsync(
+                   tokens.Token,
+                   Guid.NewGuid().ToString()))
+        {
             logout.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
 
         using var response = await RefreshWithNewInboxAsync(tokens.RefreshToken);
 
@@ -210,7 +217,7 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
         using (var change = await SendChangePasswordAsync(
                    new ChangePasswordUserDto(registered.Password, newPassword, newPassword),
                    tokens.Token,
-                   (await NewInboxAsync()).Id))
+                   Guid.NewGuid().ToString()))
         {
             change.StatusCode.Should().Be(HttpStatusCode.OK);
         }
@@ -236,17 +243,19 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
             _ => throw new ArgumentOutOfRangeException(nameof(scenario))
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendAsync(RefreshTokenUrl, body, inboxId: inbox.Id);
+        using var response = await SendAsync(
+            RefreshTokenUrl,
+            body,
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<Dictionary<string, string[]>>(response);
         http!.Success.Should().BeFalse();
 
-        // A action não rodou: o inbox não foi tocado
-        (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Pending);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -258,7 +267,9 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
     {
         var (registered, tokens) = await RegisterUserWithRefreshExpiryAsync();
 
-        using var response = await SendRefreshTokenAsync(tokens.RefreshToken, inboxId: null);
+        using var response = await SendRefreshTokenAsync(
+            tokens.RefreshToken,
+            inboxId: null);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
@@ -270,50 +281,58 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
     }
 
     [Fact]
-    public async Task RefreshToken_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task RefreshToken_ReturnsOk_WhenInboxDoesNotExist()
     {
         var (registered, tokens) = await RegisterUserWithRefreshExpiryAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendRefreshTokenAsync(
             tokens.RefreshToken,
-            Guid.NewGuid().ToString());
+            inboxId);
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<Tokens>(response);
-        http!.Errors.Should().Contain("Inbox is not available for processing.");
 
-        // O use case nem chegou a rodar
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.Data.Should().NotBeNull();
+        http.Data!.RefreshToken.Should().NotBe(tokens.RefreshToken);
+
         var user = await GetUserByEmailAsync(registered.Email);
-        user!.RefreshToken.Should().Be(tokens.RefreshToken);
+        user!.RefreshToken.Should().Be(http.Data.RefreshToken);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
     public async Task RefreshToken_ReturnsConflict_WhenSameInboxIsReusedAfterSuccess()
     {
         var (_, tokens) = await RegisterUserWithRefreshExpiryAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var first = await SendRefreshTokenAsync(tokens.RefreshToken, inbox.Id);
+        using var first = await SendRefreshTokenAsync(tokens.RefreshToken, inboxId);
         first.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var rotated = (await ReadAsync<Tokens>(first))!.Data!;
 
         // Mesmo com um refresh token válido, o inbox já foi consumido
-        using var second = await SendRefreshTokenAsync(rotated.RefreshToken, inbox.Id);
+        using var second = await SendRefreshTokenAsync(rotated.RefreshToken, inboxId);
 
         second.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
     public async Task RefreshToken_AllowsOnlyOneRequest_WhenSameInboxIsUsedConcurrently()
     {
         var (registered, tokens) = await RegisterUserWithRefreshExpiryAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var responses = await Task.WhenAll(
-            SendRefreshTokenAsync(tokens.RefreshToken, inbox.Id),
-            SendRefreshTokenAsync(tokens.RefreshToken, inbox.Id));
+            SendRefreshTokenAsync(tokens.RefreshToken, inboxId),
+            SendRefreshTokenAsync(tokens.RefreshToken, inboxId));
 
         try
         {
@@ -321,7 +340,7 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
                 .Should()
                 .BeEquivalentTo(new[] { HttpStatusCode.OK, HttpStatusCode.Conflict });
 
-            (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Processed);
+            await AssertInboxProcessedAsync(inboxId);
 
             // O token salvo é o da requisição que ganhou
             var winner = responses.Single(r => r.StatusCode == HttpStatusCode.OK);
@@ -343,15 +362,13 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
     [Fact(Skip = "Bug: inbox fica preso em Processing quando o refresh falha.")]
     public async Task RefreshToken_ReleasesInbox_WhenTokenIsInvalid()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var unknown = Convert.ToBase64String(RandomNumberGenerator.GetBytes(128));
 
-        using var response = await SendRefreshTokenAsync(unknown, inbox.Id);
+        using var response = await SendRefreshTokenAsync(unknown, inboxId);
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
-        var updated = await GetInboxAsync(inbox.Id);
-        updated.Status.Should().NotBe(InboxStatusEnum.Processing);
-        updated.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact(Skip = "Lacuna: sem proteção contra corrida, dois refresh simultâneos com o mesmo token (inboxes diferentes) podem ter sucesso.")]
@@ -360,8 +377,8 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
         var (_, tokens) = await RegisterUserWithRefreshExpiryAsync();
 
         var responses = await Task.WhenAll(
-            SendRefreshTokenAsync(tokens.RefreshToken, (await NewInboxAsync()).Id),
-            SendRefreshTokenAsync(tokens.RefreshToken, (await NewInboxAsync()).Id));
+            SendRefreshTokenAsync(tokens.RefreshToken, Guid.NewGuid().ToString()),
+            SendRefreshTokenAsync(tokens.RefreshToken, Guid.NewGuid().ToString()));
 
         try
         {

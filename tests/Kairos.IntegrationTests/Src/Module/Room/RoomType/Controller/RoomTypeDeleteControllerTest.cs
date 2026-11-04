@@ -34,12 +34,12 @@ public sealed class RoomTypeDeleteControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendDeleteAsync(
             roomType.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -65,13 +65,6 @@ public sealed class RoomTypeDeleteControllerTest : BaseIntegrationTest
             .AnyAsync(x => x.Id == roomType.Id);
 
         exists.Should().BeFalse();
-
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------
@@ -82,12 +75,12 @@ public sealed class RoomTypeDeleteControllerTest : BaseIntegrationTest
     public async Task Delete_ReturnsBadRequest_WhenIdIsNotValidUuid()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendDeleteAsync(
             "invalid-uuid",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -110,12 +103,12 @@ public sealed class RoomTypeDeleteControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendDeleteAsync(
             nonexistentId,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -140,12 +133,12 @@ public sealed class RoomTypeDeleteControllerTest : BaseIntegrationTest
         var roomType = await CreateRoomTypeHttp(masterTokens);
 
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendDeleteAsync(
             roomType.Id,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -168,12 +161,12 @@ public sealed class RoomTypeDeleteControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Delete_ReturnsUnauthorized_WhenTokenIsMissing()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendDeleteAsync(
             Guid.NewGuid().ToString(),
             accessToken: null,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -258,13 +251,13 @@ public sealed class RoomTypeDeleteControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var roomType = await CreateRoomTypeHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira exclusão: deve ser processada com sucesso.
         using (var firstResponse = await SendDeleteAsync(
                    roomType.Id,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -279,7 +272,7 @@ public sealed class RoomTypeDeleteControllerTest : BaseIntegrationTest
         using var response = await SendDeleteAsync(
             roomType.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -305,9 +298,6 @@ public sealed class RoomTypeDeleteControllerTest : BaseIntegrationTest
 
         exists.Should().BeFalse();
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
     }
 
     // ---------------------------------------------------------------

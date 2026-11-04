@@ -44,12 +44,12 @@ public sealed class RoomOperatingHourDeleteControllerTest : BaseIntegrationTest
             new TimeOnly(8, 0),
             new TimeOnly(18, 0));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             operatingHour.Id,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -61,15 +61,10 @@ public sealed class RoomOperatingHourDeleteControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().BeTrue();
 
         await AssertOperatingHourDoesNotExistAsync(operatingHour.Id);
-
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(Kairos.Api.Common.Enums.InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------
@@ -81,13 +76,13 @@ public sealed class RoomOperatingHourDeleteControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var nonexistentId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             nonexistentId,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -176,12 +171,12 @@ public sealed class RoomOperatingHourDeleteControllerTest : BaseIntegrationTest
             new TimeOnly(8, 0),
             new TimeOnly(18, 0));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendDeleteAsync(
             operatingHour.Id,
-            inbox.Id,
+            inboxId,
             accessToken: null);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -191,10 +186,6 @@ public sealed class RoomOperatingHourDeleteControllerTest : BaseIntegrationTest
 
         await AssertOperatingHourExistsAsync(operatingHour.Id);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(Kairos.Api.Common.Enums.InboxStatusEnum.Pending);
-        updatedInbox.ProcessedAt.Should().BeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------

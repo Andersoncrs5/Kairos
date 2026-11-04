@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Modules.Identity.Permissions.DTOs.Request;
 using Kairos.Api.Modules.Identity.Permissions.DTOs.Response;
 using Kairos.IntegrationTests.Config;
@@ -33,14 +32,14 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
         using var response = await SendUpdateAsync(
             permission.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -73,11 +72,7 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
         persisted.Code.Should().Be(permission.Code);
 
         // Confirma o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -88,14 +83,14 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
     public async Task Update_ReturnsBadRequest_WhenIdIsInvalidUuid()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
         using var response = await SendUpdateAsync(
             "invalid-uuid",
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -117,14 +112,14 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
         using var response = await SendUpdateAsync(
             nonexistentId,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -152,14 +147,14 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
                 permission => permission.IsSystem = true);
         }
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
         using var response = await SendUpdateAsync(
             systemPermission.Id,
             dto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -194,14 +189,14 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
         var permission = await CreatePermissionHttp(masterTokens);
 
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
         using var response = await SendUpdateAsync(
             permission.Id,
             dto,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -223,14 +218,14 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
     {
         var permissionTokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(permissionTokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
         using var response = await SendUpdateAsync(
             permission.Id,
             dto,
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -274,29 +269,34 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Update_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task Update_ReturnsOk_WhenInboxDoesNotExist()
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
+        string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
         using var response = await SendUpdateAsync(
             permission.Id,
             dto,
             tokens.Token,
-            nonexistentInboxId);
+            inboxId);
 
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
+        _output.WriteLine(
+            await response.Content.ReadAsStringAsync());
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<PermissionDto>(response);
 
         http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Inbox is not available for processing.");
+        http!.Success.Should().BeTrue();
+        http.Message.Should().Be("Permission updated successfully");
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Id.Should().Be(permission.Id);
+        http.Data.Name.Should().Be(dto.Name);
+        http.Data.Description.Should().Be(dto.Description);
 
         using var scope = CreateScope();
 
@@ -304,7 +304,10 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
             .GetByIdAsync(permission.Id);
 
         persisted.Should().NotBeNull();
-        persisted!.Name.Should().Be(permission.Name);
+        persisted!.Name.Should().Be(dto.Name);
+        persisted.Description.Should().Be(dto.Description);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -312,7 +315,7 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var firstDto = NewUpdatePermissionDto();
         var secondDto = new UpdatePermissionDto
@@ -326,7 +329,7 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
                    permission.Id,
                    firstDto,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         }
@@ -335,7 +338,7 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
             permission.Id,
             secondDto,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -356,8 +359,7 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
         persisted!.Name.Should().Be(firstDto.Name);
         persisted.Description.Should().Be(firstDto.Description);
         
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------

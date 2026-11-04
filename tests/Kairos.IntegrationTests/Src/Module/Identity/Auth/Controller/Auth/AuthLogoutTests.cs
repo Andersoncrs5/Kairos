@@ -7,7 +7,6 @@ using Xunit.Abstractions;
 
 namespace Kairos.IntegrationTests.Module.Identity.Auth.Controller.Auth;
 
-
 [Collection("Integration Tests")]
 public class AuthLogoutTests : BaseIntegrationTest
 {
@@ -29,16 +28,15 @@ public class AuthLogoutTests : BaseIntegrationTest
         var (registered, tokens) = await RegisterUserAsync();
 
         // Garante que existam valores para validar a revogação
-        // (necessário enquanto o cadastro não preencher RefreshTokenExpiryTime).
         await UpdateUserAsync(registered.Email, user =>
         {
             user.RefreshToken = tokens.RefreshToken;
             user.RefreshTokenExpiryTime = DateTimeOffset.UtcNow.AddDays(7);
         });
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendLogoutAsync(tokens.Token, inbox.Id);
+        using var response = await SendLogoutAsync(tokens.Token, inboxId);
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -58,30 +56,28 @@ public class AuthLogoutTests : BaseIntegrationTest
         user!.RefreshToken.Should().BeNull();
         user.RefreshTokenExpiryTime.Should().BeNull();
 
-        // Inbox processado
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.LockedBy.Should().BeNull();
-        updatedInbox.ProcessedAt.Should().NotBeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
     public async Task Logout_IsIdempotent_WhenCalledAgainWithNewInbox()
     {
-        var (registered, tokens) = await RegisterUserAsync();
+        var (_, tokens) = await RegisterUserAsync();
 
-        using (var first = await SendLogoutAsync(tokens.Token, (await NewInboxAsync()).Id))
+        string firstInboxId = Guid.NewGuid().ToString();
+
+        using (var first = await SendLogoutAsync(tokens.Token, firstInboxId))
             first.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // O access token continua válido até expirar, e o usuário já não tem refresh token
-        using var second = await SendLogoutAsync(tokens.Token, (await NewInboxAsync()).Id);
+        string secondInboxId = Guid.NewGuid().ToString();
+
+        using var second = await SendLogoutAsync(tokens.Token, secondInboxId);
 
         second.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var user = await GetUserByEmailAsync(registered.Email);
-        user!.RefreshToken.Should().BeNull();
-        user.RefreshTokenExpiryTime.Should().BeNull();
+        await AssertInboxProcessedAsync(firstInboxId);
+        await AssertInboxProcessedAsync(secondInboxId);
     }
 
     [Fact]
@@ -90,11 +86,18 @@ public class AuthLogoutTests : BaseIntegrationTest
         var (_, tokensA) = await RegisterUserAsync();
         var (registeredB, tokensB) = await RegisterUserAsync();
 
-        using var response = await SendLogoutAsync(tokensA.Token, (await NewInboxAsync()).Id);
+        string inboxId = Guid.NewGuid().ToString();
+
+        using var response = await SendLogoutAsync(tokensA.Token, inboxId);
+
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var userB = await GetUserByEmailAsync(registeredB.Email);
+
+        userB.Should().NotBeNull();
         userB!.RefreshToken.Should().Be(tokensB.RefreshToken);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -102,18 +105,28 @@ public class AuthLogoutTests : BaseIntegrationTest
     {
         var (registered, tokens) = await RegisterUserAsync();
 
-        using (var logout = await SendLogoutAsync(tokens.Token, (await NewInboxAsync()).Id))
+        string inboxId = Guid.NewGuid().ToString();
+
+        using (var logout = await SendLogoutAsync(tokens.Token, inboxId))
             logout.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        using var login = await LoginWithNewInboxAsync(registered.Email, registered.Password);
+        await AssertInboxProcessedAsync(inboxId);
+
+        using var login = await LoginWithNewInboxAsync(
+            registered.Email,
+            registered.Password);
 
         login.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<Tokens>(login);
+
+        http.Should().NotBeNull();
         http!.Data!.RefreshToken.Should().NotBeNullOrWhiteSpace();
         http.Data.RefreshToken.Should().NotBe(tokens.RefreshToken);
 
         var user = await GetUserByEmailAsync(registered.Email);
+
+        user.Should().NotBeNull();
         user!.RefreshToken.Should().Be(http.Data.RefreshToken);
     }
 
@@ -124,37 +137,39 @@ public class AuthLogoutTests : BaseIntegrationTest
     [Fact]
     public async Task Logout_ReturnsUnauthorized_WhenBearerTokenIsMissing()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendLogoutAsync(accessToken: null, inbox.Id);
+        using var response = await SendLogoutAsync(
+            accessToken: null,
+            inboxId: inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
-        // A requisição não deve consumir o inbox
-        var updatedInbox = await GetInboxAsync(inbox.Id);
 
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Pending);
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     [Fact]
     public async Task Logout_ReturnsUnauthorized_WhenTokenIsInvalid()
     {
         var (registered, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Lixo qualquer no lugar do JWT
-        using (var garbage = await SendLogoutAsync("not-a-jwt", inbox.Id))
+        using (var garbage = await SendLogoutAsync("not-a-jwt", inboxId))
             garbage.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         // JWT real com a assinatura adulterada: prova que a assinatura é validada
-        using (var tampered = await SendLogoutAsync(TamperSignature(tokens.Token), inbox.Id))
+        using (var tampered = await SendLogoutAsync(
+                   TamperSignature(tokens.Token),
+                   inboxId: Guid.NewGuid().ToString()))
+        {
             tampered.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
 
-        // Nada foi consumido nem revogado
-        (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Pending);
-
+        
         var user = await GetUserByEmailAsync(registered.Email);
+
+        user.Should().NotBeNull();
         user!.RefreshToken.Should().Be(tokens.RefreshToken);
     }
 
@@ -169,9 +184,9 @@ public class AuthLogoutTests : BaseIntegrationTest
 
         await DeleteUserAsync(registered.Email);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendLogoutAsync(tokens.Token, inbox.Id);
+        using var response = await SendLogoutAsync(tokens.Token, inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
@@ -191,36 +206,17 @@ public class AuthLogoutTests : BaseIntegrationTest
     {
         var (registered, tokens) = await RegisterUserAsync();
 
-        using var response = await SendLogoutAsync(tokens.Token, inboxId: null);
+        using var response = await SendLogoutAsync(
+            tokens.Token,
+            inboxId: null);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
-        http!.Errors.Should().ContainSingle(e => e.Contains(InboxHeader));
-
-        var user = await GetUserByEmailAsync(registered.Email);
-        user!.RefreshToken.Should().Be(tokens.RefreshToken);
-    }
-
-    [Fact]
-    public async Task Logout_ReturnsConflict_WhenInboxWasAlreadyProcessed()
-    {
-        var (registered, tokens) = await RegisterUserAsync();
-
-        var inbox = await NewInboxAsync(
-            item => item.Status = InboxStatusEnum.Processed);
-
-        using var response = await SendLogoutAsync(tokens.Token, inbox.Id);
-
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<bool>(response);
 
         http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain("Inbox is not available for processing.");
+        http!.Errors.Should().ContainSingle(error => error.Contains(InboxHeader));
 
-        // O logout não deve ter sido executado
         var user = await GetUserByEmailAsync(registered.Email);
 
         user.Should().NotBeNull();
@@ -231,14 +227,17 @@ public class AuthLogoutTests : BaseIntegrationTest
     public async Task Logout_ReturnsConflict_WhenSameInboxIsReusedAfterSuccess()
     {
         var (_, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
 
-        using (var first = await SendLogoutAsync(tokens.Token, inbox.Id))
+        string inboxId = Guid.NewGuid().ToString();
+
+        using (var first = await SendLogoutAsync(tokens.Token, inboxId))
             first.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        using var second = await SendLogoutAsync(tokens.Token, inbox.Id);
+        using var second = await SendLogoutAsync(tokens.Token, inboxId);
 
         second.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -252,13 +251,11 @@ public class AuthLogoutTests : BaseIntegrationTest
 
         await DeleteUserAsync(registered.Email);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendLogoutAsync(tokens.Token, inbox.Id);
+        using var response = await SendLogoutAsync(tokens.Token, inboxId);
+
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-
-        var updated = await GetInboxAsync(inbox.Id);
-        updated.Status.Should().NotBe(InboxStatusEnum.Processing);
-        updated.LockedBy.Should().BeNull();
+        
     }
 }

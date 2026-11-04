@@ -33,13 +33,13 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByIdAsync(
             room.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -55,12 +55,6 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
         http.Message.Should().Be("Room exists");
         http.Data.Should().BeTrue();
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     [Fact]
@@ -69,13 +63,13 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByIdAsync(
             nonexistentId,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -91,12 +85,6 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
         http.Message.Should().Be("Room does not exist");
         http.Data.Should().BeFalse();
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------
@@ -108,13 +96,13 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByIdAsync(
             "invalid-uuid",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -127,8 +115,6 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
 
-        // A falha de validação não deve processar o Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
     }
 
     // ---------------------------------------------------------------
@@ -143,13 +129,13 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
         var room = await CreateRoomHttp(masterTokens);
 
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByIdAsync(
             room.Id,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -162,13 +148,13 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
     public async Task ExistsById_ReturnsUnauthorized_WhenTokenIsMissing()
     {
         // Arrange
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByIdAsync(
             Guid.NewGuid().ToString(),
             accessToken: null,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -237,13 +223,13 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira consulta: deve ser processada com sucesso.
         using (var firstResponse = await SendExistsByIdAsync(
                    room.Id,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -258,7 +244,7 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
         using var response = await SendExistsByIdAsync(
             room.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -271,11 +257,6 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------

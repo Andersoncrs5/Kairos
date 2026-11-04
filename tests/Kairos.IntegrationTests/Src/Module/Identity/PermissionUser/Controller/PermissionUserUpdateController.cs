@@ -212,9 +212,9 @@ public sealed class PermissionUserUpdateController : BaseIntegrationTest
 
         if (includeInboxHeader)
         {
-            var inbox = await NewInboxAsync();
+            string inboxId = Guid.NewGuid().ToString();
 
-            request.Headers.Add(InboxHeader, inbox.Id);
+            request.Headers.Add(InboxHeader, inboxId);
         }
 
         if (!string.IsNullOrWhiteSpace(accessToken))

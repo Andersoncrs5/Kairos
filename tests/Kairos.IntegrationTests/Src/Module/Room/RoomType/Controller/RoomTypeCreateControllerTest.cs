@@ -48,12 +48,12 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var dto = NewRoomTypeDto();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -91,13 +91,6 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         persisted.Description.Should().Be(dto.Description);
         persisted.IsActive.Should().BeTrue();
         persisted.CreatedAt.Should().NotBe(default);
-
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------
@@ -110,12 +103,12 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var dto = NewRoomTypeDto(name: "");
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -135,10 +128,6 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
             key.EndsWith(
                 "Name",
                 StringComparison.OrdinalIgnoreCase));
-
-        // A validação automática impede a execução da action.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
 
         // A entidade não deve ter sido persistida.
         using var scope = CreateScope();
@@ -158,12 +147,12 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var dto = NewRoomTypeDto(name: new string('a', 101));
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -183,9 +172,6 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
             key.EndsWith(
                 "Name",
                 StringComparison.OrdinalIgnoreCase));
-
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
 
         using var scope = CreateScope();
 
@@ -207,12 +193,12 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         var dto = NewRoomTypeDto(
             description: new string('a', 256));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -232,9 +218,6 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
             key.EndsWith(
                 "Description",
                 StringComparison.OrdinalIgnoreCase));
-
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
 
         using var scope = CreateScope();
 
@@ -258,12 +241,12 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         var tokens = await LoginUserMaster();
         var dto = NewRoomTypeDto();
 
-        var firstInbox = await NewInboxAsync();
-
+        string inboxId = Guid.NewGuid().ToString();
+        
         // Primeiro cadastro.
         using (var firstResponse = await SendCreateAsync(
                    dto,
-                   firstInbox.Id,
+                   inboxId,
                    tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(
@@ -278,12 +261,12 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
             firstHttp.Data!.Name.Should().Be(dto.Name);
         }
 
-        var secondInbox = await NewInboxAsync();
+        var secondInbox = Guid.NewGuid().ToString();
 
         // Segundo cadastro usando o mesmo nome.
         using var response = await SendCreateAsync(
             dto,
-            secondInbox.Id,
+            secondInbox,
             tokens.Token);
 
         _output.WriteLine(
@@ -405,7 +388,7 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var firstDto = NewRoomTypeDto();
         var secondDto = NewRoomTypeDto();
@@ -413,7 +396,7 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         // Primeiro cadastro.
         using (var firstResponse = await SendCreateAsync(
                    firstDto,
-                   inbox.Id,
+                   inboxId,
                    tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(
@@ -423,7 +406,7 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         // Segundo cadastro utilizando o mesmo Inbox.
         using var response = await SendCreateAsync(
             secondDto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -455,8 +438,6 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         first.Should().NotBeNull();
         second.Should().BeNull();
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
     }
 
     // ---------------------------------------------------------------

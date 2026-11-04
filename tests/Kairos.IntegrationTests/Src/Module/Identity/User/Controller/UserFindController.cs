@@ -57,13 +57,13 @@ public class UserFindController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             tokens.User.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -85,11 +85,7 @@ public class UserFindController : BaseIntegrationTest
         http.Data.UserName.Should().Be(tokens.User.UserName);
 
         // Assert - inbox processada
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -101,14 +97,14 @@ public class UserFindController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         string nonexistentId = Guid.NewGuid().ToString("N");
 
         // Act
         using var response = await SendFindByIdAsync(
             nonexistentId,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -132,19 +128,17 @@ public class UserFindController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             tokens.User.Id,
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     [Fact]
@@ -152,19 +146,17 @@ public class UserFindController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendFindByIdAsync(
             tokens.User.Id,
             accessToken: "not-a-valid-jwt",
-            inbox.Id);
+            inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
     }
 
     // ------------------------------------------------------------------
@@ -195,13 +187,13 @@ public class UserFindController : BaseIntegrationTest
     {
         // Arrange
         Tokens tokens = await CreateUserHttp();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act - primeira requisição
         using (var firstResponse = await SendFindByIdAsync(
             tokens.User.Id,
             tokens.Token,
-            inbox.Id))
+            inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         }
@@ -210,7 +202,7 @@ public class UserFindController : BaseIntegrationTest
         using var secondResponse = await SendFindByIdAsync(
             tokens.User.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         // Assert
         secondResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);

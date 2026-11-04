@@ -29,11 +29,11 @@ public class AuthLoginTests : BaseIntegrationTest
     public async Task Login_ReturnsOk_AndRotatesRefreshToken()
     {
         var (registered, registeredTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendLoginAsync(
             new LoginUserDTO { Email = registered.Email, Password = registered.Password },
-            inbox.Id);
+            inboxId);
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -51,21 +51,15 @@ public class AuthLoginTests : BaseIntegrationTest
         http.Data.User.Id.Should().Be(registeredTokens.User.Id);
         http.Data.User.Email.Should().Be(registered.Email);
 
-        // O refresh token é rotacionado e o novo valor fica salvo no banco
         http.Data.RefreshToken.Should().NotBe(registeredTokens.RefreshToken);
 
         var user = await GetUserByEmailAsync(registered.Email);
         user!.RefreshToken.Should().Be(http.Data.RefreshToken);
 
-        // O JWT identifica o usuário certo
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(http.Data.Token);
         jwt.Subject.Should().Be(user.Id);
 
-        // O inbox foi consumido
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -181,17 +175,16 @@ public class AuthLoginTests : BaseIntegrationTest
             _ => throw new ArgumentOutOfRangeException(nameof(scenario))
         };
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendLoginAsync(body, inbox.Id);
+        using var response = await SendLoginAsync(body, inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<Dictionary<string, string[]>>(response);
         http!.Success.Should().BeFalse();
 
-        // A action não rodou: o inbox não foi tocado
-        (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Pending);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -234,40 +227,39 @@ public class AuthLoginTests : BaseIntegrationTest
     public async Task Login_ReturnsConflict_WhenSameInboxIsReusedAfterSuccess()
     {
         var (registered, _) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
         var body = new LoginUserDTO { Email = registered.Email, Password = registered.Password };
 
-        using (var first = await SendLoginAsync(body, inbox.Id))
+        using (var first = await SendLoginAsync(body, inboxId))
             first.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var tokenAfterFirst = (await GetUserByEmailAsync(registered.Email))!.RefreshToken;
 
-        using var second = await SendLoginAsync(body, inbox.Id);
+        using var second = await SendLoginAsync(body, inboxId);
 
         second.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        // Não houve nova rotação de refresh token
         (await GetUserByEmailAsync(registered.Email))!.RefreshToken.Should().Be(tokenAfterFirst);
+        
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
     public async Task Login_AllowsOnlyOneRequest_WhenSameInboxIsUsedConcurrently()
     {
         var (registered, _) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string  inboxId = Guid.NewGuid().ToString();
         var body = new LoginUserDTO { Email = registered.Email, Password = registered.Password };
 
         var responses = await Task.WhenAll(
-            SendLoginAsync(body, inbox.Id),
-            SendLoginAsync(body, inbox.Id));
+            SendLoginAsync(body, inboxId),
+            SendLoginAsync(body, inboxId));
 
         try
         {
             responses.Select(r => r.StatusCode)
                 .Should()
                 .BeEquivalentTo(new[] { HttpStatusCode.OK, HttpStatusCode.Conflict });
-
-            (await GetInboxAsync(inbox.Id)).Status.Should().Be(InboxStatusEnum.Processed);
         }
         finally
         {
@@ -314,16 +306,14 @@ public class AuthLoginTests : BaseIntegrationTest
     public async Task Login_ReleasesInbox_WhenCredentialsAreInvalid()
     {
         var (registered, _) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        var inboxId  = Guid.NewGuid().ToString();
 
         using var response = await SendLoginAsync(
             new LoginUserDTO { Email = registered.Email, Password = "Wrong#Password1" },
-            inbox.Id);
+            inboxId);
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
-        var updated = await GetInboxAsync(inbox.Id);
-        updated.Status.Should().NotBe(InboxStatusEnum.Processing);
-        updated.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact(Skip = "Bug: RefreshTokenExpiryTime nunca é preenchido no login.")]

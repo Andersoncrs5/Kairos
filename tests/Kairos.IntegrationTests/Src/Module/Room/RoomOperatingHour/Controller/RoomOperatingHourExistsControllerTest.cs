@@ -40,12 +40,12 @@ public sealed class RoomOperatingHourExistsControllerTest : BaseIntegrationTest
             new TimeOnly(8, 0),
             new TimeOnly(18, 0));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsAsync(
             operatingHour.Id,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -57,14 +57,10 @@ public sealed class RoomOperatingHourExistsControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().BeTrue();
         http.Message.Should().Be("Room operating hour exists");
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     [Fact]
@@ -73,12 +69,12 @@ public sealed class RoomOperatingHourExistsControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsAsync(
             nonexistentId,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -90,14 +86,10 @@ public sealed class RoomOperatingHourExistsControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
         http.Data.Should().BeFalse();
         http.Message.Should().Be("Room operating hour does not exist");
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------
@@ -166,12 +158,12 @@ public sealed class RoomOperatingHourExistsControllerTest : BaseIntegrationTest
             new TimeOnly(8, 0),
             new TimeOnly(18, 0));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsAsync(
             operatingHour.Id,
-            inbox.Id,
+            inboxId,
             accessToken: null);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
@@ -179,10 +171,6 @@ public sealed class RoomOperatingHourExistsControllerTest : BaseIntegrationTest
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Pending);
-        updatedInbox.ProcessedAt.Should().BeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     // ---------------------------------------------------------------

@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.IntegrationTests.Config;
 using Xunit;
 using Xunit.Abstractions;
@@ -31,12 +30,12 @@ public sealed class PermissionExistsPermissionByCodeControllerTest
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsAsync(
             permission.Code,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -50,11 +49,7 @@ public sealed class PermissionExistsPermissionByCodeControllerTest
         http.Message.Should().Be("Permission exists");
         http.TraceId.Should().NotBeNullOrWhiteSpace();
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -62,12 +57,12 @@ public sealed class PermissionExistsPermissionByCodeControllerTest
     {
         var tokens = await LoginUserMaster();
         var code = $"missing.permission.{Guid.NewGuid():N}";
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsAsync(
             code,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -80,8 +75,7 @@ public sealed class PermissionExistsPermissionByCodeControllerTest
         http.Data.Should().BeFalse();
         http.Message.Should().Be("Permission does not exist");
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -89,12 +83,12 @@ public sealed class PermissionExistsPermissionByCodeControllerTest
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsAsync(
             permission.Code.ToUpperInvariant(),
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -116,12 +110,12 @@ public sealed class PermissionExistsPermissionByCodeControllerTest
     {
         var tokens = await LoginUserMaster();
         var code = new string('a', 101);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsAsync(
             code,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -140,12 +134,12 @@ public sealed class PermissionExistsPermissionByCodeControllerTest
         var permission = await CreatePermissionHttp(masterTokens);
 
         var (_, regularUserTokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendExistsAsync(
             permission.Code,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -180,20 +174,33 @@ public sealed class PermissionExistsPermissionByCodeControllerTest
     }
 
     [Fact]
-    public async Task ExistsByCode_ReturnsConflict_WhenInboxDoesNotExist()
+    public async Task ExistsByCode_ReturnsOk_WhenInboxDoesNotExist()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
+        string inboxId = Guid.NewGuid().ToString();
 
+        // Act
         using var response = await SendExistsAsync(
             permission.Code,
             tokens.Token,
-            nonexistentInboxId);
+            inboxId);
 
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
+        _output.WriteLine(
+            await response.Content.ReadAsStringAsync());
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var http = await ReadAsync<bool>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.Data.Should().BeTrue();
+        http.Message.Should().Be("Permission exists");
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -201,12 +208,12 @@ public sealed class PermissionExistsPermissionByCodeControllerTest
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using (var firstResponse = await SendExistsAsync(
                    permission.Code,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         }
@@ -214,7 +221,7 @@ public sealed class PermissionExistsPermissionByCodeControllerTest
         using var response = await SendExistsAsync(
             permission.Code,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 

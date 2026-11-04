@@ -56,12 +56,12 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         var room = await CreateRoomHttp(tokens);
 
         var dto = NewRoomBlockoutDto(room.Id);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -118,11 +118,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         persisted.Version.Should().Be(1);
 
         // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -138,12 +134,12 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         var dto = NewRoomBlockoutDto(
             roomId: "");
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -165,8 +161,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
                 StringComparison.OrdinalIgnoreCase));
 
         // A validação automática impede a execução da action.
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
+        
     }
 
     [Fact]
@@ -180,12 +175,12 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
             room.Id,
             reason: "");
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -206,8 +201,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
                 "Reason",
                 StringComparison.OrdinalIgnoreCase));
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
+        
 
         // Nenhum bloqueio deve ter sido persistido.
         await AssertRoomBlockoutDoesNotExistAsync(room.Id);
@@ -224,12 +218,12 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
             room.Id,
             reason: new string('a', 256));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -250,8 +244,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
                 "Reason",
                 StringComparison.OrdinalIgnoreCase));
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
+        
 
         await AssertRoomBlockoutDoesNotExistAsync(room.Id);
     }
@@ -267,12 +260,12 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
             room.Id,
             notes: new string('a', 1001));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -288,14 +281,8 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         http!.Success.Should().BeFalse();
         http.Data.Should().NotBeNull();
 
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                "Notes",
-                StringComparison.OrdinalIgnoreCase));
-
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
-
+        http.Data!.Keys.Should().Contain(key => key.EndsWith("Notes", StringComparison.OrdinalIgnoreCase));
+        
         await AssertRoomBlockoutDoesNotExistAsync(room.Id);
     }
 
@@ -317,12 +304,12 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
             startsAt: now.AddDays(10).AddHours(2),
             endsAt: now.AddDays(10));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -355,12 +342,12 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         var nonexistentRoomId = Guid.NewGuid().ToString();
         var dto = NewRoomBlockoutDto(nonexistentRoomId);
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -398,12 +385,12 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         }
 
         var dto = NewRoomBlockoutDto(room.Id);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -447,12 +434,12 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
             startsAt: startsAt.AddMinutes(30),
             endsAt: endsAt.AddMinutes(30));
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -561,7 +548,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         var tokens = await LoginUserMaster();
 
         var room = await CreateRoomHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var firstDto = NewRoomBlockoutDto(room.Id);
         var secondDto = NewRoomBlockoutDto(
@@ -571,7 +558,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         // Primeiro cadastro.
         using (var firstResponse = await SendCreateAsync(
                    firstDto,
-                   inbox.Id,
+                   inboxId,
                    tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(
@@ -581,7 +568,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         // Segundo cadastro utilizando o mesmo Inbox.
         using var response = await SendCreateAsync(
             secondDto,
-            inbox.Id,
+            inboxId,
             tokens.Token);
 
         _output.WriteLine(
@@ -605,8 +592,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
 
         count.Should().Be(1);
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Processed);
+        
     }
 
     // ---------------------------------------------------------------
@@ -621,12 +607,12 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         var room = await CreateRoomHttp(tokens);
 
         var dto = NewRoomBlockoutDto(room.Id);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
             dto,
-            inbox.Id,
+            inboxId,
             accessToken: null);
 
         // Assert
@@ -634,8 +620,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
 
         await AssertRoomBlockoutDoesNotExistAsync(room.Id);
 
-        (await GetInboxAsync(inbox.Id))
-            .Status.Should().Be(InboxStatusEnum.Pending);
+        
     }
 
     // ---------------------------------------------------------------

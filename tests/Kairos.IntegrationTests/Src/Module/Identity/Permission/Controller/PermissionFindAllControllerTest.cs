@@ -31,12 +31,12 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
     public async Task Find_ReturnsOk_WithPaginationMetadata()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindAsync(
             "Page=1&PageSize=10",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -68,7 +68,7 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
     public async Task Find_FiltersByCode_WhenCodeExists()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var query =
             $"Code={Uri.EscapeDataString(ExistingPermissionCode)}" +
@@ -77,7 +77,7 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
         using var response = await SendFindAsync(
             query,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -99,7 +99,7 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
     public async Task Find_FiltersByCodeIgnoringCase_WhenEnabled()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var code = ExistingPermissionCode.ToUpperInvariant();
 
@@ -110,7 +110,7 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
         using var response = await SendFindAsync(
             query,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -130,7 +130,7 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
     public async Task Find_ReturnsEmptyPage_WhenNoPermissionMatches()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         var nonexistentCode = $"missing.permission.{Guid.NewGuid():N}";
 
@@ -141,7 +141,7 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
         using var response = await SendFindAsync(
             query,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -164,12 +164,12 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
     public async Task Find_RespectsPageSize()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindAsync(
             "Page=1&PageSize=2",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
@@ -191,12 +191,12 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
     public async Task Find_ReturnsRequestedPage()
     {
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var firstResponse = await SendFindAsync(
             "Page=1&PageSize=2",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -206,12 +206,12 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
         firstPage.Should().NotBeNull();
         firstPage!.Data.Should().NotBeNull();
 
-        var secondInbox = await NewInboxAsync();
+        string secondInboxId = Guid.NewGuid().ToString();
 
         using var secondResponse = await SendFindAsync(
             "Page=2&PageSize=2",
             tokens.Token,
-            secondInbox.Id);
+            secondInboxId);
 
         secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -242,12 +242,12 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Find_ReturnsUnauthorized_WhenTokenIsMissing()
     {
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindAsync(
             "Page=1&PageSize=10",
             accessToken: null,
-            inbox.Id);
+            inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -256,12 +256,12 @@ public sealed class PermissionFindAllControllerTest : BaseIntegrationTest
     public async Task Find_ReturnsForbidden_WhenUserLacksListPermission()
     {
         var (_, tokens) = await RegisterUserAsync();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendFindAsync(
             "Page=1&PageSize=10",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 

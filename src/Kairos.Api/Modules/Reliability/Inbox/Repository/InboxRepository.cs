@@ -15,7 +15,7 @@ public sealed class InboxRepository(AppDbContext context) : BaseRepositoryImpl<I
     {
         var now = DateTimeOffset.UtcNow;
 
-        var affectedRows = await context.Set<InboxModel>()
+        var affectedRows = await context.Inbox
             .Where(inbox =>
                 inbox.Id == id &&
                 inbox.Status == InboxStatusEnum.Pending &&
@@ -36,7 +36,21 @@ public sealed class InboxRepository(AppDbContext context) : BaseRepositoryImpl<I
 
         return affectedRows > 0;
     }
-    
+
+    public async Task<bool> MarkAsProcessedAsync(
+        string messageId,
+        string source,
+        CancellationToken ct = default)
+    {
+        int executeUpdateAsync = await context.Inbox.Where(i => i.MessageId == messageId 
+                                                                && i.Source == source)
+            .ExecuteUpdateAsync(set =>
+                set.SetProperty(i => i.Status, InboxStatusEnum.Processed)
+            );
+        
+        return executeUpdateAsync > 0;
+    }
+
     public async Task<bool> TryMarkAsProcessedAsync(
         string messageId,
         string lockedBy,
@@ -44,7 +58,7 @@ public sealed class InboxRepository(AppDbContext context) : BaseRepositoryImpl<I
     {
         var now = DateTimeOffset.UtcNow;
 
-        int affectedRows = await context.Set<InboxModel>()
+        int affectedRows = await context.Inbox
             .Where(inbox => inbox.MessageId == messageId && inbox.Status == InboxStatusEnum.Processing)
             .ExecuteUpdateAsync(
                 setters => setters
@@ -63,7 +77,7 @@ public sealed class InboxRepository(AppDbContext context) : BaseRepositoryImpl<I
         string messageId,
         CancellationToken cancellationToken = default)
     {
-        return context.Set<InboxModel>()
+        return context.Inbox
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 inbox => inbox.MessageId == messageId,
@@ -75,7 +89,7 @@ public sealed class InboxRepository(AppDbContext context) : BaseRepositoryImpl<I
         string workerId,
         CancellationToken cancellationToken = default)
     {
-        return context.Set<InboxModel>()
+        return context.Inbox
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 inbox => inbox.MessageId == messageId && inbox.Source == workerId,
@@ -86,9 +100,20 @@ public sealed class InboxRepository(AppDbContext context) : BaseRepositoryImpl<I
         string messageId,
         CancellationToken cancellationToken = default)
     {
-        return context.Set<InboxModel>()
+        return context.Inbox
             .AnyAsync(
                 inbox => inbox.MessageId == messageId,
+                cancellationToken);
+    }
+
+    public Task<bool> ExistsByMessageIdAndSourceAsync(
+        string messageId,
+        string source,
+        CancellationToken cancellationToken = default)
+    {
+        return context.Inbox
+            .AnyAsync(
+                inbox => inbox.MessageId == messageId && inbox.Source == source,
                 cancellationToken);
     }
 
@@ -100,7 +125,7 @@ public sealed class InboxRepository(AppDbContext context) : BaseRepositoryImpl<I
 
         var now = DateTimeOffset.UtcNow;
 
-        return await context.Set<InboxModel>()
+        return await context.Inbox
             .AsNoTracking()
             .Where(inbox =>
                 inbox.Status == InboxStatusEnum.Pending &&
@@ -115,7 +140,7 @@ public sealed class InboxRepository(AppDbContext context) : BaseRepositoryImpl<I
         string correlationId,
         CancellationToken cancellationToken = default)
     {
-        return await context.Set<InboxModel>()
+        return await context.Inbox
             .AsNoTracking()
             .Where(inbox => inbox.CorrelationId == correlationId)
             .OrderBy(inbox => inbox.ReceivedAt)

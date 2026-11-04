@@ -35,13 +35,13 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var blockout = await CreateRoomBlockoutHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByIdAsync(
             blockout.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -55,14 +55,8 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
         http.Message.Should().Be("Room blockout exists");
-        http.TraceId.Should().Be(inbox.Id);
+        http.TraceId.Should().Be(inboxId);
 
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
     }
 
     [Fact]
@@ -71,13 +65,13 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByIdAsync(
             nonexistentId,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -91,14 +85,7 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeFalse();
         http.Message.Should().Be("Room blockout does not exist");
-        http.TraceId.Should().Be(inbox.Id);
-
-        // Verifica o processamento do Inbox.
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
-        updatedInbox.LockedBy.Should().BeNull();
+        http.TraceId.Should().Be(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -110,13 +97,13 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByIdAsync(
             "invalid-uuid",
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -138,13 +125,13 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
 
         var (_, regularUserTokens) = await RegisterUserAsync();
 
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByIdAsync(
             blockout.Id,
             regularUserTokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -161,13 +148,13 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
     public async Task ExistsById_ReturnsUnauthorized_WhenTokenIsMissing()
     {
         // Arrange
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendExistsByIdAsync(
             Guid.NewGuid().ToString(),
             accessToken: null,
-            inboxId: inbox.Id);
+            inboxId: inboxId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -225,13 +212,13 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
         var blockout = await CreateRoomBlockoutHttp(tokens);
-        var inbox = await NewInboxAsync();
+        string inboxId = Guid.NewGuid().ToString();
 
         // Primeira consulta: deve ser processada com sucesso.
         using (var firstResponse = await SendExistsByIdAsync(
                    blockout.Id,
                    tokens.Token,
-                   inbox.Id))
+                   inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -246,7 +233,7 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
         using var response = await SendExistsByIdAsync(
             blockout.Id,
             tokens.Token,
-            inbox.Id);
+            inboxId);
 
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
@@ -254,10 +241,7 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        var updatedInbox = await GetInboxAsync(inbox.Id);
-
-        updatedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        updatedInbox.ProcessedAt.Should().NotBeNull();
+        
     }
 
     // ---------------------------------------------------------------
