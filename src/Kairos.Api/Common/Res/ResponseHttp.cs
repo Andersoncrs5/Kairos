@@ -9,5 +9,6 @@ public record ResponseHttp<T>(
     string? DetailsError = null,
     string? Path = null,
     UInt16 ApiVersion = 1,
-    IReadOnlyList<string>? Errors = null
+    IReadOnlyList<string>? Errors = null,
+    ValidationErrorResponse? ErrorResponse = null
 );

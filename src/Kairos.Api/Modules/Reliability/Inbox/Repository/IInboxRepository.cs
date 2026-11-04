@@ -11,7 +11,7 @@ public interface IInboxRepository: IBaseRepository<InboxModel>
         CancellationToken cancellationToken = default);
     
     Task<bool> TryMarkAsProcessedAsync(
-        string id,
+        string messageId,
         string lockedBy,
         CancellationToken cancellationToken = default);
     

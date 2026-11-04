@@ -38,37 +38,22 @@ public sealed class InboxRepository(AppDbContext context) : BaseRepositoryImpl<I
     }
     
     public async Task<bool> TryMarkAsProcessedAsync(
-        string id,
+        string messageId,
         string lockedBy,
         CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
 
-        var affectedRows = await context.Set<InboxModel>()
-            .Where(inbox =>
-                inbox.Id == id &&
-                inbox.Status == InboxStatusEnum.Processing &&
-                inbox.LockedBy == lockedBy)
+        int affectedRows = await context.Set<InboxModel>()
+            .Where(inbox => inbox.MessageId == messageId && inbox.Status == InboxStatusEnum.Processing)
             .ExecuteUpdateAsync(
                 setters => setters
-                    .SetProperty(
-                        inbox => inbox.Status,
-                        InboxStatusEnum.Processed)
-                    .SetProperty(
-                        inbox => inbox.ProcessedAt,
-                        (DateTimeOffset?)now)
-                    .SetProperty(
-                        inbox => inbox.NextAttemptAt,
-                        (DateTimeOffset?)null)
-                    .SetProperty(
-                        inbox => inbox.LastError,
-                        (string?)null)
-                    .SetProperty(
-                        inbox => inbox.LockedBy,
-                        (string?)null)
-                    .SetProperty(
-                        inbox => inbox.UpdatedAt,
-                        (DateTimeOffset?)now),
+                    .SetProperty(inbox => inbox.Status, InboxStatusEnum.Processed)
+                    .SetProperty(inbox => inbox.ProcessedAt, now)
+                    .SetProperty(inbox => inbox.NextAttemptAt, (DateTimeOffset?)null)
+                    .SetProperty(inbox => inbox.LastError, (string?)null)
+                    .SetProperty(inbox => inbox.LockedBy, (string?)null)
+                    .SetProperty(inbox => inbox.UpdatedAt, now),
                 cancellationToken);
 
         return affectedRows > 0;
@@ -82,6 +67,18 @@ public sealed class InboxRepository(AppDbContext context) : BaseRepositoryImpl<I
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 inbox => inbox.MessageId == messageId,
+                cancellationToken);
+    }
+
+    public Task<InboxModel?> GetByMessageIdAndWorkerIdAsync(
+        string messageId,
+        string workerId,
+        CancellationToken cancellationToken = default)
+    {
+        return context.Set<InboxModel>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                inbox => inbox.MessageId == messageId && inbox.Source == workerId,
                 cancellationToken);
     }
 

@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Kairos.Api.Common.Enums;
+using Kairos.Api.Common.Exceptions;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Config.Observability;
@@ -6,7 +8,10 @@ using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
 using Kairos.Api.Modules.Identity.Users.Repositories;
+using Kairos.Api.Modules.Reliability.Inbox.DTOs.Request;
+using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reliability.Inbox.Repository;
+using Kairos.Api.Modules.Reliability.Inbox.Service.Interface;
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
@@ -124,7 +129,82 @@ public sealed class UnitOfWork(
             }
         });
     }
-    
+    //
+    // public async Task<Result<T>> ExecuteTransactionWithInboxAsync<T>(
+    //     string inboxId,
+    //     string workerId,
+    //     Func<CancellationToken, Task<Result<T>>> operation,
+    //     CancellationToken ct = default)
+    // {
+    //     ArgumentException.ThrowIfNullOrWhiteSpace(inboxId);
+    //     ArgumentException.ThrowIfNullOrWhiteSpace(workerId);
+    //     ArgumentNullException.ThrowIfNull(operation);
+    //
+    //     if (context.Database.CurrentTransaction is not null)
+    //     {
+    //         throw new InvalidOperationException(
+    //             "ExecuteTransactionWithInboxAsync must be called outside an existing transaction.");
+    //     }
+    //
+    //     using Activity? activity =
+    //         Telemetry.ActivitySource.StartActivity("inbox.transaction");
+    //
+    //     activity?.SetTag("kairos.inbox.id", inboxId);
+    //     activity?.SetTag("kairos.inbox.worker_id", workerId);
+    //
+    //     try
+    //     {
+    //         bool acquired = await inboxRepository.TryMarkAsProcessingAsync(inboxId, workerId, ct);
+    //
+    //         if (!acquired)
+    //         {
+    //             activity?.SetTag("kairos.inbox.outcome", "not_acquired");
+    //             Telemetry.InboxConflicts.Add(1);
+    //
+    //             return Result<T>.Conflict("Inbox is not available for processing.");
+    //         }
+    //
+    //         Result<T> outcome = await ExecuteTransactionAsync(
+    //             async token =>
+    //             {
+    //                 var result = await operation(token);
+    //
+    //                 if (result.IsFailure)
+    //                     return result;
+    //
+    //                 bool processed = await inboxRepository.TryMarkAsProcessedAsync(inboxId, workerId, token);
+    //
+    //                 if (!processed)
+    //                 {
+    //                     return Result<T>.Conflict(
+    //                         "Could not complete Inbox processing.");
+    //                 }
+    //
+    //                 return result;
+    //             },
+    //             ct);
+    //
+    //         activity?.SetTag(
+    //             "kairos.inbox.outcome",
+    //             outcome.IsSuccess ? "processed" : "failed");
+    //         activity?.SetTag("kairos.result.status_code", outcome.StatusCode);
+    //
+    //         // 4xx é erro de negócio, só 5xx marca o span como erro
+    //         if (outcome.StatusCode >= 500)
+    //         {
+    //             activity?.SetStatus(ActivityStatusCode.Error, outcome.FirstError);
+    //         }
+    //
+    //         return outcome;
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         activity?.AddException(ex);
+    //         activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+    //         throw;
+    //     }
+    // }
+    //
     public async Task<Result<T>> ExecuteTransactionWithInboxAsync<T>(
         string inboxId,
         string workerId,
@@ -149,39 +229,42 @@ public sealed class UnitOfWork(
 
         try
         {
-            bool acquired = await inboxRepository.TryMarkAsProcessingAsync(
-                inboxId,
-                workerId,
-                ct);
+            bool acquired = await inboxRepository.ExistsByMessageIdAsync(inboxId, ct);
 
-            if (!acquired)
+            if (acquired)
             {
-                activity?.SetTag("kairos.inbox.outcome", "not_acquired");
+                activity?.SetTag("kairos.inbox.outcome", "in_processing");
                 Telemetry.InboxConflicts.Add(1);
 
-                return Result<T>.Conflict(
-                    "Inbox is not available for processing.");
+                return Result<T>.Conflict("Request in processing.");
             }
 
             Result<T> outcome = await ExecuteTransactionAsync(
                 async token =>
                 {
+                    InboxModel inbox = new InboxModel()
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        MessageId = inboxId,
+                        MessageType = "application/json",
+                        Source = workerId,
+                        Payload = "{\"data\": 1}",
+                        Status = InboxStatusEnum.Processing,
+                        CreatedAt = DateTimeOffset.UtcNow
+                    };
+
+                    await inboxRepository.AddAsync(inbox, token);
+                    
                     var result = await operation(token);
 
                     if (result.IsFailure)
                         return result;
 
-                    var processed = await inboxRepository.TryMarkAsProcessedAsync(
-                        inboxId,
-                        workerId,
-                        token);
+                    bool processed = await inboxRepository.TryMarkAsProcessedAsync(inboxId, workerId, token);
 
                     if (!processed)
-                    {
-                        return Result<T>.Conflict(
-                            "Could not complete Inbox processing.");
-                    }
-
+                        return Result<T>.Conflict("Could not complete Inbox processing.");
+                    
                     return result;
                 },
                 ct);
