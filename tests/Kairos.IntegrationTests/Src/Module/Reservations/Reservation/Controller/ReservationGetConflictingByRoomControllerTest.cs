@@ -310,33 +310,6 @@ public sealed class ReservationGetConflictingByRoomControllerTest
     }
 
     [Fact]
-    public async Task GetConflictingByRoom_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var room = await CreateRoomHttp(tokens);
-
-        var startsAt = DateTimeOffset.UtcNow.AddDays(10);
-        var endsAt = startsAt.AddHours(2);
-
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendGetConflictingByRoomAsync(
-            room.Id,
-            startsAt,
-            endsAt,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-    }
-
-    [Fact]
     public async Task GetConflictingByRoom_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

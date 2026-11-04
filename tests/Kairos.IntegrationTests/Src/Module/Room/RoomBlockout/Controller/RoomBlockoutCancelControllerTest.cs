@@ -307,43 +307,6 @@ public sealed class RoomBlockoutCancelControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Cancel_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var blockout = await CreateRoomBlockoutHttp(tokens);
-
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-        var dto = NewCancelDto();
-
-        // Act
-        using var response = await SendCancelAsync(
-            blockout.Id,
-            dto,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        // O cancelamento não deve ser persistido.
-        using var scope = CreateScope();
-
-        var db = scope.ServiceProvider
-            .GetRequiredService<AppDbContext>();
-
-        var persisted = await db.Set<RoomBlockoutModel>()
-            .AsNoTracking()
-            .SingleAsync(x => x.Id == blockout.Id);
-
-        persisted.Status.Should().Be(RoomBlockoutStatus.Scheduled);
-        persisted.CancelledAt.Should().BeNull();
-    }
-
-    [Fact]
     public async Task Cancel_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

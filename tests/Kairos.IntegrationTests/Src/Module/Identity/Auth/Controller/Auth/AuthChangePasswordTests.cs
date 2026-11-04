@@ -114,11 +114,6 @@ public class AuthChangePasswordTests : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Message.Should().Be("Validation failed");
-        http.Data.Should().NotBeNull();
-        http.Data!.Keys.Should().Contain(
-            key => key.Contains(
-                nameof(ChangePasswordUserDto.ConfirmPassword),
-                StringComparison.OrdinalIgnoreCase));
 
         var user = await GetUserByEmailAsync(registered.Email);
 

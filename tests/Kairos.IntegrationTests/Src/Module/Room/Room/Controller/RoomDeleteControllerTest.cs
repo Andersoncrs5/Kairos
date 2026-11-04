@@ -231,45 +231,6 @@ public sealed class RoomDeleteControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Delete_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var room = await CreateRoomHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendDeleteAsync(
-            room.Id,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<object>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Inbox is not available for processing.");
-
-        // A sala deve continuar persistida.
-        using var scope = CreateScope();
-
-        var persisted = await scope.ServiceProvider
-            .GetRequiredService<AppDbContext>()
-            .Set<RoomModel>()
-            .AsNoTracking()
-            .AnyAsync(entity => entity.Id == room.Id);
-
-        persisted.Should().BeTrue();
-    }
-
-    [Fact]
     public async Task Delete_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

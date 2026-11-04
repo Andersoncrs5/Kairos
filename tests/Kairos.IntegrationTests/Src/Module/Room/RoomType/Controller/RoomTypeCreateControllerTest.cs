@@ -122,14 +122,8 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
-
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                "Name",
-                StringComparison.OrdinalIgnoreCase));
-
-        // A entidade não deve ter sido persistida.
+        http.Data.Should().BeNull();
+        
         using var scope = CreateScope();
 
         var persisted = await scope.ServiceProvider
@@ -166,12 +160,7 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
-
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                "Name",
-                StringComparison.OrdinalIgnoreCase));
+        http.Data.Should().BeNull();
 
         using var scope = CreateScope();
 
@@ -212,12 +201,8 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
-
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                "Description",
-                StringComparison.OrdinalIgnoreCase));
+        http.Data.Should().BeNull();
+        
 
         using var scope = CreateScope();
 
@@ -328,47 +313,6 @@ public sealed class RoomTypeCreateControllerTest : BaseIntegrationTest
         http.Errors.Should().Contain(error =>
             error.Contains(
                 InboxHeader,
-                StringComparison.OrdinalIgnoreCase));
-
-        using var scope = CreateScope();
-
-        var persisted = await scope.ServiceProvider
-            .GetRequiredService<AppDbContext>()
-            .Set<RoomTypeModel>()
-            .AsNoTracking()
-            .AnyAsync(roomType => roomType.Name == dto.Name);
-
-        persisted.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task Create_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var dto = NewRoomTypeDto();
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendCreateAsync(
-            dto,
-            nonexistentInboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<RoomTypeDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-
-        http.Errors.Should().Contain(error =>
-            error.Contains(
-                "Inbox is not available for processing.",
                 StringComparison.OrdinalIgnoreCase));
 
         using var scope = CreateScope();

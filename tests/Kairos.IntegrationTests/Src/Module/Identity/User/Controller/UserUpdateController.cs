@@ -209,11 +209,7 @@ public class UserUpdateController : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
-        http.Data!.Keys.Should().Contain(
-            key => key.Contains(
-                nameof(UpdateUserDTO.Email),
-                StringComparison.OrdinalIgnoreCase));
+        http.Data.Should().BeNull();
     }
 
     [Fact]

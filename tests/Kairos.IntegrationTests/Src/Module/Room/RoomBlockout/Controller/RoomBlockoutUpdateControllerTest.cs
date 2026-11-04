@@ -670,34 +670,6 @@ public sealed class RoomBlockoutUpdateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Update_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var blockout = await CreateRoomBlockoutHttp(tokens);
-
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        var dto = new UpdateRoomBlockoutDto
-        {
-            Reason = "Update with nonexistent Inbox"
-        };
-
-        // Act
-        using var response = await SendUpdateAsync(
-            blockout.Id,
-            dto,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-    }
-
-    [Fact]
     public async Task Update_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

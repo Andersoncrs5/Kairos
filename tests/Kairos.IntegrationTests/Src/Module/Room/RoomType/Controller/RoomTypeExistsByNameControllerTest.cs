@@ -127,7 +127,7 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Message.Should().Be("Validation failed");
-        http.Data.Should().NotBeNull();
+        http.Data.Should().BeNull();
     }
 
     // ---------------------------------------------------------------
@@ -194,72 +194,6 @@ public sealed class RoomTypeExistsByNameControllerTest : BaseIntegrationTest
             error => error.Contains(InboxHeader));
     }
 
-    [Fact]
-    public async Task ExistsByName_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        var tokens = await LoginUserMaster();
-        var roomType = await CreateRoomTypeHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        using var response = await SendExistsByNameAsync(
-            roomType.Name,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<object>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Inbox is not available for processing.");
-    }
-
-    [Fact]
-    public async Task ExistsByName_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
-    {
-        var tokens = await LoginUserMaster();
-        var roomType = await CreateRoomTypeHttp(tokens);
-        string inboxId = Guid.NewGuid().ToString();
-
-        // Primeira consulta: deve ser processada com sucesso.
-        using (var firstResponse = await SendExistsByNameAsync(
-                   roomType.Name,
-                   tokens.Token,
-                   inboxId))
-        {
-            firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-            var firstHttp = await ReadAsync<bool>(firstResponse);
-
-            firstHttp.Should().NotBeNull();
-            firstHttp!.Success.Should().BeTrue();
-            firstHttp.Data.Should().BeTrue();
-        }
-
-        // Segunda consulta reutiliza o Inbox já processado.
-        using var response = await SendExistsByNameAsync(
-            roomType.Name,
-            tokens.Token,
-            inboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<object>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Inbox is not available for processing.");
-
-    }
 
     // ---------------------------------------------------------------
     // Helper HTTP

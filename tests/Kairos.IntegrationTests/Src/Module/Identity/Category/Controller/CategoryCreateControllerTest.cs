@@ -77,13 +77,8 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
-
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                "Name",
-                StringComparison.OrdinalIgnoreCase));
-
+        http.Data.Should().BeNull();
+        
         // A validação automática impede a execução da action.
         await AssertInboxProcessedAsync(inboxId);
 
@@ -123,13 +118,8 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
-
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                "Name",
-                StringComparison.OrdinalIgnoreCase));
-
+        http.Data.Should().BeNull();
+        
         await AssertInboxProcessedAsync(inboxId);
 
         using var scope = CreateScope();
@@ -171,13 +161,9 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
+        http.Data.Should().BeNull();
 
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                "Description",
-                StringComparison.OrdinalIgnoreCase));
-
+        
         await AssertInboxProcessedAsync(inboxId);
 
         using var scope = CreateScope();

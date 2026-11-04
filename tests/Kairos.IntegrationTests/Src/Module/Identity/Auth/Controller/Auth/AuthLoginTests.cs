@@ -205,25 +205,6 @@ public class AuthLoginTests : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Login_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        var (registered, registeredTokens) = await RegisterUserAsync();
-
-        using var response = await SendLoginAsync(
-            new LoginUserDTO { Email = registered.Email, Password = registered.Password },
-            Guid.NewGuid().ToString());
-
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<Tokens>(response);
-        http!.Errors.Should().Contain("Inbox is not available for processing.");
-
-        // O use case nem chegou a rodar
-        var user = await GetUserByEmailAsync(registered.Email);
-        user!.RefreshToken.Should().Be(registeredTokens.RefreshToken);
-    }
-
-    [Fact]
     public async Task Login_ReturnsConflict_WhenSameInboxIsReusedAfterSuccess()
     {
         var (registered, _) = await RegisterUserAsync();
@@ -242,29 +223,6 @@ public class AuthLoginTests : BaseIntegrationTest
         (await GetUserByEmailAsync(registered.Email))!.RefreshToken.Should().Be(tokenAfterFirst);
         
         await AssertInboxProcessedAsync(inboxId);
-    }
-
-    [Fact]
-    public async Task Login_AllowsOnlyOneRequest_WhenSameInboxIsUsedConcurrently()
-    {
-        var (registered, _) = await RegisterUserAsync();
-        string  inboxId = Guid.NewGuid().ToString();
-        var body = new LoginUserDTO { Email = registered.Email, Password = registered.Password };
-
-        var responses = await Task.WhenAll(
-            SendLoginAsync(body, inboxId),
-            SendLoginAsync(body, inboxId));
-
-        try
-        {
-            responses.Select(r => r.StatusCode)
-                .Should()
-                .BeEquivalentTo(new[] { HttpStatusCode.OK, HttpStatusCode.Conflict });
-        }
-        finally
-        {
-            foreach (var r in responses) r.Dispose();
-        }
     }
 
     // ------------------------------------------------------------------

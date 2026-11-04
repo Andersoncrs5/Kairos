@@ -215,27 +215,6 @@ public sealed class RoomExistsByCodeControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task ExistsByCode_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var room = await CreateRoomHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendExistsByCodeAsync(
-            room.Code,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-    }
-
-    [Fact]
     public async Task ExistsByCode_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

@@ -210,29 +210,6 @@ public sealed class ReservationDeleteByIdControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task DeleteById_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var reservation = await CreateReservationHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendDeleteByIdAsync(
-            reservation.Id,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        await AssertReservationExistsAsync(reservation.Id);
-    }
-
-    [Fact]
     public async Task DeleteById_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

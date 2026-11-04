@@ -31,10 +31,14 @@ public sealed class ConfigureMvcApiBehaviorOptions(
                         .Select(error => error.ErrorMessage)
                         .ToArray());
 
-            ValidationErrorResponse response = new(
-                errors,
-                context.HttpContext.TraceIdentifier,
-                DateTimeOffset.UtcNow);
+            ResponseHttp<object?> response = new(
+                Data: null,
+                Message: "Validation failed",
+                TraceId: context.HttpContext.TraceIdentifier,
+                Success: false,
+                Timestamp: DateTimeOffset.UtcNow,
+                Path: context.HttpContext.Request.Path.ToString(),
+                ErrorValids: errors);
 
             return new BadRequestObjectResult(response);
         };

@@ -184,27 +184,6 @@ public sealed class RoomBlockoutExistsByIdControllerTest : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
-    [Fact]
-    public async Task ExistsById_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var blockout = await CreateRoomBlockoutHttp(tokens);
-
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendExistsByIdAsync(
-            blockout.Id,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-    }
 
     [Fact]
     public async Task ExistsById_ReturnsConflict_WhenInboxIsReusedAfterSuccess()

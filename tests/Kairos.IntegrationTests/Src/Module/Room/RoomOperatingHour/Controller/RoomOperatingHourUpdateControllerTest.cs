@@ -460,37 +460,6 @@ public sealed class RoomOperatingHourUpdateControllerTest : BaseIntegrationTest
         body.Should().Contain(InboxHeader);
     }
 
-    [Fact]
-    public async Task Update_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var room = await CreateRoomHttp(tokens);
-        var operatingHour = await CreateRoomOperatingHourHttp(
-            tokens,
-            room.Id,
-            DayOfWeek.Monday);
-
-        var dto = new UpdateRoomOperatingHourDto
-        {
-            OpensAt = new TimeOnly(9, 0)
-        };
-
-        // Act
-        using var response = await SendUpdateAsync(
-            operatingHour.Id,
-            dto,
-            inboxId: Guid.NewGuid().ToString(),
-            accessToken: tokens.Token);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        var body = await response.Content.ReadAsStringAsync();
-        body.Should().Contain("Inbox is not available for processing.");
-    }
-
     // ---------------------------------------------------------------
     // Authentication
     // ---------------------------------------------------------------

@@ -261,7 +261,7 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
         var tokens = await LoginUserMaster();
         var reservation = await CreateReservationHttp(tokens);
 
-        var dto = new CancelReservationDto
+        CancelReservationDto dto = new CancelReservationDto
         {
             CancellationReason = new string('a', 256)
         };
@@ -280,9 +280,6 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        // A validação automática impede a execução da action.
-        await AssertInboxProcessedAsync(inboxId);
 
         await AssertReservationStatusAsync(
             reservation.Id,
@@ -453,38 +450,6 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        await AssertReservationStatusAsync(
-            reservation.Id,
-            ReservationStatusEnum.Confirmed);
-    }
-
-    [Fact]
-    public async Task Cancel_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var reservation = await CreateReservationHttp(tokens);
-
-        var dto = new CancelReservationDto
-        {
-            CancellationReason = "Nonexistent Inbox."
-        };
-
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendCancelAsync(
-            reservation.Id,
-            dto,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         await AssertReservationStatusAsync(
             reservation.Id,

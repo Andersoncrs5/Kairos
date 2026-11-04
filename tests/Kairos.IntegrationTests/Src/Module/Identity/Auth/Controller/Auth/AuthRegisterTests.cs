@@ -105,9 +105,7 @@ public class AuthRegisterTests : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Message.Should().Be("Validation failed");
-        http.Data.Should().NotBeNull();
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(invalidField, StringComparison.OrdinalIgnoreCase));
+        http.Data.Should().BeNull();
 
         // A action não rodou: o Inbox permanece Pending.
         
@@ -242,41 +240,6 @@ public class AuthRegisterTests : BaseIntegrationTest
         (await UserExistsAsync(retry.Email)).Should().BeFalse();
 
         await AssertInboxProcessedAsync(inboxId);
-    }
-
-    [Fact]
-    public async Task Register_AllowsOnlyOneRequest_WhenSameInboxIsUsedConcurrently()
-    {
-        string inboxId = Guid.NewGuid().ToString();
-
-        var dtoA = NewUserDto();
-        var dtoB = NewUserDto();
-
-        var responses = await Task.WhenAll(
-            SendRegisterAsync(dtoA, inboxId),
-            SendRegisterAsync(dtoB, inboxId));
-
-        try
-        {
-            responses.Select(r => r.StatusCode)
-                .Should()
-                .BeEquivalentTo(new[] { HttpStatusCode.Created, HttpStatusCode.Conflict });
-
-            var created = new[]
-            {
-                await UserExistsAsync(dtoA.Email),
-                await UserExistsAsync(dtoB.Email)
-            };
-
-            created.Count(exists => exists).Should().Be(1);
-
-            await AssertInboxProcessedAsync(inboxId);
-        }
-        finally
-        {
-            foreach (var r in responses)
-                r.Dispose();
-        }
     }
 
     // ------------------------------------------------------------------

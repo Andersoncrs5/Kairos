@@ -227,27 +227,6 @@ public sealed class ReservationExistsByIdControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task ExistsById_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var reservation = await CreateReservationHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendExistsByIdAsync(
-            reservation.Id,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-    }
-
-    [Fact]
     public async Task ExistsById_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

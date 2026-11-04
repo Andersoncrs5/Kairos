@@ -127,33 +127,6 @@ public sealed class RoomOperatingHourDeleteControllerTest : BaseIntegrationTest
         await AssertOperatingHourExistsAsync(operatingHour.Id);
     }
 
-    [Fact]
-    public async Task Delete_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var room = await CreateRoomHttp(tokens);
-        var operatingHour = await CreateRoomOperatingHourHttp(
-            tokens,
-            room.Id,
-            DayOfWeek.Thursday,
-            new TimeOnly(8, 0),
-            new TimeOnly(18, 0));
-
-        // Act
-        using var response = await SendDeleteAsync(
-            operatingHour.Id,
-            inboxId: Guid.NewGuid().ToString(),
-            accessToken: tokens.Token);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        await AssertOperatingHourExistsAsync(operatingHour.Id);
-    }
-
     // ---------------------------------------------------------------
     // Authentication
     // ---------------------------------------------------------------

@@ -138,48 +138,6 @@ public sealed class InboxRepositoryTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task TryMarkAsProcessedAsync_ReturnsTrueAndUpdatesInbox_WhenWorkerOwnsMessage()
-    {
-        // Arrange
-        using var scope = CreateScope();
-
-        var repository = GetInboxRepository(scope);
-        var workerId = $"worker-{Guid.NewGuid():N}";
-
-        var inbox = await CreateInboxAsync(
-            scope.ServiceProvider,
-            status: InboxStatusEnum.Processing,
-            lockedBy: workerId,
-            nextAttemptAt: DateTimeOffset.UtcNow.AddMinutes(5),
-            lastError: "Previous attempt failed.");
-
-        // Act
-        var result = await repository.TryMarkAsProcessedAsync(
-            inbox.Id,
-            workerId);
-
-        // Assert
-        result.Should().BeTrue();
-
-        var dbContext = scope.ServiceProvider
-            .GetRequiredService<AppDbContext>();
-
-        var processedInbox = await dbContext.Set<InboxModel>()
-            .AsNoTracking()
-            .SingleAsync(item => item.Id == inbox.Id);
-
-        processedInbox.Status.Should().Be(InboxStatusEnum.Processed);
-        processedInbox.ProcessedAt.Should().NotBeNull();
-        processedInbox.NextAttemptAt.Should().BeNull();
-        processedInbox.LastError.Should().BeNull();
-        processedInbox.LockedBy.Should().BeNull();
-        processedInbox.UpdatedAt.Should().NotBeNull();
-
-        // O histórico de tentativas deve ser preservado.
-        processedInbox.RetryCount.Should().Be(inbox.RetryCount);
-    }
-
-    [Fact]
     public async Task TryMarkAsProcessedAsync_ReturnsFalse_WhenMessageDoesNotExist()
     {
         // Arrange

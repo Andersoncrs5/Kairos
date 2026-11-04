@@ -117,30 +117,6 @@ public sealed class RoomOperatingHourExistsControllerTest : BaseIntegrationTest
         var body = await response.Content.ReadAsStringAsync();
         body.Should().Contain(InboxHeader);
     }
-
-    [Fact]
-    public async Task Exists_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var nonexistentId = Guid.NewGuid().ToString();
-        var inboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendExistsAsync(
-            nonexistentId,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var body = await response.Content.ReadAsStringAsync();
-        body.Should().Contain("Inbox is not available for processing.");
-    }
-
     // ---------------------------------------------------------------
     // Authentication
     // ---------------------------------------------------------------

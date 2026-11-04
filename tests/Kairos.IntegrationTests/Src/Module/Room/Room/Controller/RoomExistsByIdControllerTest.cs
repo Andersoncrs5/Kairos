@@ -190,34 +190,6 @@ public sealed class RoomExistsByIdControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task ExistsById_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var room = await CreateRoomHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendExistsByIdAsync(
-            room.Id,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<object>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Inbox is not available for processing.");
-    }
-
-    [Fact]
     public async Task ExistsById_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

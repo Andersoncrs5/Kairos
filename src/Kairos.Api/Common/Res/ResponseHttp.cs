@@ -10,5 +10,5 @@ public record ResponseHttp<T>(
     string? Path = null,
     UInt16 ApiVersion = 1,
     IReadOnlyList<string>? Errors = null,
-    ValidationErrorResponse? ErrorResponse = null
+    IDictionary<string, string[]>? ErrorValids = null
 );

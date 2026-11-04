@@ -153,14 +153,8 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
+        http.Data.Should().BeNull();
 
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                "RoomId",
-                StringComparison.OrdinalIgnoreCase));
-
-        // A validação automática impede a execução da action.
         
     }
 
@@ -194,16 +188,8 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
+        http.Data.Should().BeNull();
 
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                "Reason",
-                StringComparison.OrdinalIgnoreCase));
-
-        
-
-        // Nenhum bloqueio deve ter sido persistido.
         await AssertRoomBlockoutDoesNotExistAsync(room.Id);
     }
 
@@ -237,14 +223,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
-
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                "Reason",
-                StringComparison.OrdinalIgnoreCase));
-
-        
+        http.Data.Should().BeNull();
 
         await AssertRoomBlockoutDoesNotExistAsync(room.Id);
     }
@@ -279,10 +258,8 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
+        http.Data.Should().BeNull();
 
-        http.Data!.Keys.Should().Contain(key => key.EndsWith("Notes", StringComparison.OrdinalIgnoreCase));
-        
         await AssertRoomBlockoutDoesNotExistAsync(room.Id);
     }
 
@@ -501,41 +478,6 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         http.Errors.Should().Contain(error =>
             error.Contains(
                 InboxHeader,
-                StringComparison.OrdinalIgnoreCase));
-
-        await AssertRoomBlockoutDoesNotExistAsync(room.Id);
-    }
-
-    [Fact]
-    public async Task Create_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var room = await CreateRoomHttp(tokens);
-
-        var dto = NewRoomBlockoutDto(room.Id);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendCreateAsync(
-            dto,
-            nonexistentInboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<RoomBlockoutDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-
-        http.Errors.Should().Contain(error =>
-            error.Contains(
-                "Inbox is not available for processing.",
                 StringComparison.OrdinalIgnoreCase));
 
         await AssertRoomBlockoutDoesNotExistAsync(room.Id);

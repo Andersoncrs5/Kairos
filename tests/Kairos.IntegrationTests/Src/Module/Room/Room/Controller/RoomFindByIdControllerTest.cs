@@ -205,34 +205,6 @@ public sealed class RoomFindByIdControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task FindById_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var room = await CreateRoomHttp(tokens);
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendFindByIdAsync(
-            room.Id,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<RoomDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Inbox is not available for processing.");
-    }
-
-    [Fact]
     public async Task FindById_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

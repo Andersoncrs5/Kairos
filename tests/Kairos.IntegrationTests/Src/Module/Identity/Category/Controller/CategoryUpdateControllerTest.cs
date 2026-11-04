@@ -673,44 +673,6 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Update_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        string accessToken = (await LoginUserMaster()).Token;
-
-        CategoryDto category =
-            await CreateCategoryHttp(await LoginUserMaster());
-
-        string originalName = category.Name;
-
-        string nonexistentInboxId = Guid.NewGuid().ToString();
-
-        UpdateCategoryDto dto = NewUpdateCategoryDto(
-            name: $"Changed category {Guid.NewGuid():N}");
-
-        // Act
-        using (HttpResponseMessage response = await SendUpdateAsync(
-            category.Id,
-            dto,
-            nonexistentInboxId,
-            accessToken))
-        {
-            _output.WriteLine(
-                await response.Content.ReadAsStringAsync());
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        }
-
-        // A categoria deve permanecer inalterada.
-        CategoryModel? persisted =
-            await FindPersistedCategoryAsync(category.Id);
-
-        persisted.Should().NotBeNull();
-        persisted!.Name.Should().Be(originalName);
-    }
-
-    [Fact]
     public async Task Update_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

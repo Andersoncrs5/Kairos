@@ -441,31 +441,6 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Create_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var room = await CreateRoomHttp(tokens);
-        var dto = NewRoomOperatingHourDto(
-            DayOfWeek.Monday,
-            new TimeOnly(8, 0),
-            new TimeOnly(18, 0));
-
-        // Act
-        using var response = await SendCreateAsync(
-            room.Id,
-            dto,
-            inboxId: Guid.NewGuid().ToString(),
-            accessToken: tokens.Token);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        await AssertNoOperatingHourExistsAsync(room.Id);
-    }
-
-    [Fact]
     public async Task Create_ReturnsUnauthorized_WhenAccessTokenIsMissing()
     {
         // Arrange

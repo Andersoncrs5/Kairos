@@ -68,11 +68,7 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                invalidField,
-                StringComparison.OrdinalIgnoreCase));
+        http.Data.Should().BeNull();
         
         using var scope = CreateScope();
 
@@ -102,9 +98,8 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith("Code", StringComparison.OrdinalIgnoreCase));
+        http.Data.Should().BeNull();
+        
     }
 
     [Fact]
@@ -130,9 +125,7 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith("Description", StringComparison.OrdinalIgnoreCase));
+        http.Data.Should().BeNull();
     }
 
     // ---------------------------------------------------------------

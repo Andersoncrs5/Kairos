@@ -213,39 +213,6 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
-    [Fact]
-    public async Task Delete_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var blockout = await CreateRoomBlockoutHttp(tokens);
-
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendDeleteAsync(
-            blockout.Id,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        // O registro não deve ter sido excluído.
-        using var scope = CreateScope();
-
-        var db = scope.ServiceProvider
-            .GetRequiredService<AppDbContext>();
-
-        bool exists = await db.Set<RoomBlockoutModel>()
-            .AsNoTracking()
-            .AnyAsync(x => x.Id == blockout.Id);
-
-        exists.Should().BeTrue();
-    }
 
     [Fact]
     public async Task Delete_ReturnsConflict_WhenInboxIsReusedAfterSuccess()

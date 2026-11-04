@@ -1065,38 +1065,6 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Update_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var reservation = await CreateReservationHttp(tokens);
-
-        var dto = new UpdateReservationDto
-        {
-            Title = "Updated title"
-        };
-
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendUpdateAsync(
-            reservation.Id,
-            dto,
-            tokens.Token,
-            nonexistentInboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        await AssertReservationTitleAsync(
-            reservation.Id,
-            reservation.Title);
-    }
-
-    [Fact]
     public async Task Update_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange

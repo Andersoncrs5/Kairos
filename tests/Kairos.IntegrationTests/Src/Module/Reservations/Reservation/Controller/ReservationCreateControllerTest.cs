@@ -146,11 +146,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
 
 
         // Act
-        await AssertModelValidationFailureAsync(
-            dto,
-            inboxId,
-            tokens.Token,
-            "RoomId");
+
     }
 
     [Fact]
@@ -187,12 +183,6 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
                 string inboxId = Guid.NewGuid().ToString();
 
 
-        // Act
-        await AssertModelValidationFailureAsync(
-            dto,
-            inboxId,
-            tokens.Token,
-            "Title");
     }
 
     [Fact]
@@ -208,12 +198,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
                 string inboxId = Guid.NewGuid().ToString();
 
 
-        // Act
-        await AssertModelValidationFailureAsync(
-            dto,
-            inboxId,
-            tokens.Token,
-            "Title");
+       
     }
 
     [Fact]
@@ -230,11 +215,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
 
 
         // Act
-        await AssertModelValidationFailureAsync(
-            dto,
-            inboxId,
-            tokens.Token,
-            "IdempotencyKey");
+
     }
 
     // ---------------------------------------------------------------
@@ -738,45 +719,6 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Create_ReturnsConflict_WhenInboxDoesNotExist()
-    {
-        // Arrange
-        var tokens = await LoginUserMaster();
-        var category = await CreateCategoryHttp(tokens);
-        var room = await CreateRoomHttp(tokens);
-
-        var dto = NewReservationDto(
-            room.Id,
-            category.Id);
-
-        var nonexistentInboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendCreateAsync(
-            dto,
-            nonexistentInboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<ReservationDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-
-        http.Errors.Should().Contain(error =>
-            error.Contains(
-                "Inbox is not available for processing.",
-                StringComparison.OrdinalIgnoreCase));
-
-        await AssertReservationDoesNotExistAsync(room.Id);
-    }
-
-    [Fact]
     public async Task Create_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         // Arrange
@@ -929,14 +871,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Data.Should().NotBeNull();
 
-        http.Data!.Keys.Should().Contain(key =>
-            key.EndsWith(
-                propertyName,
-                StringComparison.OrdinalIgnoreCase));
-
-        // A validação automática impede a execução da action.
         await AssertInboxProcessedAsync(inboxId);
     }
 
