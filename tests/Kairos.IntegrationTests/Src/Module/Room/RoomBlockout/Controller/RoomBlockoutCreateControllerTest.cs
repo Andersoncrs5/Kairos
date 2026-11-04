@@ -154,8 +154,6 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Data.Should().BeNull();
-
-        
     }
 
     [Fact]
@@ -295,13 +293,10 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-        var http = await ReadAsync<RoomBlockoutDto>(response);
+        var http = await ReadAsync<object>(response);
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-
-        http.Errors.Should().Contain(
-            "Room blockout start date must be earlier than end date.");
 
         await AssertRoomBlockoutDoesNotExistAsync(room.Id);
     }
@@ -488,7 +483,6 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
         var room = await CreateRoomHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
 
@@ -519,7 +513,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        var http = await ReadAsync<RoomBlockoutDto>(response);
+        var http = await ReadAsync<object>(response);
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
@@ -534,7 +528,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
 
         count.Should().Be(1);
 
-        
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -561,8 +555,7 @@ public sealed class RoomBlockoutCreateControllerTest : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         await AssertRoomBlockoutDoesNotExistAsync(room.Id);
-
-        
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------

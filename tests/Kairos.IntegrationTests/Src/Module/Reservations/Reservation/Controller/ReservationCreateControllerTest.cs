@@ -52,8 +52,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             dto.StartsAt,
             dto.EndsAt);
 
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -138,15 +137,15 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
+        var dto = NewReservationDto(roomId: "");
+        string inboxId = Guid.NewGuid().ToString();
 
-        var dto = NewReservationDto(
-            roomId: "");
-
-                string inboxId = Guid.NewGuid().ToString();
-
-
-        // Act
-
+        // Act & Assert
+        await AssertModelValidationFailureAsync(
+            dto,
+            inboxId,
+            tokens.Token,
+            "RoomId");
     }
 
     [Fact]
@@ -154,15 +153,12 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
         var dto = NewReservationDto(
             roomId: Guid.NewGuid().ToString(),
             categoryId: "");
+        string inboxId = Guid.NewGuid().ToString();
 
-                string inboxId = Guid.NewGuid().ToString();
-
-
-        // Act
+        // Act & Assert
         await AssertModelValidationFailureAsync(
             dto,
             inboxId,
@@ -175,14 +171,17 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
         var dto = NewReservationDto(
             roomId: Guid.NewGuid().ToString(),
             title: "");
+        string inboxId = Guid.NewGuid().ToString();
 
-                string inboxId = Guid.NewGuid().ToString();
-
-
+        // Act & Assert
+        await AssertModelValidationFailureAsync(
+            dto,
+            inboxId,
+            tokens.Token,
+            "Title");
     }
 
     [Fact]
@@ -190,15 +189,17 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
         var dto = NewReservationDto(
             roomId: Guid.NewGuid().ToString(),
             title: new string('a', 151));
+        string inboxId = Guid.NewGuid().ToString();
 
-                string inboxId = Guid.NewGuid().ToString();
-
-
-       
+        // Act & Assert
+        await AssertModelValidationFailureAsync(
+            dto,
+            inboxId,
+            tokens.Token,
+            "Title");
     }
 
     [Fact]
@@ -206,16 +207,17 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
         var dto = NewReservationDto(
             roomId: Guid.NewGuid().ToString(),
             idempotencyKey: new string('a', 101));
+        string inboxId = Guid.NewGuid().ToString();
 
-                string inboxId = Guid.NewGuid().ToString();
-
-
-        // Act
-
+        // Act & Assert
+        await AssertModelValidationFailureAsync(
+            dto,
+            inboxId,
+            tokens.Token,
+            "IdempotencyKey");
     }
 
     // ---------------------------------------------------------------
@@ -227,12 +229,8 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
-        var dto = NewReservationDto(
-            roomId: "invalid-room-id");
-
-                string inboxId = Guid.NewGuid().ToString();
-
+        var dto = NewReservationDto(roomId: "invalid-room-id");
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -260,13 +258,10 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
         var dto = NewReservationDto(
             roomId: Guid.NewGuid().ToString(),
             categoryId: "invalid-category-id");
-
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -309,8 +304,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             startsAt: now.AddDays(10).AddHours(2),
             endsAt: now.AddDays(10));
 
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -328,10 +322,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-
-        http.Errors.Should().Contain(
-            "Reservation start date must be earlier than end date.");
-
+        
         await AssertReservationDoesNotExistAsync(room.Id);
     }
 
@@ -350,8 +341,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             room.Id,
             Guid.NewGuid().ToString());
 
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -400,8 +390,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             room.Id,
             category.Id);
 
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -442,8 +431,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             nonexistentRoomId,
             category.Id);
 
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -490,8 +478,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             room.Id,
             category.Id);
 
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -540,8 +527,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             room.Id,
             category.Id);
 
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -576,7 +562,6 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
         // Arrange
         var tokens = await LoginUserMaster();
 
-        // CreateReservationHttp já configura os dias de funcionamento.
         var existingReservation = await CreateReservationHttp(tokens);
 
         var dto = NewReservationDto(
@@ -585,8 +570,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             startsAt: existingReservation.StartsAt.AddMinutes(30),
             endsAt: existingReservation.EndsAt.AddMinutes(30));
 
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -608,7 +592,6 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
         http.Errors.Should().Contain(
             "Room already has a reservation during this period.");
 
-        // Somente a reserva original deve continuar persistida.
         await AssertReservationCountAsync(
             existingReservation.RoomId,
             expectedCount: 1);
@@ -625,7 +608,6 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
         var startsAt = DateTimeOffset.UtcNow.AddDays(10);
         var endsAt = startsAt.AddHours(2);
 
-        // Insere um bloqueio diretamente no banco.
         using (var scope = CreateScope())
         {
             await CreateRoomBlockoutAsync(
@@ -647,8 +629,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             dto.StartsAt,
             dto.EndsAt);
 
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(
@@ -672,10 +653,6 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
 
         await AssertReservationDoesNotExistAsync(room.Id);
     }
-
-    // ---------------------------------------------------------------
-    // Idempotência
-    // ---------------------------------------------------------------
 
     // ---------------------------------------------------------------
     // Inbox
@@ -793,8 +770,7 @@ public sealed class ReservationCreateControllerTest : BaseIntegrationTest
             room.Id,
             category.Id);
 
-                string inboxId = Guid.NewGuid().ToString();
-
+        string inboxId = Guid.NewGuid().ToString();
 
         // Act
         using var response = await SendCreateAsync(

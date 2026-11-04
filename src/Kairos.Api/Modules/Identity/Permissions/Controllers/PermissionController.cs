@@ -319,7 +319,7 @@ public class PermissionController(
     [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Delete(
-        [FromRoute] string id,
+        [FromRoute, Required] string id,
         [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
         CancellationToken ct)
     {

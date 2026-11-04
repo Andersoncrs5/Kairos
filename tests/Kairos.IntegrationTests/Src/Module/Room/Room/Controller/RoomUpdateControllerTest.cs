@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Request;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Response;
@@ -17,6 +16,8 @@ namespace Kairos.IntegrationTests.Module.Room.Room.Controller;
 [Collection("Integration Tests")]
 public sealed class RoomUpdateControllerTest : BaseIntegrationTest
 {
+    private const string UpdateUrl = "/api/v1/rooms";
+
     private readonly ITestOutputHelper _output;
 
     public RoomUpdateControllerTest(
@@ -32,8 +33,9 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task Update_ReturnsOk_AndPersistsRoom()
+    public async Task Update_ReturnsOk_AndPersistsRoomAndInbox()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
@@ -51,6 +53,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             IsReservable = false
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -60,6 +63,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<RoomDto>(response);
@@ -78,8 +82,10 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         http.Data.Floor.Should().Be(dto.Floor);
         http.Data.Capacity.Should().Be(dto.Capacity);
         http.Data.AreaSquareMeters.Should().Be(dto.AreaSquareMeters);
-        
-        // Verifica a persistência da atualização.
+        http.Data.IsAccessible.Should().Be(dto.IsAccessible!.Value);
+        http.Data.IsReservable.Should().Be(dto.IsReservable!.Value);
+
+        // Verifica a persistência da atualização no banco.
         using var scope = CreateScope();
 
         var db = scope.ServiceProvider
@@ -97,12 +103,16 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         persisted.Floor.Should().Be(dto.Floor);
         persisted.Capacity.Should().Be(dto.Capacity);
         persisted.AreaSquareMeters.Should().Be(dto.AreaSquareMeters);
-        
+        persisted.IsAccessible.Should().Be(dto.IsAccessible!.Value);
+        persisted.IsReservable.Should().Be(dto.IsReservable!.Value);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
     public async Task Update_ReturnsOk_WhenOnlyNameIsUpdated()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
@@ -112,6 +122,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             Name = $"Renamed Room {Guid.NewGuid():N}"
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -121,6 +132,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<RoomDto>(response);
@@ -142,11 +154,14 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         http.Data.AreaSquareMeters.Should().Be(room.AreaSquareMeters);
         http.Data.IsAccessible.Should().Be(room.IsAccessible);
         http.Data.IsReservable.Should().Be(room.IsReservable);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
     public async Task Update_ReturnsOk_WhenRoomTypeIsChanged()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
         var newRoomType = await CreateRoomTypeHttp(tokens);
@@ -159,6 +174,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             RoomTypeId = newRoomType.Id
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -168,6 +184,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<RoomDto>(response);
@@ -190,6 +207,8 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
 
         persisted.Should().NotBeNull();
         persisted!.RoomTypeId.Should().Be(newRoomType.Id);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -199,6 +218,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Update_ReturnsBadRequest_WhenIdIsNotValidUuid()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         string inboxId = Guid.NewGuid().ToString();
 
@@ -207,6 +227,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             Name = "Updated Room"
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             "invalid-uuid",
             dto,
@@ -216,6 +237,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
@@ -228,6 +250,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Update_ReturnsBadRequest_WhenRoomTypeIdIsNotValidUuid()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
@@ -237,6 +260,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             RoomTypeId = "invalid-uuid"
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -246,6 +270,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
@@ -262,6 +287,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Update_ReturnsBadRequest_WhenCodeIsEmpty()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
@@ -271,6 +297,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             Code = "   "
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -280,19 +307,20 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Room code cannot be empty.");
+        http.Errors.Should().Contain("Room code cannot be empty.");
     }
 
     [Fact]
     public async Task Update_ReturnsBadRequest_WhenNameIsEmpty()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
@@ -302,6 +330,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             Name = "   "
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -311,28 +340,30 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Room name cannot be empty.");
+        http.Errors.Should().Contain("Room name cannot be empty.");
     }
 
     [Fact]
     public async Task Update_ReturnsBadRequest_WhenLocationIsEmpty()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
 
-        UpdateRoomDto dto = new UpdateRoomDto
+        var dto = new UpdateRoomDto
         {
             Location = "   "
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -342,28 +373,30 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Room location cannot be empty.");
+        http.Errors.Should().Contain("Room location cannot be empty.");
     }
 
     [Fact]
     public async Task Update_ReturnsBadRequest_WhenCodeExceedsMaximumLength()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
 
-        UpdateRoomDto dto = new UpdateRoomDto
+        var dto = new UpdateRoomDto
         {
             Code = new string('a', 31)
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -373,26 +406,26 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-        var http = await ReadAsync<object>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
     public async Task Update_ReturnsBadRequest_WhenNameExceedsMaximumLength()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
-        RoomDto room = await CreateRoomHttp(tokens);
+        var room = await CreateRoomHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
 
-        UpdateRoomDto dto = new UpdateRoomDto
+        var dto = new UpdateRoomDto
         {
             Name = new string('a', 121)
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -402,12 +435,10 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-        var http = await ReadAsync<object>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -417,6 +448,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Update_ReturnsNotFound_WhenRoomDoesNotExist()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var nonexistentId = Guid.NewGuid().ToString();
         string inboxId = Guid.NewGuid().ToString();
@@ -426,6 +458,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             Name = "Updated Room"
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             nonexistentId,
             dto,
@@ -435,6 +468,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var http = await ReadAsync<object>(response);
@@ -447,6 +481,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Update_ReturnsNotFound_WhenRoomTypeDoesNotExist()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
         var nonexistentRoomTypeId = Guid.NewGuid().ToString();
@@ -457,6 +492,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             RoomTypeId = nonexistentRoomTypeId
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -466,6 +502,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var http = await ReadAsync<object>(response);
@@ -478,8 +515,8 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Update_ReturnsConflict_WhenCodeAlreadyExists()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
-
         var roomToUpdate = await CreateRoomHttp(tokens);
         var existingRoom = await CreateRoomHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
@@ -489,6 +526,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             Code = existingRoom.Code
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             roomToUpdate.Id,
             dto,
@@ -498,6 +536,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         var http = await ReadAsync<object>(response);
@@ -515,6 +554,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Update_ReturnsForbidden_WhenUserLacksUpdatePermission()
     {
+        // Arrange
         var masterTokens = await LoginUserMaster();
         var room = await CreateRoomHttp(masterTokens);
 
@@ -526,6 +566,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             Name = $"Unauthorized Update {Guid.NewGuid():N}"
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -535,12 +576,15 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
     public async Task Update_ReturnsUnauthorized_WhenTokenIsMissing()
     {
+        // Arrange
         string inboxId = Guid.NewGuid().ToString();
 
         var dto = new UpdateRoomDto
@@ -548,13 +592,16 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             Name = "Updated Room"
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             Guid.NewGuid().ToString(),
             dto,
             accessToken: null,
             inboxId: inboxId);
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -564,6 +611,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
     [Fact]
     public async Task Update_ReturnsBadRequest_WhenInboxHeaderIsMissing()
     {
+        // Arrange
         var tokens = await LoginUserMaster();
         var room = await CreateRoomHttp(tokens);
 
@@ -572,6 +620,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
             Name = $"Updated Room {Guid.NewGuid():N}"
         };
 
+        // Act
         using var response = await SendUpdateAsync(
             room.Id,
             dto,
@@ -581,6 +630,7 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         _output.WriteLine(
             await response.Content.ReadAsStringAsync());
 
+        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
@@ -589,33 +639,86 @@ public sealed class RoomUpdateControllerTest : BaseIntegrationTest
         http!.Success.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task Update_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
+    {
+        // Arrange
+        var tokens = await LoginUserMaster();
+        var room = await CreateRoomHttp(tokens);
+        string inboxId = Guid.NewGuid().ToString();
+
+        var firstDto = new UpdateRoomDto
+        {
+            Name = "First Update"
+        };
+
+        var secondDto = new UpdateRoomDto
+        {
+            Name = "Second Update"
+        };
+
+        // Primeira atualização com sucesso.
+        using (var firstResponse = await SendUpdateAsync(
+                   room.Id,
+                   firstDto,
+                   tokens.Token,
+                   inboxId))
+        {
+            firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        // Segunda tentativa reutilizando o mesmo Inbox ID.
+        using var response = await SendUpdateAsync(
+            room.Id,
+            secondDto,
+            tokens.Token,
+            inboxId);
+
+        _output.WriteLine(
+            await response.Content.ReadAsStringAsync());
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        await AssertInboxProcessedAsync(inboxId);
+    }
+
     // ---------------------------------------------------------------
     // Helper HTTP
     // ---------------------------------------------------------------
 
-    private async Task<HttpResponseMessage> SendUpdateAsync(
+    private Task<HttpResponseMessage> SendUpdateAsync(
         string id,
         UpdateRoomDto dto,
         string? accessToken,
         string? inboxId)
     {
-        using var request = new HttpRequestMessage(
+        return SendAsync(
+            $"{UpdateUrl}/{Uri.EscapeDataString(id)}",
             HttpMethod.Put,
-            $"/api/v1/rooms/{Uri.EscapeDataString(id)}")
-        {
-            Content = JsonContent.Create(dto)
-        };
+            body: dto,
+            accessToken: accessToken,
+            inboxId: inboxId);
+    }
+    
+    protected async Task<HttpResponseMessage> SendAsync(
+        string url,
+        HttpMethod? method = null,
+        object? body = null,
+        string? accessToken = null,
+        string? inboxId = null)
+    {
+        // Se o método não for informado, assume POST por retrocompatibilidade
+        using var request = new HttpRequestMessage(method ?? HttpMethod.Post, url);
+
+        if (body is not null)
+            request.Content = JsonContent.Create(body, body.GetType());
 
         if (!string.IsNullOrWhiteSpace(accessToken))
-        {
-            request.Headers.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-        }
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-        if (!string.IsNullOrWhiteSpace(inboxId))
-        {
+        if (inboxId is not null)
             request.Headers.Add(InboxHeader, inboxId);
-        }
 
         return await Client.SendAsync(request);
     }

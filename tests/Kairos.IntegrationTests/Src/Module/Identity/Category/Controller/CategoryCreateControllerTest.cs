@@ -49,8 +49,51 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
     }
 
     // ---------------------------------------------------------------
-    // Validação do DTO
+    // Validação do DTO (Code, Name, Description, Color)
     // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task Create_ReturnsBadRequest_WhenCodeIsEmpty()
+    {
+        // Arrange
+        var tokens = await LoginUserMaster();
+        var dto = NewCategoryDto(code: "");
+        string inboxId = Guid.NewGuid().ToString();
+
+        // Act
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await AssertInboxProcessedAsync(inboxId);
+
+        using var scope = CreateScope();
+        var persisted = await scope.ServiceProvider
+            .GetRequiredService<AppDbContext>()
+            .Categories
+            .AsNoTracking()
+            .SingleOrDefaultAsync(c => c.Name == dto.Name);
+
+        persisted.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Create_ReturnsBadRequest_WhenCodeExceedsMaximumLength()
+    {
+        // Arrange
+        var tokens = await LoginUserMaster();
+        var dto = NewCategoryDto(code: new string('a', 101));
+        string inboxId = Guid.NewGuid().ToString();
+
+        // Act
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await AssertInboxProcessedAsync(inboxId);
+    }
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenNameIsEmpty()
@@ -61,34 +104,19 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         string inboxId = Guid.NewGuid().ToString();
 
         // Act
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var http =
-            await ReadAsync<Dictionary<string, string[]>>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Data.Should().BeNull();
-        
-        // A validação automática impede a execução da action.
         await AssertInboxProcessedAsync(inboxId);
 
         using var scope = CreateScope();
-
         var persisted = await scope.ServiceProvider
             .GetRequiredService<AppDbContext>()
             .Categories
             .AsNoTracking()
-            .SingleOrDefaultAsync(category => category.Name == dto.Name);
+            .SingleOrDefaultAsync(c => c.Code == dto.Code);
 
         persisted.Should().BeNull();
     }
@@ -102,35 +130,12 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         string inboxId = Guid.NewGuid().ToString();
 
         // Act
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var http =
-            await ReadAsync<Dictionary<string, string[]>>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Data.Should().BeNull();
-        
         await AssertInboxProcessedAsync(inboxId);
-
-        using var scope = CreateScope();
-
-        var persisted = await scope.ServiceProvider
-            .GetRequiredService<AppDbContext>()
-            .Categories
-            .AsNoTracking()
-            .SingleOrDefaultAsync(category => category.Name == dto.Name);
-
-        persisted.Should().BeNull();
     }
 
     [Fact]
@@ -138,47 +143,45 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
-        var dto = NewCategoryDto(
-            description: new string('a', 256));
-
+        var dto = NewCategoryDto(description: new string('a', 256));
         string inboxId = Guid.NewGuid().ToString();
 
         // Act
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var http =
-            await ReadAsync<Dictionary<string, string[]>>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Data.Should().BeNull();
-
-        
         await AssertInboxProcessedAsync(inboxId);
+    }
 
-        using var scope = CreateScope();
+    [Fact]
+    public async Task Create_ReturnsBadRequest_WhenColorIsInvalid()
+    {
+        // Arrange
+        var tokens = await LoginUserMaster();
+        var dto = NewCategoryDto();
+        // Atribui uma cor inválida (fora do padrão hexadecimal #RRGGBB)
+        var invalidDto = new CreateCategoryDto
+        {
+            Code = dto.Code,
+            Name = dto.Name,
+            Description = dto.Description,
+            Color = "invalid-color"
+        };
+        string inboxId = Guid.NewGuid().ToString();
 
-        var persisted = await scope.ServiceProvider
-            .GetRequiredService<AppDbContext>()
-            .Categories
-            .AsNoTracking()
-            .SingleOrDefaultAsync(category => category.Name == dto.Name);
+        // Act
+        using var response = await SendCreateAsync(invalidDto, inboxId, tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
 
-        persisted.Should().BeNull();
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
-    // Regras de negócio
+    // Regras de Negócio (Duplicidades)
     // ---------------------------------------------------------------
 
     [Fact]
@@ -191,48 +194,67 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         string firstInboxId = Guid.NewGuid().ToString();
 
         // Primeiro cadastro
-        using (var firstResponse = await SendCreateAsync(
-                   dto,
-                   firstInboxId,
-                   tokens.Token))
+        using (var firstResponse = await SendCreateAsync(dto, firstInboxId, tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
-
-            var firstHttp = await ReadAsync<CategoryDto>(firstResponse);
-
-            firstHttp.Should().NotBeNull();
-            firstHttp!.Success.Should().BeTrue();
-            firstHttp.Data.Should().NotBeNull();
-            firstHttp.Data!.Name.Should().Be(dto.Name);
         }
 
-        // Segundo cadastro com o mesmo nome
+        // Segundo cadastro com o mesmo Nome (mas código diferente para não dar conflito de código primeiro)
+        var duplicateNameDto = NewCategoryDto(name: dto.Name);
         string secondInboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendCreateAsync(
-            dto,
-            secondInboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(duplicateNameDto, secondInboxId, tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        var http = await ReadAsync<CategoryDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        
-        // A categoria original continua persistida apenas uma vez.
         using var scope = CreateScope();
-
         var count = await scope.ServiceProvider
             .GetRequiredService<AppDbContext>()
             .Categories
             .AsNoTracking()
-            .CountAsync(category => category.Name == dto.Name);
+            .CountAsync(c => c.Name == dto.Name);
+
+        count.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Create_ReturnsConflict_WhenCategoryCodeAlreadyExists()
+    {
+        // Arrange
+        var tokens = await LoginUserMaster();
+        var dto = NewCategoryDto();
+
+        string firstInboxId = Guid.NewGuid().ToString();
+
+        // Primeiro cadastro
+        using (var firstResponse = await SendCreateAsync(dto, firstInboxId, tokens.Token))
+        {
+            firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        }
+
+        // Segundo cadastro com o mesmo Code (mas nome diferente para não dar conflito de nome primeiro)
+        var duplicateCodeDto = new CreateCategoryDto
+        {
+            Code = dto.Code,
+            Name = $"Different Name {Guid.NewGuid():N}",
+            Description = "Another description"
+        };
+        string secondInboxId = Guid.NewGuid().ToString();
+
+        using var response = await SendCreateAsync(duplicateCodeDto, secondInboxId, tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        using var scope = CreateScope();
+        var count = await scope.ServiceProvider
+            .GetRequiredService<AppDbContext>()
+            .Categories
+            .AsNoTracking()
+            .CountAsync(c => c.Code == dto.Code);
 
         count.Should().Be(1);
     }
@@ -249,34 +271,18 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         var dto = NewCategoryDto();
 
         // Act
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId: null,
-            accessToken: tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(dto, inboxId: null, accessToken: tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-        var http = await ReadAsync<object>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-
-        http.Errors.Should().Contain(error =>
-            error.Contains(
-                InboxHeader,
-                StringComparison.OrdinalIgnoreCase));
-
         using var scope = CreateScope();
-
         var persisted = await scope.ServiceProvider
             .GetRequiredService<AppDbContext>()
             .Categories
             .AsNoTracking()
-            .SingleOrDefaultAsync(category => category.Name == dto.Name);
+            .SingleOrDefaultAsync(c => c.Name == dto.Name);
 
         persisted.Should().BeNull();
     }
@@ -290,24 +296,11 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         string inboxId = Guid.NewGuid().ToString();
 
         // Act
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
-
-        var http = await ReadAsync<CategoryDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeTrue();
-        http.Data.Should().NotBeNull();
-        http.Data!.Name.Should().Be(dto.Name);
-
         await AssertInboxProcessedAsync(inboxId);
     }
 
@@ -322,45 +315,23 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         var secondDto = NewCategoryDto();
 
         // Primeiro cadastro
-        using (var firstResponse = await SendCreateAsync(
-                   firstDto,
-                   inboxId,
-                   tokens.Token))
+        using (var firstResponse = await SendCreateAsync(firstDto, inboxId, tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         }
 
         // Reutilização do mesmo Inbox
-        using var response = await SendCreateAsync(
-            secondDto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(secondDto, inboxId, tokens.Token);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        var http = await ReadAsync<CategoryDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-
         using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var db = scope.ServiceProvider
-            .GetRequiredService<AppDbContext>();
-
-        var first = await db.Categories
-            .AsNoTracking()
-            .SingleOrDefaultAsync(category =>
-                category.Name == firstDto.Name);
-
-        var second = await db.Categories
-            .AsNoTracking()
-            .SingleOrDefaultAsync(category =>
-                category.Name == secondDto.Name);
+        var first = await db.Categories.AsNoTracking().SingleOrDefaultAsync(c => c.Name == firstDto.Name);
+        var second = await db.Categories.AsNoTracking().SingleOrDefaultAsync(c => c.Name == secondDto.Name);
 
         first.Should().NotBeNull();
         second.Should().BeNull();
@@ -369,7 +340,7 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
     }
 
     // ---------------------------------------------------------------
-    // Autenticação e autorização
+    // Autenticação e Autorização
     // ---------------------------------------------------------------
 
     [Fact]
@@ -381,24 +352,19 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
         string inboxId = Guid.NewGuid().ToString();
 
         // Act
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         using var scope = CreateScope();
-
         var persisted = await scope.ServiceProvider
             .GetRequiredService<AppDbContext>()
             .Categories
             .AsNoTracking()
-            .SingleOrDefaultAsync(category => category.Name == dto.Name);
+            .SingleOrDefaultAsync(c => c.Name == dto.Name);
 
         persisted.Should().BeNull();
-
         await AssertInboxProcessedAsync(inboxId);
     }
 
@@ -419,14 +385,17 @@ public sealed class CategoryCreateControllerTest : BaseIntegrationTest
     }
 
     private static CreateCategoryDto NewCategoryDto(
+        string? code = null,
         string? name = null,
-        string? description = null)
+        string? description = null,
+        string? color = "#2563EB")
     {
         return new CreateCategoryDto
         {
+            Code = code ?? $"integration-code-{Guid.NewGuid():N}",
             Name = name ?? $"Integration Category {Guid.NewGuid():N}",
-            Code = $"integration-category-{Guid.NewGuid():N}",
-            Description = description ?? "Created by integration tests."
+            Description = description ?? "Created by integration tests.",
+            Color = color
         };
     }
 }

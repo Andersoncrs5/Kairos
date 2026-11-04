@@ -1,14 +1,14 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
+using Kairos.Api.Common.Res;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.IntegrationTests.Config;
+using Xunit;
 using Xunit.Abstractions;
 
 namespace Kairos.IntegrationTests.Module.Identity.Auth.Controller.Auth;
-
 
 [Collection("Integration Tests")]
 public class AuthLoginTests : BaseIntegrationTest
@@ -95,6 +95,52 @@ public class AuthLoginTests : BaseIntegrationTest
     }
 
     // ------------------------------------------------------------------
+    // Validação de DTO (Model State Validation)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Login_ReturnsBadRequest_WhenEmailIsNullOrEmpty()
+    {
+        var dto = new LoginUserDTO { Email = string.Empty, Password = ValidPassword };
+        await AssertValidationFailureAsync(dto);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsBadRequest_WhenEmailIsInvalid()
+    {
+        var dto = new LoginUserDTO { Email = "not-an-email", Password = ValidPassword };
+        await AssertValidationFailureAsync(dto);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsBadRequest_WhenEmailIsTooLong()
+    {
+        var dto = new LoginUserDTO { Email = $"{new string('a', 250)}@test.com", Password = ValidPassword };
+        await AssertValidationFailureAsync(dto);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsBadRequest_WhenPasswordIsNullOrEmpty()
+    {
+        var dto = new LoginUserDTO { Email = "someone@example.com", Password = string.Empty };
+        await AssertValidationFailureAsync(dto);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsBadRequest_WhenPasswordIsTooShort()
+    {
+        var dto = new LoginUserDTO { Email = "someone@example.com", Password = "1234567" };
+        await AssertValidationFailureAsync(dto);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsBadRequest_WhenPasswordIsTooLong()
+    {
+        var dto = new LoginUserDTO { Email = "someone@example.com", Password = new string('a', 101) };
+        await AssertValidationFailureAsync(dto);
+    }
+
+    // ------------------------------------------------------------------
     // Credenciais inválidas
     // ------------------------------------------------------------------
 
@@ -110,6 +156,7 @@ public class AuthLoginTests : BaseIntegrationTest
 
         var http = await ReadAsync<Tokens>(response);
 
+        http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Message.Should().Be("Login failed");
         http.Data.Should().BeNull();
@@ -132,6 +179,7 @@ public class AuthLoginTests : BaseIntegrationTest
 
         var http = await ReadAsync<Tokens>(response);
 
+        http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Message.Should().Be("Login failed");
         http.Errors.Should().Contain("Login invalid");
@@ -152,39 +200,12 @@ public class AuthLoginTests : BaseIntegrationTest
 
         var http = await ReadAsync<Tokens>(response);
 
+        http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain("Login invalid");
 
         var user = await GetUserByEmailAsync(registered.Email);
         user!.RefreshToken.Should().Be(registeredTokens.RefreshToken);
-    }
-
-    // ------------------------------------------------------------------
-    // Validação de model
-    // ------------------------------------------------------------------
-
-    [Theory]
-    [InlineData("MissingPassword")]
-    [InlineData("MissingEmail")]
-    public async Task Login_ReturnsBadRequest_WhenBodyIsIncomplete(string scenario)
-    {
-        object body = scenario switch
-        {
-            "MissingPassword" => new { Email = "someone@example.com" },
-            "MissingEmail" => new { Password = ValidPassword },
-            _ => throw new ArgumentOutOfRangeException(nameof(scenario))
-        };
-
-        string inboxId = Guid.NewGuid().ToString();
-
-        using var response = await SendLoginAsync(body, inboxId);
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var http = await ReadAsync<Dictionary<string, string[]>>(response);
-        http!.Success.Should().BeFalse();
-
-        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -201,6 +222,8 @@ public class AuthLoginTests : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
+        http.Should().NotBeNull();
+        http!.Success.Should().BeFalse();
         http!.Errors.Should().ContainSingle(e => e.Contains(InboxHeader));
     }
 
@@ -285,5 +308,25 @@ public class AuthLoginTests : BaseIntegrationTest
         var user = await GetUserByEmailAsync(registered.Email);
         user!.RefreshTokenExpiryTime.Should().NotBeNull();
         user.RefreshTokenExpiryTime.Should().BeAfter(DateTimeOffset.UtcNow);
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers Privados
+    // ------------------------------------------------------------------
+
+    private async Task AssertValidationFailureAsync(LoginUserDTO dto)
+    {
+        string inboxId = Guid.NewGuid().ToString();
+
+        using var response = await SendLoginAsync(dto, inboxId);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var http = await ReadAsync<Dictionary<string, string[]>>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeFalse();
+        http.Data.Should().BeNull();
     }
 }

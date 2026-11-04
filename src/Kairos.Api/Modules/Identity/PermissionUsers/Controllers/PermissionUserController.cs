@@ -371,7 +371,7 @@ public class PermissionUserController(
                 new ResponseHttp<PermissionUserModel>(
                     Data: null,
                     Message: "Error assigning permission to user",
-                    TraceId: HttpContext.TraceIdentifier,
+                    TraceId: inboxId,
                     Success: false,
                     Timestamp: DateTimeOffset.UtcNow,
                     Errors: result.Errors));
@@ -382,7 +382,7 @@ public class PermissionUserController(
             new ResponseHttp<PermissionUserDTO>(
                 Data: PermissionUserMapper.ToDto(result.Value),
                 Message: "Permission assigned to user successfully",
-                TraceId: HttpContext.TraceIdentifier,
+                TraceId: inboxId,
                 Success: true,
                 Timestamp: DateTimeOffset.UtcNow));
     }

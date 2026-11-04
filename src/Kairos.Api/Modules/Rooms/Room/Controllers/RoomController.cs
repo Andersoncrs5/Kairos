@@ -307,7 +307,6 @@ public sealed class RoomController(
     [RequirePermissions("rooms.create")]
     [ProducesResponseType(typeof(ResponseHttp<RoomDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ResponseHttp<RoomDto>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ResponseHttp<ValidationErrorResponse>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ResponseHttp<RoomDto>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ResponseHttp<RoomDto>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ResponseHttp<RoomDto>), StatusCodes.Status404NotFound)]

@@ -1,4 +1,3 @@
-
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -21,7 +20,6 @@ namespace Kairos.IntegrationTests.Module.Room.RoomBlockout.Controller;
 public sealed class RoomBlockoutUpdateControllerTest : BaseIntegrationTest
 {
     private const string UpdateUrl = "/api/v1/room-blockouts";
-    private const string InboxHeader = "X-Inbox-Id";
 
     private readonly ITestOutputHelper _output;
 
@@ -106,6 +104,8 @@ public sealed class RoomBlockoutUpdateControllerTest : BaseIntegrationTest
         persisted.Type.Should().Be(blockout.Type);
         persisted.StartsAt.Should().Be(blockout.StartsAt);
         persisted.EndsAt.Should().Be(blockout.EndsAt);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -154,6 +154,8 @@ public sealed class RoomBlockoutUpdateControllerTest : BaseIntegrationTest
         data.Type.Should().Be(blockout.Type);
         data.StartsAt.Should().Be(blockout.StartsAt);
         data.EndsAt.Should().Be(blockout.EndsAt);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -552,8 +554,6 @@ public sealed class RoomBlockoutUpdateControllerTest : BaseIntegrationTest
 
         string inboxId = Guid.NewGuid().ToString();
 
-        // A atualização de Reason mantém o período original.
-        // O período original agora conflita com o segundo bloqueio.
         var dto = new UpdateRoomBlockoutDto
         {
             Reason = "Updated with conflicting period"
@@ -603,6 +603,7 @@ public sealed class RoomBlockoutUpdateControllerTest : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -637,6 +638,7 @@ public sealed class RoomBlockoutUpdateControllerTest : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -715,35 +717,45 @@ public sealed class RoomBlockoutUpdateControllerTest : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
     // HTTP helper
     // ---------------------------------------------------------------
 
-    private async Task<HttpResponseMessage> SendUpdateAsync(
+    private Task<HttpResponseMessage> SendUpdateAsync(
         string id,
         UpdateRoomBlockoutDto dto,
         string? accessToken,
         string? inboxId)
     {
-        using var request = new HttpRequestMessage(
+        return SendAsync(
+            $"{UpdateUrl}/{Uri.EscapeDataString(id)}",
             HttpMethod.Put,
-            $"{UpdateUrl}/{Uri.EscapeDataString(id)}")
-        {
-            Content = JsonContent.Create(dto)
-        };
+            body: dto,
+            accessToken: accessToken,
+            inboxId: inboxId);
+    }
+    
+    protected async Task<HttpResponseMessage> SendAsync(
+        string url,
+        HttpMethod? method = null,
+        object? body = null,
+        string? accessToken = null,
+        string? inboxId = null)
+    {
+        // Se o método não for informado, assume POST por retrocompatibilidade
+        using var request = new HttpRequestMessage(method ?? HttpMethod.Post, url);
+
+        if (body is not null)
+            request.Content = JsonContent.Create(body, body.GetType());
 
         if (!string.IsNullOrWhiteSpace(accessToken))
-        {
-            request.Headers.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-        }
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-        if (!string.IsNullOrWhiteSpace(inboxId))
-        {
+        if (inboxId is not null)
             request.Headers.Add(InboxHeader, inboxId);
-        }
 
         return await Client.SendAsync(request);
     }

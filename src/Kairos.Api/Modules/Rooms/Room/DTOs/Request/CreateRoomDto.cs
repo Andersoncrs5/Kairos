@@ -5,41 +5,29 @@ namespace Kairos.Api.Modules.Rooms.Room.DTOs.Request;
 public sealed class CreateRoomDto
 {
     [Required(ErrorMessage = "Room type ID is required.")]
+    [StringLength(450, MinimumLength = 1, ErrorMessage = "Room type ID must be between 1 and 450 characters.")]
     public required string RoomTypeId { get; init; }
 
     [Required(ErrorMessage = "Room code is required.")]
-    [StringLength(
-        30,
-        ErrorMessage = "Room code cannot exceed 30 characters.")]
+    [StringLength(30, MinimumLength = 1, ErrorMessage = "Room code must be between 1 and 30 characters.")]
     public required string Code { get; init; }
 
     [Required(ErrorMessage = "Room name is required.")]
-    [StringLength(
-        120,
-        ErrorMessage = "Room name cannot exceed 120 characters.")]
+    [StringLength(120, MinimumLength = 1, ErrorMessage = "Room name must be between 1 and 120 characters.")]
     public required string Name { get; init; }
 
-    [StringLength(
-        500,
-        ErrorMessage = "Room description cannot exceed 500 characters.")]
+    [StringLength(500, ErrorMessage = "Room description cannot exceed 500 characters.")]
     public string? Description { get; init; }
 
     [Required(ErrorMessage = "Room location is required.")]
-    [StringLength(
-        150,
-        ErrorMessage = "Room location cannot exceed 150 characters.")]
+    [StringLength(150, MinimumLength = 1, ErrorMessage = "Room location must be between 1 and 150 characters.")]
     public required string Location { get; init; }
 
-    [StringLength(
-        30,
-        ErrorMessage = "Room floor cannot exceed 30 characters.")]
+    [StringLength(30, ErrorMessage = "Room floor cannot exceed 30 characters.")]
     public string? Floor { get; init; }
 
-    [Range(
-        1,
-        int.MaxValue,
-        ErrorMessage = "Room capacity must be greater than zero.")]
-    public int Capacity { get; init; }
+    [Range(1, int.MaxValue, ErrorMessage = "Room capacity must be greater than zero.")]
+    public int Capacity { get; init; } = 10;
 
     [Range(
         typeof(decimal),

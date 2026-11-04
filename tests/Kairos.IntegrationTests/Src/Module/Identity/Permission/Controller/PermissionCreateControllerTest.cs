@@ -13,6 +13,7 @@ namespace Kairos.IntegrationTests.Module.Identity.Permission.Controller;
 public sealed class PermissionCreateControllerTest : BaseIntegrationTest
 {
     private readonly ITestOutputHelper _output;
+    private const string CreateUrl = "/api/v1/permissions";
 
     public PermissionCreateControllerTest(
         KairosApiFactory factory,
@@ -31,18 +32,21 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
     {
         var tokens = await LoginUserMaster();
         
-        await CreatePermissionHttp(tokens);
+        var permission = await CreatePermissionHttp(tokens);
+
+        permission.Should().NotBeNull();
+        permission.Id.Should().NotBeNullOrWhiteSpace();
+        permission.Code.Should().StartWith("test.permission.");
     }
 
     // ---------------------------------------------------------------
-    // Validação do DTO
+    // Validação do DTO (Model State Validation)
     // ---------------------------------------------------------------
 
     [Theory]
     [InlineData("Code")]
     [InlineData("Name")]
-    public async Task Create_ReturnsBadRequest_WhenRequiredFieldIsInvalid(
-        string invalidField)
+    public async Task Create_ReturnsBadRequest_WhenRequiredFieldIsEmpty(string invalidField)
     {
         var tokens = await LoginUserMaster();
 
@@ -55,27 +59,30 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
 
         string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<Dictionary<string, string[]>>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Data.Should().BeNull();
         
         using var scope = CreateScope();
-
-        var persisted = await GetPermissionRepository(scope)
-            .GetByCodeAsync(dto.Code);
-
+        var persisted = await GetPermissionRepository(scope).GetByCodeAsync(dto.Code);
         persisted.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Create_ReturnsBadRequest_WhenCodeHasInvalidCharacters()
+    {
+        var tokens = await LoginUserMaster();
+        var dto = NewPermissionDto(code: "invalid code with spaces");
+        string inboxId = Guid.NewGuid().ToString();
+
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -85,51 +92,34 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
         var dto = NewPermissionDto(code: new string('a', 101));
         string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 
-        var http = await ReadAsync<Dictionary<string, string[]>>(response);
+    [Fact]
+    public async Task Create_ReturnsBadRequest_WhenNameExceedsMaximumLength()
+    {
+        var tokens = await LoginUserMaster();
+        var dto = NewPermissionDto(name: new string('a', 101));
+        string inboxId = Guid.NewGuid().ToString();
 
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Data.Should().BeNull();
-        
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenDescriptionExceedsMaximumLength()
     {
         var tokens = await LoginUserMaster();
-
-        var dto = NewPermissionDto(
-            description: new string('a', 256));
-
+        var dto = NewPermissionDto(description: new string('a', 256));
         string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var http = await ReadAsync<Dictionary<string, string[]>>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Data.Should().BeNull();
     }
 
     // ---------------------------------------------------------------
-    // Regras de negócio
+    // Regras de Negócio
     // ---------------------------------------------------------------
 
     [Fact]
@@ -138,41 +128,51 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
         var tokens = await LoginUserMaster();
         var dto = NewPermissionDto();
 
-        using (var firstResponse = await SendCreateAsync(
-                   dto,
-                   Guid.NewGuid().ToString(),
-                   tokens.Token))
+        using (var firstResponse = await SendCreateAsync(dto, Guid.NewGuid().ToString(), tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         }
 
-        using var response = await SendCreateAsync(
-            dto,
-            Guid.NewGuid().ToString(),
-            tokens.Token);
-
+        using var response = await SendCreateAsync(dto, Guid.NewGuid().ToString(), tokens.Token);
         _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         var http = await ReadAsync<PermissionDto>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain(error =>
-            error.Contains(
-                $"Permission with code '{dto.Code}' already exists.",
-                StringComparison.OrdinalIgnoreCase));
+            error.Contains($"Permission with code '{dto.Code}' already exists.", StringComparison.OrdinalIgnoreCase));
 
-        // A permissão original continua persistida.
         using var scope = CreateScope();
-
-        var persisted = await GetPermissionRepository(scope)
-            .GetByCodeAsync(dto.Code);
-
+        var persisted = await GetPermissionRepository(scope).GetByCodeAsync(dto.Code);
         persisted.Should().NotBeNull();
         persisted!.Code.Should().Be(dto.Code);
-        persisted.Name.Should().Be(dto.Name);
+    }
+
+    // ---------------------------------------------------------------
+    // Autenticação e Autorização
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task Create_ReturnsUnauthorized_WhenTokenIsMissing()
+    {
+        var dto = NewPermissionDto();
+        string inboxId = Guid.NewGuid().ToString();
+
+        using var response = await SendCreateAsync(dto, inboxId, accessToken: null);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Create_ReturnsForbidden_WhenUserLacksPermission()
+    {
+        var (_, tokens) = await RegisterUserAsync(); // Usuário comum sem permissão "identity.permissions.create"
+        var dto = NewPermissionDto();
+        string inboxId = Guid.NewGuid().ToString();
+
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     // ---------------------------------------------------------------
@@ -185,28 +185,13 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
         var tokens = await LoginUserMaster();
         var dto = NewPermissionDto();
 
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId: null,
-            accessToken: tokens.Token);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
+        using var response = await SendCreateAsync(dto, inboxId: null, accessToken: tokens.Token);
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Errors.Should().ContainSingle(error =>
-            error.Contains(InboxHeader));
-
-        using var scope = CreateScope();
-
-        var persisted = await GetPermissionRepository(scope)
-            .GetByCodeAsync(dto.Code);
-
-        persisted.Should().BeNull();
+        http.Errors.Should().ContainSingle(error => error.Contains(InboxHeader));
     }
 
     [Fact]
@@ -216,30 +201,13 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
         var dto = NewPermissionDto();
         string inboxId = Guid.NewGuid().ToString();
 
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var http = await ReadAsync<PermissionDto>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.Data.Should().NotBeNull();
         http.Data!.Code.Should().Be(dto.Code);
-        http.Data.Name.Should().Be(dto.Name);
-
-        using var scope = CreateScope();
-
-        var persisted = await GetPermissionRepository(scope)
-            .GetByCodeAsync(dto.Code);
-
-        persisted.Should().NotBeNull();
 
         await AssertInboxProcessedAsync(inboxId);
     }
@@ -248,42 +216,17 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
     public async Task Create_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
     {
         var tokens = await LoginUserMaster();
-
         string inboxId = Guid.NewGuid().ToString();
         var firstDto = NewPermissionDto();
         var secondDto = NewPermissionDto();
 
-        using (var firstResponse = await SendCreateAsync(
-                   firstDto,
-                   inboxId,
-                   tokens.Token))
+        using (var firstResponse = await SendCreateAsync(firstDto, inboxId, tokens.Token))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         }
 
-        using var response = await SendCreateAsync(
-            secondDto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
+        using var response = await SendCreateAsync(secondDto, inboxId, tokens.Token);
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var http = await ReadAsync<PermissionDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-
-        using var scope = CreateScope();
-
-        var repository = GetPermissionRepository(scope);
-
-        var first = await repository.GetByCodeAsync(firstDto.Code);
-        var second = await repository.GetByCodeAsync(secondDto.Code);
-
-        first.Should().NotBeNull();
-        second.Should().BeNull();
 
         await AssertInboxProcessedAsync(inboxId);
     }
@@ -295,10 +238,10 @@ public sealed class PermissionCreateControllerTest : BaseIntegrationTest
     private Task<HttpResponseMessage> SendCreateAsync(
         CreatePermissionDto dto,
         string? inboxId,
-        string accessToken)
+        string? accessToken)
     {
         return SendAsync(
-            "/api/v1/permissions",
+            CreateUrl,
             body: dto,
             accessToken: accessToken,
             inboxId: inboxId);

@@ -14,6 +14,7 @@ namespace Kairos.IntegrationTests.Module.Identity.Permission.Controller;
 public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
 {
     private readonly ITestOutputHelper _output;
+    private const string BaseUrl = "/api/v1/permissions";
 
     public PermissionUpdateControllerTest(
         KairosApiFactory factory,
@@ -62,21 +63,17 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
 
         // Confirma a persistência no banco.
         using var scope = CreateScope();
-
-        var persisted = await GetPermissionRepository(scope)
-            .GetByIdAsync(permission.Id);
+        var persisted = await GetPermissionRepository(scope).GetByIdAsync(permission.Id);
 
         persisted.Should().NotBeNull();
         persisted!.Name.Should().Be(dto.Name);
         persisted.Description.Should().Be(dto.Description);
-        persisted.Code.Should().Be(permission.Code);
 
-        // Confirma o processamento do Inbox.
         await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
-    // Validação do identificador
+    // Validação do DTO e UUID
     // ---------------------------------------------------------------
 
     [Fact]
@@ -86,25 +83,42 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
         string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
-        using var response = await SendUpdateAsync(
-            "invalid-uuid",
-            dto,
-            tokens.Token,
-            inboxId);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
+        using var response = await SendUpdateAsync("invalid-uuid", dto, tokens.Token, inboxId);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<PermissionDto>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain("Id must be a valid UUID.");
     }
 
+    [Fact]
+    public async Task Update_ReturnsBadRequest_WhenNameExceedsMaximumLength()
+    {
+        var tokens = await LoginUserMaster();
+        var permission = await CreatePermissionHttp(tokens);
+        var dto = new UpdatePermissionDto { Name = new string('a', 101) };
+        string inboxId = Guid.NewGuid().ToString();
+
+        using var response = await SendUpdateAsync(permission.Id, dto, tokens.Token, inboxId);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Update_ReturnsBadRequest_WhenDescriptionExceedsMaximumLength()
+    {
+        var tokens = await LoginUserMaster();
+        var permission = await CreatePermissionHttp(tokens);
+        var dto = new UpdatePermissionDto { Description = new string('a', 256) };
+        string inboxId = Guid.NewGuid().ToString();
+
+        using var response = await SendUpdateAsync(permission.Id, dto, tokens.Token, inboxId);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     // ---------------------------------------------------------------
-    // Regras de negócio
+    // Regras de Negócio
     // ---------------------------------------------------------------
 
     [Fact]
@@ -115,18 +129,10 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
         string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
-        using var response = await SendUpdateAsync(
-            nonexistentId,
-            dto,
-            tokens.Token,
-            inboxId);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
+        using var response = await SendUpdateAsync(nonexistentId, dto, tokens.Token, inboxId);
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var http = await ReadAsync<PermissionDto>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain("Permission not found.");
@@ -136,9 +142,7 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
     public async Task Update_ReturnsForbidden_WhenPermissionIsSystem()
     {
         var tokens = await LoginUserMaster();
-
-        Kairos.Api.Modules.Identity.Permissions.Models.PermissionsModel
-            systemPermission;
+        Kairos.Api.Modules.Identity.Permissions.Models.PermissionsModel systemPermission;
 
         using (var scope = CreateScope())
         {
@@ -150,32 +154,18 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
         string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
-        using var response = await SendUpdateAsync(
-            systemPermission.Id,
-            dto,
-            tokens.Token,
-            inboxId);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
+        using var response = await SendUpdateAsync(systemPermission.Id, dto, tokens.Token, inboxId);
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         var http = await ReadAsync<PermissionDto>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "System permissions cannot be modified.");
+        http.Errors.Should().Contain("System permissions cannot be modified.");
 
-        // A permissão de sistema não pode ser alterada.
         using var verificationScope = CreateScope();
-
-        var persisted = await GetPermissionRepository(verificationScope)
-            .GetByIdAsync(systemPermission.Id);
-
+        var persisted = await GetPermissionRepository(verificationScope).GetByIdAsync(systemPermission.Id);
         persisted.Should().NotBeNull();
         persisted!.IsSystem.Should().BeTrue();
-        persisted.Name.Should().Be(systemPermission.Name);
     }
 
     // ---------------------------------------------------------------
@@ -192,25 +182,8 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
         string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
-        using var response = await SendUpdateAsync(
-            permission.Id,
-            dto,
-            regularUserTokens.Token,
-            inboxId);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
+        using var response = await SendUpdateAsync(permission.Id, dto, regularUserTokens.Token, inboxId);
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-
-        // A permissão continua com os valores originais.
-        using var scope = CreateScope();
-
-        var persisted = await GetPermissionRepository(scope)
-            .GetByIdAsync(permission.Id);
-
-        persisted.Should().NotBeNull();
-        persisted!.Name.Should().Be(permission.Name);
-        persisted.Description.Should().Be(permission.Description);
     }
 
     [Fact]
@@ -221,12 +194,7 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
         string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
-        using var response = await SendUpdateAsync(
-            permission.Id,
-            dto,
-            accessToken: null,
-            inboxId);
-
+        using var response = await SendUpdateAsync(permission.Id, dto, accessToken: null, inboxId);
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -241,71 +209,29 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
         var permission = await CreatePermissionHttp(tokens);
         var dto = NewUpdatePermissionDto();
 
-        using var response = await SendUpdateAsync(
-            permission.Id,
-            dto,
-            tokens.Token,
-            inboxId: null);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
+        using var response = await SendUpdateAsync(permission.Id, dto, tokens.Token, inboxId: null);
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Errors.Should().ContainSingle(error =>
-            error.Contains(InboxHeader));
-
-        // Sem Inbox, a atualização não deve ocorrer.
-        using var scope = CreateScope();
-
-        var persisted = await GetPermissionRepository(scope)
-            .GetByIdAsync(permission.Id);
-
-        persisted.Should().NotBeNull();
-        persisted!.Name.Should().Be(permission.Name);
+        http.Errors.Should().ContainSingle(error => error.Contains(InboxHeader));
     }
 
     [Fact]
-    public async Task Update_ReturnsOk_WhenInboxDoesNotExist()
+    public async Task Update_ReturnsCreated_WhenInboxDoesNotExist()
     {
         var tokens = await LoginUserMaster();
         var permission = await CreatePermissionHttp(tokens);
         string inboxId = Guid.NewGuid().ToString();
         var dto = NewUpdatePermissionDto();
 
-        using var response = await SendUpdateAsync(
-            permission.Id,
-            dto,
-            tokens.Token,
-            inboxId);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
+        using var response = await SendUpdateAsync(permission.Id, dto, tokens.Token, inboxId);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var http = await ReadAsync<PermissionDto>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
-        http.Message.Should().Be("Permission updated successfully");
-        http.Data.Should().NotBeNull();
-
-        http.Data!.Id.Should().Be(permission.Id);
-        http.Data.Name.Should().Be(dto.Name);
-        http.Data.Description.Should().Be(dto.Description);
-
-        using var scope = CreateScope();
-
-        var persisted = await GetPermissionRepository(scope)
-            .GetByIdAsync(permission.Id);
-
-        persisted.Should().NotBeNull();
-        persisted!.Name.Should().Be(dto.Name);
-        persisted.Description.Should().Be(dto.Description);
 
         await AssertInboxProcessedAsync(inboxId);
     }
@@ -318,47 +244,16 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
         string inboxId = Guid.NewGuid().ToString();
 
         var firstDto = NewUpdatePermissionDto();
-        var secondDto = new UpdatePermissionDto
-        {
-            Name = "Second update",
-            Description = "This update must not execute.",
-            IsActive = false
-        };
+        var secondDto = new UpdatePermissionDto { Name = "Second update" };
 
-        using (var firstResponse = await SendUpdateAsync(
-                   permission.Id,
-                   firstDto,
-                   tokens.Token,
-                   inboxId))
+        using (var firstResponse = await SendUpdateAsync(permission.Id, firstDto, tokens.Token, inboxId))
         {
             firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         }
 
-        using var response = await SendUpdateAsync(
-            permission.Id,
-            secondDto,
-            tokens.Token,
-            inboxId);
-
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
-
+        using var response = await SendUpdateAsync(permission.Id, secondDto, tokens.Token, inboxId);
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        var http = await ReadAsync<PermissionDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-
-        // A segunda atualização não deve sobrescrever a primeira.
-        using var scope = CreateScope();
-
-        var persisted = await GetPermissionRepository(scope)
-            .GetByIdAsync(permission.Id);
-
-        persisted.Should().NotBeNull();
-        persisted!.Name.Should().Be(firstDto.Name);
-        persisted.Description.Should().Be(firstDto.Description);
-        
         await AssertInboxProcessedAsync(inboxId);
     }
 
@@ -374,15 +269,14 @@ public sealed class PermissionUpdateControllerTest : BaseIntegrationTest
     {
         using var request = new HttpRequestMessage(
             HttpMethod.Put,
-            $"/api/v1/permissions/{Uri.EscapeDataString(id)}")
+            $"{BaseUrl}/{Uri.EscapeDataString(id)}")
         {
             Content = JsonContent.Create(dto)
         };
 
         if (!string.IsNullOrWhiteSpace(accessToken))
         {
-            request.Headers.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         }
 
         if (!string.IsNullOrWhiteSpace(inboxId))

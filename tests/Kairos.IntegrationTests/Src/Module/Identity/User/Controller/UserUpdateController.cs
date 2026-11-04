@@ -5,6 +5,7 @@ using FluentAssertions;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Kairos.IntegrationTests.Config;
+using Xunit;
 using Xunit.Abstractions;
 
 namespace Kairos.IntegrationTests.Module.Identity.User.Controller;
@@ -152,6 +153,8 @@ public class UserUpdateController : BaseIntegrationTest
         userAfter.PhoneNumber.Should().Be(originalPhoneNumber);
         userAfter.EmailConfirmed.Should().Be(originalEmailConfirmed);
         userAfter.PhoneNumberConfirmed.Should().Be(originalPhoneNumberConfirmed);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ------------------------------------------------------------------
@@ -395,5 +398,6 @@ public class UserUpdateController : BaseIntegrationTest
 
         // Assert
         secondResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        await AssertInboxProcessedAsync(inboxId);
     }
 }

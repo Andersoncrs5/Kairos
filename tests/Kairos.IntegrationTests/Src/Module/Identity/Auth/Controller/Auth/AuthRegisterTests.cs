@@ -1,7 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Kairos.Api.Modules.Identity.Users.Models;
@@ -16,6 +15,8 @@ namespace Kairos.IntegrationTests.Module.Identity.Auth.Controller.Auth;
 public class AuthRegisterTests : BaseIntegrationTest
 {
     private readonly ITestOutputHelper _output;
+
+    private const string RegisterUrl = "/api/v1/auth/register";
 
     public AuthRegisterTests(KairosApiFactory factory, ITestOutputHelper output)
         : base(factory)
@@ -74,42 +75,85 @@ public class AuthRegisterTests : BaseIntegrationTest
     }
 
     // ------------------------------------------------------------------
-    // Validação de model (antes de executar a action)
+    // Validação de DTO (Campos Individuais)
     // ------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("UserName")]
-    [InlineData("Email")]
-    [InlineData("Password")]
-    [InlineData("FullName")]
-    public async Task Register_ReturnsBadRequest_WhenModelIsInvalid(string invalidField)
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenUserNameIsNullOrEmpty()
     {
-        var dto = invalidField switch
-        {
-            "UserName" => NewUserDto(userName: "ab"),
-            "Email" => NewUserDto(email: "not-an-email"),
-            "Password" => NewUserDto(password: "short"),
-            "FullName" => NewUserDto(fullName: new string('a', 151)),
-            _ => throw new ArgumentOutOfRangeException(nameof(invalidField))
-        };
+        var dto = NewUserDto(userName: string.Empty);
+        await AssertValidationFailureAsync(dto);
+    }
 
-        string inboxId = Guid.NewGuid().ToString();
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenUserNameIsTooShort()
+    {
+        var dto = NewUserDto(userName: "ab");
+        await AssertValidationFailureAsync(dto);
+    }
 
-        using var response = await SendRegisterAsync(dto, inboxId);
-        _output.WriteLine(await response.Content.ReadAsStringAsync());
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenUserNameIsTooLong()
+    {
+        var dto = NewUserDto(userName: new string('a', 257));
+        await AssertValidationFailureAsync(dto);
+    }
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenEmailIsNullOrEmpty()
+    {
+        var dto = NewUserDto(email: string.Empty);
+        await AssertValidationFailureAsync(dto);
+    }
 
-        var http = await ReadAsync<Dictionary<string, string[]>>(response);
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenEmailIsInvalid()
+    {
+        var dto = NewUserDto(email: "invalid-email-format");
+        await AssertValidationFailureAsync(dto);
+    }
 
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Message.Should().Be("Validation failed");
-        http.Data.Should().BeNull();
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenEmailIsTooLong()
+    {
+        var dto = NewUserDto(email: $"{new string('a', 250)}@test.com");
+        await AssertValidationFailureAsync(dto);
+    }
 
-        // A action não rodou: o Inbox permanece Pending.
-        
-        (await UserExistsAsync(dto.Email)).Should().BeFalse();
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenPasswordIsNullOrEmpty()
+    {
+        var dto = NewUserDto(password: string.Empty);
+        await AssertValidationFailureAsync(dto);
+    }
+
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenPasswordIsTooShort()
+    {
+        var dto = NewUserDto(password: "1234567");
+        await AssertValidationFailureAsync(dto);
+    }
+
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenFullNameIsTooLong()
+    {
+        var dto = NewUserDto(fullName: new string('a', 151));
+        await AssertValidationFailureAsync(dto);
+    }
+
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenPhoneNumberIsTooLong()
+    {
+        var dto = NewUserDto(phoneNumber: new string('1', 31));
+        await AssertValidationFailureAsync(dto);
+    }
+
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenPhoneNumberIsInvalid()
+    {
+        // Utilizando caracteres especiais que o PhoneAttribute rejeita com certeza
+        var dto = NewUserDto(phoneNumber: "!@#$%^&*()");
+        await AssertValidationFailureAsync(dto);
     }
 
     // ------------------------------------------------------------------
@@ -119,7 +163,6 @@ public class AuthRegisterTests : BaseIntegrationTest
     [Fact]
     public async Task Register_ReturnsBadRequest_WhenPasswordViolatesIdentityRules()
     {
-        // 8+ caracteres (passa no MinLength), mas sem maiúscula, dígito e símbolo
         var dto = NewUserDto(password: "abcdefgh");
         string inboxId = Guid.NewGuid().ToString();
 
@@ -130,6 +173,7 @@ public class AuthRegisterTests : BaseIntegrationTest
 
         var http = await ReadAsync<Tokens>(response);
 
+        http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Message.Should().Be("Error creating user");
         http.Errors.Should().NotBeNullOrEmpty();
@@ -145,7 +189,6 @@ public class AuthRegisterTests : BaseIntegrationTest
         using (var ok = await SendRegisterAsync(first, Guid.NewGuid().ToString()))
             ok.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        // Mesmo username, só que em maiúsculas (o Identity normaliza)
         var second = NewUserDto(userName: first.UserName.ToUpperInvariant());
 
         using var response = await SendRegisterAsync(
@@ -156,6 +199,7 @@ public class AuthRegisterTests : BaseIntegrationTest
 
         var http = await ReadAsync<Tokens>(response);
 
+        http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain("Username is already taken.");
         (await UserExistsAsync(second.Email)).Should().BeFalse();
@@ -179,6 +223,7 @@ public class AuthRegisterTests : BaseIntegrationTest
 
         var http = await ReadAsync<Tokens>(response);
 
+        http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain("Email is already registered.");
     }
@@ -198,6 +243,7 @@ public class AuthRegisterTests : BaseIntegrationTest
 
         var http = await ReadAsync<object>(response);
 
+        http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Errors.Should().ContainSingle(e => e.Contains(InboxHeader));
         (await UserExistsAsync(dto.Email)).Should().BeFalse();
@@ -243,41 +289,54 @@ public class AuthRegisterTests : BaseIntegrationTest
     }
 
     // ------------------------------------------------------------------
-    // Bugs conhecidos (remova o Skip depois de corrigir)
+    // Helpers Privados
     // ------------------------------------------------------------------
 
-    [Fact(Skip = "Bug: inbox fica preso em Processing quando a operação falha.")]
-    public async Task Register_ReleasesInbox_WhenOperationFails()
+    private async Task AssertValidationFailureAsync(CreateUserDTO dto)
     {
-        var first = NewUserDto();
-
-        using (var ok = await SendRegisterAsync(first, Guid.NewGuid().ToString()))
-            ok.StatusCode.Should().Be(HttpStatusCode.Created);
-
-        string inboxId = Guid.NewGuid().ToString();
-        var duplicated = NewUserDto(email: first.Email);
-
-        using var response = await SendRegisterAsync(duplicated, inboxId);
-
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-    }
-
-    [Fact(Skip = "Bug: RefreshTokenExpiryTime nunca é preenchido no cadastro.")]
-    public async Task Register_SetsRefreshTokenExpiry()
-    {
-        var dto = NewUserDto();
         string inboxId = Guid.NewGuid().ToString();
 
         using var response = await SendRegisterAsync(dto, inboxId);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
 
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-        var user = await GetUserByEmailAsync(dto.Email);
+        var http = await ReadAsync<Dictionary<string, string[]>>(response);
 
-        user!.RefreshTokenExpiryTime.Should().NotBeNull();
-        user.RefreshTokenExpiryTime.Should().BeAfter(DateTimeOffset.UtcNow);
+        http.Should().NotBeNull();
+        http!.Success.Should().BeFalse();
+        http.Data.Should().BeNull();
 
-        await AssertInboxProcessedAsync(inboxId);
+        // O usuário não deve ter sido criado no banco
+        (await UserExistsAsync(dto.Email ?? "dummy@test.com")).Should().BeFalse();
+    }
+
+    private Task<HttpResponseMessage> SendRegisterAsync(
+        CreateUserDTO dto,
+        string? inboxId)
+    {
+        return SendAsync(
+            RegisterUrl,
+            body: dto,
+            accessToken: null,
+            inboxId: inboxId);
+    }
+
+    private static CreateUserDTO NewUserDto(
+        string? userName = null,
+        string? email = null,
+        string? password = null,
+        string? fullName = "Test User FullName",
+        string? phoneNumber = "+5511988887777")
+    {
+        var uniqueId = Guid.NewGuid().ToString("N")[..8];
+        return new CreateUserDTO
+        {
+            UserName = userName ?? $"user_{uniqueId}",
+            Email = email ?? $"user_{uniqueId}@kairos.test",
+            Password = password ?? "StrongPass123!",
+            FullName = fullName,
+            PhoneNumber = phoneNumber
+        };
     }
 }

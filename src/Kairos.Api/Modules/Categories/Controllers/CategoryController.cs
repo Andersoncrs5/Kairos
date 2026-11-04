@@ -50,21 +50,11 @@ public sealed class CategoryController(
     /// <response code="500">An internal error prevented the query.</response>
     [HttpGet]
     [RequirePermissions("categories.read")]
-    [ProducesResponseType(
-        typeof(ResponseHttp<Page<CategoryDto>>),
-        StatusCodes.Status200OK)]
-    [ProducesResponseType(
-        typeof(ResponseHttp<object>),
-        StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(
-        typeof(ResponseHttp<object>),
-        StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(
-        typeof(ResponseHttp<object>),
-        StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(
-        typeof(ResponseHttp<object>),
-        StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(typeof(ResponseHttp<Page<CategoryDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Filter(
         [FromQuery] CategoryFilterDto dto,
         CancellationToken ct)

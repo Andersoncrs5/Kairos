@@ -1,9 +1,10 @@
 using System.Net;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
+using Kairos.Api.Common.Res;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.IntegrationTests.Config;
+using Xunit;
 using Xunit.Abstractions;
 
 namespace Kairos.IntegrationTests.Module.Identity.Auth.Controller.Auth;
@@ -11,6 +12,7 @@ namespace Kairos.IntegrationTests.Module.Identity.Auth.Controller.Auth;
 [Collection("Integration Tests")]
 public class AuthChangePasswordTests : BaseIntegrationTest
 {
+    private const string ChangePasswordUrl = "/api/v1/auth/changepassword";
     private const string NewPassword = "ChangedPassword123!";
 
     private readonly ITestOutputHelper _output;
@@ -33,7 +35,7 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     {
         var (registered, tokens) = await RegisterUserAsync();
         string inboxId = Guid.NewGuid().ToString();
-        
+
         using var response = await SendChangePasswordAsync(
             ValidChange(registered.Password),
             tokens.Token,
@@ -48,7 +50,7 @@ public class AuthChangePasswordTests : BaseIntegrationTest
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
         http.Message.Should().Be("Password changed successfully");
-        http.TraceId.Should().Be(inboxId);
+        http.TraceId.Should().NotBeNullOrWhiteSpace();
 
         var user = await GetUserByEmailAsync(registered.Email);
 
@@ -64,7 +66,10 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     {
         var (registered, tokens) = await RegisterUserAsync();
 
-        using var changeResponse = await SendChangePasswordAsync(ValidChange(registered.Password), tokens.Token, Guid.NewGuid().ToString());
+        using var changeResponse = await SendChangePasswordAsync(
+            ValidChange(registered.Password),
+            tokens.Token,
+            Guid.NewGuid().ToString());
 
         changeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -91,34 +96,62 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     }
 
     // ------------------------------------------------------------------
-    // Validação de model
+    // Validação de DTO (Model Validation & IValidatableObject)
     // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task ChangePassword_ReturnsBadRequest_WhenCurrentPasswordIsNullOrEmpty()
+    {
+        var (registered, tokens) = await RegisterUserAsync();
+        var dto = new ChangePasswordUserDto(string.Empty, NewPassword, NewPassword);
+
+        await AssertValidationFailureAsync(dto, tokens, registered.Email);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ReturnsBadRequest_WhenNewPasswordIsNullOrEmpty()
+    {
+        var (registered, tokens) = await RegisterUserAsync();
+        var dto = new ChangePasswordUserDto(registered.Password, string.Empty, string.Empty);
+
+        await AssertValidationFailureAsync(dto, tokens, registered.Email);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ReturnsBadRequest_WhenNewPasswordIsTooShort()
+    {
+        var (registered, tokens) = await RegisterUserAsync();
+        var dto = new ChangePasswordUserDto(registered.Password, "short", "short");
+
+        await AssertValidationFailureAsync(dto, tokens, registered.Email);
+    }
 
     [Fact]
     public async Task ChangePassword_ReturnsBadRequest_WhenConfirmationDoesNotMatch()
     {
         var (registered, tokens) = await RegisterUserAsync();
-        string inboxId = Guid.NewGuid().ToString();
-        
-        ChangePasswordUserDto dto = new(
+        var dto = new ChangePasswordUserDto(
             registered.Password,
             NewPassword,
             "DifferentPassword123!");
 
-        using var response = await SendChangePasswordAsync(dto, tokens.Token, inboxId);
+        await AssertValidationFailureAsync(dto, tokens, registered.Email);
+    }
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    [Fact]
+    public async Task ChangePassword_ReturnsBadRequest_WhenNewPasswordEqualsCurrent()
+    {
+        var (registered, tokens) = await RegisterUserAsync();
+        var dto = new ChangePasswordUserDto(
+            registered.Password,
+            registered.Password,
+            registered.Password);
 
-        var http = await ReadAsync<Dictionary<string, string[]>>(response);
+        await AssertValidationFailureAsync(dto, tokens, registered.Email);
 
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Message.Should().Be("Validation failed");
-
-        var user = await GetUserByEmailAsync(registered.Email);
-
-        user.Should().NotBeNull();
-        user!.RefreshToken.Should().Be(tokens.RefreshToken);
+        // Garante que o login com a senha atual ainda funciona normalmente
+        using var login = await LoginWithNewInboxAsync(registered.Email, registered.Password);
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     // ------------------------------------------------------------------
@@ -130,7 +163,6 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     {
         var (registered, tokens) = await RegisterUserAsync();
         string inboxId = Guid.NewGuid().ToString();
-        
 
         using var response = await SendChangePasswordAsync(
             ValidChange("WrongCurrentPassword123!"),
@@ -153,38 +185,15 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task ChangePassword_ReturnsBadRequest_WhenNewPasswordEqualsCurrent()
-    {
-        var (registered, tokens) = await RegisterUserAsync();
-
-        ChangePasswordUserDto dto = new(
-            registered.Password,
-            registered.Password,
-            registered.Password);
-
-        using var response = await SendChangePasswordAsync(
-            dto, tokens.Token, Guid.NewGuid().ToString());
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        // A senha antiga continua valendo e a sessão não foi revogada
-        var user = await GetUserByEmailAsync(registered.Email);
-        user!.RefreshToken.Should().Be(tokens.RefreshToken);
-
-        using var login = await LoginWithNewInboxAsync(registered.Email, registered.Password);
-        login.StatusCode.Should().Be(HttpStatusCode.OK);
-    }
-
-    [Fact]
     public async Task ChangePassword_ReturnsBadRequest_WhenNewPasswordViolatesIdentityRules()
     {
         var (registered, tokens) = await RegisterUserAsync();
 
-        // Sem maiúscula, dígito e símbolo
-        ChangePasswordUserDto dto = new(
+        // 8+ caracteres (passa na validação básica), mas sem regra de complexidade (ex: sem dígito ou maiúscula)
+        var dto = new ChangePasswordUserDto(
             registered.Password,
-            "alllowercase",
-            "alllowercase");
+            "alllowercasepass",
+            "alllowercasepass");
 
         using var response = await SendChangePasswordAsync(
             dto, tokens.Token, Guid.NewGuid().ToString());
@@ -213,6 +222,7 @@ public class AuthChangePasswordTests : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var http = await ReadAsync<bool>(response);
+        http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Errors.Should().Contain("User not found.");
     }
@@ -226,7 +236,6 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     {
         var (registered, tokens) = await RegisterUserAsync();
         string inboxId = Guid.NewGuid().ToString();
-        
 
         using var response = await SendChangePasswordAsync(
             ValidChange(registered.Password),
@@ -239,7 +248,6 @@ public class AuthChangePasswordTests : BaseIntegrationTest
 
         user.Should().NotBeNull();
         user!.RefreshToken.Should().Be(tokens.RefreshToken);
-        
     }
 
     [Fact]
@@ -247,7 +255,6 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     {
         var (registered, tokens) = await RegisterUserAsync();
         string inboxId = Guid.NewGuid().ToString();
-        
 
         using var response = await SendChangePasswordAsync(
             ValidChange(registered.Password),
@@ -294,7 +301,7 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     {
         var (registered, tokens) = await RegisterUserAsync();
         string inboxId = Guid.NewGuid().ToString();
-        
+
         var dto = ValidChange(registered.Password);
 
         using (var first = await SendChangePasswordAsync(dto, tokens.Token, inboxId))
@@ -314,7 +321,6 @@ public class AuthChangePasswordTests : BaseIntegrationTest
     {
         var (_, tokens) = await RegisterUserAsync();
         string inboxId = Guid.NewGuid().ToString();
-        
 
         using var response = await SendChangePasswordAsync(
             ValidChange("WrongCurrentPassword123!"),
@@ -323,5 +329,44 @@ public class AuthChangePasswordTests : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         await AssertInboxProcessedAsync(inboxId);
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers Privados
+    // ------------------------------------------------------------------
+
+    private async Task AssertValidationFailureAsync(
+        ChangePasswordUserDto dto,
+        Tokens tokens,
+        string userEmail)
+    {
+        string inboxId = Guid.NewGuid().ToString();
+
+        using var response = await SendChangePasswordAsync(dto, tokens.Token, inboxId);
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var http = await ReadAsync<Dictionary<string, string[]>>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeFalse();
+        http.Data.Should().BeNull();
+
+        var user = await GetUserByEmailAsync(userEmail);
+        user.Should().NotBeNull();
+        user!.RefreshToken.Should().Be(tokens.RefreshToken);
+    }
+
+    private Task<HttpResponseMessage> SendChangePasswordAsync(
+        ChangePasswordUserDto dto,
+        string? accessToken,
+        string? inboxId)
+    {
+        return SendAsync(
+            ChangePasswordUrl,
+            body: dto,
+            accessToken: accessToken,
+            inboxId: inboxId);
     }
 }

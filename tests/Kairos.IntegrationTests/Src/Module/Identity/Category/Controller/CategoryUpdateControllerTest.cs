@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Categories.DTOs.Request;
@@ -878,5 +877,122 @@ public sealed class CategoryUpdateControllerTest : BaseIntegrationTest
             .AsNoTracking()
             .SingleOrDefaultAsync(
                 category => category.Id == categoryId);
+    }
+    
+    [Fact]
+    public async Task Update_ReturnsOk_WhenOnlyDescriptionIsProvided_AndPreservesOtherProperties()
+    {
+        // Arrange
+        var login = await LoginUserMaster();
+
+        CategoryDto category = await CreateCategoryHttp(login);
+
+        string inboxId = Guid.NewGuid().ToString();
+
+        string newDescription =
+            $"Updated description {Guid.NewGuid():N}";
+
+        UpdateCategoryDto dto = NewUpdateCategoryDto(
+            description: newDescription);
+
+        // Act
+        using (HttpResponseMessage response = await SendUpdateAsync(
+                   category.Id,
+                   dto,
+                   inboxId,
+                   login.Token))
+        {
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            ResponseHttp<CategoryDto>? http =
+                await ReadAsync<CategoryDto>(response);
+
+            http.Should().NotBeNull();
+            http!.Success.Should().BeTrue();
+            http.Data.Should().NotBeNull();
+
+            http.Data!.Id.Should().Be(category.Id);
+            http.Data.Description.Should().Be(newDescription);
+
+            // Propriedades não enviadas devem permanecer intactas.
+            http.Data.Code.Should().Be(category.Code);
+            http.Data.Name.Should().Be(category.Name);
+            http.Data.Color.Should().Be(category.Color);
+            http.Data.Icon.Should().Be(category.Icon);
+            http.Data.DisplayOrder.Should().Be(category.DisplayOrder);
+            http.Data.IsActive.Should().Be(category.IsActive);
+
+            http.TraceId.Should().Be(inboxId);
+        }
+
+        // Verifica persistência.
+        CategoryModel? persisted =
+            await FindPersistedCategoryAsync(category.Id);
+
+        persisted.Should().NotBeNull();
+
+        persisted!.Description.Should().Be(newDescription);
+        persisted.Code.Should().Be(category.Code);
+        persisted.Name.Should().Be(category.Name);
+        persisted.Color.Should().Be(category.Color);
+        persisted.Icon.Should().Be(category.Icon);
+        persisted.DisplayOrder.Should().Be(category.DisplayOrder);
+        persisted.IsActive.Should().Be(category.IsActive);
+    }
+    
+    [Fact]
+    public async Task Update_ReturnsOk_WhenDisplayOrderIsZeroAndIsActiveIsFalse()
+    {
+        // Arrange
+        var login = await LoginUserMaster();
+
+        CategoryDto category = await CreateCategoryHttp(login);
+        
+        using (HttpResponseMessage setupResponse = await SendUpdateAsync(
+                   category.Id,
+                   NewUpdateCategoryDto(displayOrder: 10),
+                   Guid.NewGuid().ToString(),
+                   login.Token))
+        {
+            setupResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        string inboxId = Guid.NewGuid().ToString();
+
+        UpdateCategoryDto dto = NewUpdateCategoryDto(
+            displayOrder: 0,
+            isActive: false);
+
+        // Act
+        using (HttpResponseMessage response = await SendUpdateAsync(
+                   category.Id,
+                   dto,
+                   inboxId,
+                   login.Token))
+        {
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            ResponseHttp<CategoryDto>? http =
+                await ReadAsync<CategoryDto>(response);
+
+            http.Should().NotBeNull();
+            http!.Success.Should().BeTrue();
+            http.Data.Should().NotBeNull();
+
+            http.Data!.DisplayOrder.Should().Be(0);
+            http.Data.IsActive.Should().BeFalse();
+
+            http.Data.Code.Should().Be(category.Code);
+            http.Data.Name.Should().Be(category.Name);
+        }
+
+        CategoryModel? persisted =
+            await FindPersistedCategoryAsync(category.Id);
+
+        persisted.Should().NotBeNull();
+        persisted!.DisplayOrder.Should().Be(0);
+        persisted.IsActive.Should().BeFalse();
     }
 }

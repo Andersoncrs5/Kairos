@@ -7,6 +7,7 @@ using Kairos.Api.Modules.Identity.PermissionUsers.Models;
 using Kairos.IntegrationTests.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Xunit;
 using Xunit.Abstractions;
 
 namespace Kairos.IntegrationTests.Module.Identity.PermissionUser.Controller;
@@ -25,6 +26,10 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
     {
         _output = output;
     }
+
+    // ---------------------------------------------------------------
+    // Sucesso
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task Create_ReturnsCreated_AndPersistsPermissionUserAndInbox()
@@ -84,63 +89,6 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task Create_ReturnsForbidden_WhenUserLacksPermission()
-    {
-        var (_, tokens) = await RegisterUserAsync();
-
-        using var scope = CreateScope();
-
-        var user = await CreateUserAsync(scope.ServiceProvider);
-        var permission = await CreatePermissionAsync(scope.ServiceProvider);
-        string inboxId = Guid.NewGuid().ToString();
-
-        var dto = new CreatePermissionUserDTO
-        {
-            UserId = user.Id,
-            PermissionId = permission.Id
-        };
-
-        using var response = await SendAsync(
-            CreateUrl,
-            body: dto,
-            accessToken: tokens.Token,
-            inboxId: inboxId);
-
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-    }
-
-    [Fact]
-    public async Task Create_ReturnsBadRequest_WhenInboxHeaderIsMissing()
-    {
-        var tokens = await LoginUserMaster();
-
-        using var scope = CreateScope();
-
-        var user = await CreateUserAsync(scope.ServiceProvider);
-        var permission = await CreatePermissionAsync(scope.ServiceProvider);
-
-        var dto = new CreatePermissionUserDTO
-        {
-            UserId = user.Id,
-            PermissionId = permission.Id
-        };
-
-        using var response = await SendAsync(
-            CreateUrl,
-            body: dto,
-            accessToken: tokens.Token);
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var http = await ReadAsync<object>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-        http.Errors.Should().ContainSingle(
-            error => error.Contains(InboxHeader));
-    }
-
-    [Fact]
     public async Task Create_ReturnsCreated_WhenInboxDoesNotExist()
     {
         var tokens = await LoginUserMaster();
@@ -164,8 +112,7 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
             accessToken: tokens.Token,
             inboxId: inboxId);
 
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        _output.WriteLine(await response.Content.ReadAsStringAsync());
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -195,6 +142,10 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
 
         await AssertInboxProcessedAsync(inboxId);
     }
+
+    // ---------------------------------------------------------------
+    // Validações e Erros
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenPermissionIdIsNotUuid()
@@ -366,5 +317,108 @@ public class PermissionUserCreateControllerTest : BaseIntegrationTest
                 x.PermissionId == permission.Id);
 
         associations.Should().Be(1);
+    }
+
+    // ---------------------------------------------------------------
+    // Autenticação e Autorização
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task Create_ReturnsForbidden_WhenUserLacksPermission()
+    {
+        var (_, tokens) = await RegisterUserAsync();
+
+        using var scope = CreateScope();
+
+        var user = await CreateUserAsync(scope.ServiceProvider);
+        var permission = await CreatePermissionAsync(scope.ServiceProvider);
+        string inboxId = Guid.NewGuid().ToString();
+
+        var dto = new CreatePermissionUserDTO
+        {
+            UserId = user.Id,
+            PermissionId = permission.Id
+        };
+
+        using var response = await SendAsync(
+            CreateUrl,
+            body: dto,
+            accessToken: tokens.Token,
+            inboxId: inboxId);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    // ---------------------------------------------------------------
+    // Inbox Pattern
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task Create_ReturnsBadRequest_WhenInboxHeaderIsMissing()
+    {
+        var tokens = await LoginUserMaster();
+
+        using var scope = CreateScope();
+
+        var user = await CreateUserAsync(scope.ServiceProvider);
+        var permission = await CreatePermissionAsync(scope.ServiceProvider);
+
+        var dto = new CreatePermissionUserDTO
+        {
+            UserId = user.Id,
+            PermissionId = permission.Id
+        };
+
+        using var response = await SendAsync(
+            CreateUrl,
+            body: dto,
+            accessToken: tokens.Token);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var http = await ReadAsync<object>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeFalse();
+        http.Errors.Should().ContainSingle(
+            error => error.Contains(InboxHeader));
+    }
+
+    [Fact]
+    public async Task Create_ReturnsConflict_WhenInboxIsReusedAfterSuccess()
+    {
+        var tokens = await LoginUserMaster();
+        string inboxId = Guid.NewGuid().ToString();
+
+        using var scope = CreateScope();
+        var user = await CreateUserAsync(scope.ServiceProvider);
+        var permission = await CreatePermissionAsync(scope.ServiceProvider);
+
+        var dto = new CreatePermissionUserDTO
+        {
+            UserId = user.Id,
+            PermissionId = permission.Id
+        };
+
+        // Primeira execução com sucesso
+        using (var firstResponse = await SendAsync(
+                   CreateUrl,
+                   body: dto,
+                   accessToken: tokens.Token,
+                   inboxId: inboxId))
+        {
+            firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        }
+
+        // Reutilização do mesmo Inbox ID
+        using var response = await SendAsync(
+            CreateUrl,
+            body: dto,
+            accessToken: tokens.Token,
+            inboxId: inboxId);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 }

@@ -285,9 +285,19 @@ public class AuthController(
         );
     }
 
+    /// <summary>
+    /// Changes the password of the authenticated user.
+    /// </summary>
+    /// <remarks>
+    /// Allows an authenticated user to change their password by providing the current password and a new password.
+    /// Requires a valid JWT and the X-Inbox-Id header.
+    /// </remarks>
     [HttpPost("ChangePassword")]
     [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ResponseHttp<bool>), (int)HttpStatusCode.Unauthorized)]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ResponseHttp<bool>), StatusCodes.Status500InternalServerError)]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<IActionResult> ChangePassword(
         [FromBody] ChangePasswordUserDto dto,
@@ -295,10 +305,22 @@ public class AuthController(
         CancellationToken ct)
     {
         string workerId = $"http-{Guid.NewGuid():N}";
-        string userId = User.FindFirst(JwtRegisteredClaimNames.Sid)?.Value ?? throw new UnauthenticatedException();
+
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sid)?.Value;
+
+        if (string.IsNullOrWhiteSpace(userIdClaim))
+        {
+            return Unauthorized(new ResponseHttp<bool>(
+                Data: false,
+                Message: "User is not authenticated",
+                TraceId: HttpContext.TraceIdentifier,
+                Success: false,
+                Timestamp: DateTimeOffset.UtcNow,
+                Errors: ["Invalid token claims"]));
+        }
 
         var command = new ChangePasswordUserCommand(
-            userId,
+            userIdClaim,
             dto.CurrentPassword,
             dto.NewPassword,
             dto.ConfirmPassword);
@@ -310,7 +332,7 @@ public class AuthController(
             return StatusCode(result.StatusCode, new ResponseHttp<bool>(
                 Data: result.Value,
                 Message: "Error changing password",
-                TraceId: inboxId,
+                TraceId: HttpContext.TraceIdentifier,
                 Success: false,
                 Timestamp: DateTimeOffset.UtcNow,
                 Errors: result.Errors)
@@ -320,7 +342,7 @@ public class AuthController(
         return StatusCode(StatusCodes.Status200OK, new ResponseHttp<bool>(
             Data: result.Value,
             Message: "Password changed successfully",
-            TraceId: inboxId,
+            TraceId: HttpContext.TraceIdentifier,
             Success: true,
             Timestamp: DateTimeOffset.UtcNow)
         );

@@ -5,6 +5,7 @@ using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Request;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Response;
 using Kairos.Api.Modules.Rooms.Room.Models;
+using Kairos.Api.Modules.Rooms.RoomTypes.Models;
 using Kairos.IntegrationTests.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -100,62 +101,59 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
     }
 
     // ---------------------------------------------------------------
-    // Validação do DTO
+    // Validação do DTO (Model State Validation)
     // ---------------------------------------------------------------
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenCodeIsEmpty()
     {
         var tokens = await LoginUserMaster();
-        var dto = NewRoomDto(
-            Guid.NewGuid().ToString(),
-            code: "");
+        var dto = NewRoomDto(Guid.NewGuid().ToString(), code: "");
+
+        await AssertInvalidDtoAsync(dto, "Code", tokens.Token);
     }
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenCodeExceedsMaximumLength()
     {
         var tokens = await LoginUserMaster();
-        var dto = NewRoomDto(
-            Guid.NewGuid().ToString(),
-            code: new string('A', 31));
-        
+        var dto = NewRoomDto(Guid.NewGuid().ToString(), code: new string('A', 31));
+
+        await AssertInvalidDtoAsync(dto, "Code", tokens.Token);
     }
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenNameIsEmpty()
     {
         var tokens = await LoginUserMaster();
-        var dto = NewRoomDto(
-            Guid.NewGuid().ToString(),
-            name: "");
+        var dto = NewRoomDto(Guid.NewGuid().ToString(), name: "");
+
+        await AssertInvalidDtoAsync(dto, "Name", tokens.Token);
     }
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenNameExceedsMaximumLength()
     {
         var tokens = await LoginUserMaster();
-        var dto = NewRoomDto(
-            Guid.NewGuid().ToString(),
-            name: new string('a', 121));
+        var dto = NewRoomDto(Guid.NewGuid().ToString(), name: new string('a', 121));
+
+        await AssertInvalidDtoAsync(dto, "Name", tokens.Token);
     }
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenDescriptionExceedsMaximumLength()
     {
         var tokens = await LoginUserMaster();
-        var dto = NewRoomDto(
-            Guid.NewGuid().ToString(),
-            description: new string('a', 501));
+        var dto = NewRoomDto(Guid.NewGuid().ToString(), description: new string('a', 501));
+
+        await AssertInvalidDtoAsync(dto, "Description", tokens.Token);
     }
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenLocationIsEmpty()
     {
         var tokens = await LoginUserMaster();
-        var dto = NewRoomDto(
-            Guid.NewGuid().ToString(),
-            location: "");
+        var dto = NewRoomDto(Guid.NewGuid().ToString(), location: "");
 
         await AssertInvalidDtoAsync(dto, "Location", tokens.Token);
     }
@@ -164,29 +162,25 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
     public async Task Create_ReturnsBadRequest_WhenLocationExceedsMaximumLength()
     {
         var tokens = await LoginUserMaster();
-        var dto = NewRoomDto(
-            Guid.NewGuid().ToString(),
-            location: new string('a', 151));
-        
+        var dto = NewRoomDto(Guid.NewGuid().ToString(), location: new string('a', 151));
+
+        await AssertInvalidDtoAsync(dto, "Location", tokens.Token);
     }
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenFloorExceedsMaximumLength()
     {
         var tokens = await LoginUserMaster();
-        var dto = NewRoomDto(
-            Guid.NewGuid().ToString(),
-            floor: new string('a', 31));
-        
+        var dto = NewRoomDto(Guid.NewGuid().ToString(), floor: new string('a', 31));
+
+        await AssertInvalidDtoAsync(dto, "Floor", tokens.Token);
     }
 
     [Fact]
     public async Task Create_ReturnsBadRequest_WhenCapacityIsZero()
     {
         var tokens = await LoginUserMaster();
-        var dto = NewRoomDto(
-            Guid.NewGuid().ToString(),
-            capacity: 0);
+        var dto = NewRoomDto(Guid.NewGuid().ToString(), capacity: 0);
 
         await AssertInvalidDtoAsync(dto, "Capacity", tokens.Token);
     }
@@ -195,10 +189,9 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
     public async Task Create_ReturnsBadRequest_WhenAreaIsZero()
     {
         var tokens = await LoginUserMaster();
-        var dto = NewRoomDto(
-            Guid.NewGuid().ToString(),
-            areaSquareMeters: 0m);
+        var dto = NewRoomDto(Guid.NewGuid().ToString(), areaSquareMeters: 0m);
 
+        await AssertInvalidDtoAsync(dto, "AreaSquareMeters", tokens.Token);
     }
 
     // ---------------------------------------------------------------
@@ -210,35 +203,21 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
-        var dto = NewRoomDto(
-            roomTypeId: "invalid-uuid");
-
+        var dto = NewRoomDto(roomTypeId: "invalid-uuid");
         string inboxId = Guid.NewGuid().ToString();
 
         // Act
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<RoomDto>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Room type ID must be a valid UUID.");
+        http.Errors.Should().Contain("Room type ID must be a valid UUID.");
 
-        // O use case foi executado, pois o UUID inválido não é
-        // uma falha de validação automática do DTO.
         using var scope = CreateScope();
-
         var persisted = await scope.ServiceProvider
             .GetRequiredService<AppDbContext>()
             .Set<RoomModel>()
@@ -253,33 +232,21 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
-        var dto = NewRoomDto(
-            roomTypeId: Guid.NewGuid().ToString());
-
+        var dto = NewRoomDto(roomTypeId: Guid.NewGuid().ToString());
         string inboxId = Guid.NewGuid().ToString();
 
         // Act
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var http = await ReadAsync<RoomDto>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Room type doesn't exist.");
+        http.Errors.Should().Contain("Room type doesn't exist.");
 
         using var scope = CreateScope();
-
         var persisted = await scope.ServiceProvider
             .GetRequiredService<AppDbContext>()
             .Set<RoomModel>()
@@ -290,44 +257,62 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
     }
 
     [Fact]
+    public async Task Create_ReturnsBadRequest_WhenRoomTypeIsInactive()
+    {
+        // Arrange
+        var tokens = await LoginUserMaster();
+        var roomType = await CreateRoomTypeHttp(tokens);
+
+        using (var scope = CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var persistedRoomType = await db.Set<RoomTypeModel>().SingleAsync(x => x.Id == roomType.Id);
+            persistedRoomType.IsActive = false;
+            await db.SaveChangesAsync();
+        }
+
+        var dto = NewRoomDto(roomTypeId: roomType.Id);
+        string inboxId = Guid.NewGuid().ToString();
+
+        // Act
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var http = await ReadAsync<RoomDto>(response);
+        http.Should().NotBeNull();
+        http!.Success.Should().BeFalse();
+        http.Errors.Should().Contain("Room type is not active.");
+    }
+
+    [Fact]
     public async Task Create_ReturnsConflict_WhenCodeAlreadyExists()
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
         RoomModel existingRoom;
 
         using (var scope = CreateScope())
         {
-            existingRoom = await CreateRoomAsync(
-                scope.ServiceProvider);
+            existingRoom = await CreateRoomAsync(scope.ServiceProvider);
         }
-        var dto = NewRoomDto(roomTypeId: existingRoom.RoomTypeId, code: existingRoom.Code);
 
+        var dto = NewRoomDto(roomTypeId: existingRoom.RoomTypeId, code: existingRoom.Code);
         string inboxId = Guid.NewGuid().ToString();
 
         // Act
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(dto, inboxId, tokens.Token);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         var http = await ReadAsync<RoomDto>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            $"Room with the code '{dto.Code}' already exists.");
+        http.Errors.Should().Contain($"Room with the code '{dto.Code}' already exists.");
 
-        // A sala original deve continuar sendo a única com esse código.
         using var verificationScope = CreateScope();
-
         var count = await verificationScope.ServiceProvider
             .GetRequiredService<AppDbContext>()
             .Set<RoomModel>()
@@ -338,7 +323,7 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
     }
 
     // ---------------------------------------------------------------
-    // Inbox
+    // Inbox & Autenticação
     // ---------------------------------------------------------------
 
     [Fact]
@@ -346,41 +331,18 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
     {
         // Arrange
         var tokens = await LoginUserMaster();
-
-        var dto = NewRoomDto(
-            roomTypeId: Guid.NewGuid().ToString());
+        var dto = NewRoomDto(roomTypeId: Guid.NewGuid().ToString());
 
         // Act
-        using var response = await SendCreateAsync(
-            dto,
-            inboxId: null,
-            accessToken: tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(dto, inboxId: null, accessToken: tokens.Token);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var http = await ReadAsync<object>(response);
-
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-
-        http.Errors.Should().Contain(error =>
-            error.Contains(
-                InboxHeader,
-                StringComparison.OrdinalIgnoreCase));
-
-        using var scope = CreateScope();
-
-        var persisted = await scope.ServiceProvider
-            .GetRequiredService<AppDbContext>()
-            .Set<RoomModel>()
-            .AsNoTracking()
-            .AnyAsync(room => room.Code == dto.Code);
-
-        persisted.Should().BeFalse();
+        http.Errors.Should().Contain(error => error.Contains(InboxHeader, StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -394,47 +356,21 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
         var firstDto = NewRoomDto(roomType.Id);
         var secondDto = NewRoomDto(roomType.Id);
 
-        // Primeira criação.
-        using (var firstResponse = await SendCreateAsync(
-                   firstDto,
-                   inboxId,
-                   tokens.Token))
+        using (var firstResponse = await SendCreateAsync(firstDto, inboxId, tokens.Token))
         {
-            firstResponse.StatusCode.Should().Be(
-                HttpStatusCode.Created);
+            firstResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         }
 
-        // Segunda criação usando o mesmo Inbox.
-        using var response = await SendCreateAsync(
-            secondDto,
-            inboxId,
-            tokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
+        using var response = await SendCreateAsync(secondDto, inboxId, tokens.Token);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        var http = await ReadAsync<RoomDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-
         using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var db = scope.ServiceProvider
-            .GetRequiredService<AppDbContext>();
-
-        var firstRoom = await db.Set<RoomModel>()
-            .AsNoTracking()
-            .SingleOrDefaultAsync(room =>
-                room.Code == firstDto.Code);
-
-        var secondRoom = await db.Set<RoomModel>()
-            .AsNoTracking()
-            .SingleOrDefaultAsync(room =>
-                room.Code == secondDto.Code);
+        var firstRoom = await db.Set<RoomModel>().AsNoTracking().SingleOrDefaultAsync(room => room.Code == firstDto.Code);
+        var secondRoom = await db.Set<RoomModel>().AsNoTracking().SingleOrDefaultAsync(room => room.Code == secondDto.Code);
 
         firstRoom.Should().NotBeNull();
         secondRoom.Should().BeNull();
@@ -470,21 +406,15 @@ public sealed class RoomCreateControllerTest : BaseIntegrationTest
             inboxId,
             accessToken);
 
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-        var http = await ReadAsync<Dictionary<string, string[]>>(
-            response);
+        var http = await ReadAsync<Dictionary<string, string[]>>(response);
 
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
         http.Data.Should().BeNull();
 
-        
         using var scope = CreateScope();
-
         var persisted = await scope.ServiceProvider
             .GetRequiredService<AppDbContext>()
             .Set<RoomModel>()

@@ -142,6 +142,8 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
         http.Data.CancellationReason.Should().BeNull();
         http.Data.CancelledAt.Should().NotBeNull();
         http.Data.CancelledBy.Should().Be(reservation.UserId);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -176,6 +178,8 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
 
         http.Data!.CancellationReason.Should().BeNull();
         http.Data.Status.Should().Be(ReservationStatusEnum.Cancelled);
+
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -261,7 +265,7 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
         var tokens = await LoginUserMaster();
         var reservation = await CreateReservationHttp(tokens);
 
-        CancelReservationDto dto = new CancelReservationDto
+        var dto = new CancelReservationDto
         {
             CancellationReason = new string('a', 256)
         };
@@ -297,7 +301,6 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
         var tokens = await LoginUserMaster();
         var reservation = await CreateReservationHttp(tokens);
 
-        // Primeiro cancelamento.
         var firstCancellation = await CancelReservationHttp(
             tokens,
             reservation.Id,
@@ -334,7 +337,6 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
         http.Errors.Should().Contain(
             "Reservation is already cancelled.");
 
-        // O segundo cancelamento não deve alterar o primeiro.
         using var scope = CreateScope();
 
         var persisted = await scope.ServiceProvider
@@ -345,7 +347,6 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
 
         persisted.Status.Should().Be(ReservationStatusEnum.Cancelled);
         persisted.CancellationReason.Should().Be("First cancellation.");
-        
     }
 
     // ---------------------------------------------------------------
@@ -380,7 +381,6 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-        // A autorização impede a execução da action.
         await AssertInboxProcessedAsync(inboxId);
 
         await AssertReservationStatusAsync(
@@ -521,33 +521,18 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
     // Helpers
     // ---------------------------------------------------------------
 
-    private async Task<HttpResponseMessage> SendCancelAsync(
+    private Task<HttpResponseMessage> SendCancelAsync(
         string id,
         CancelReservationDto dto,
         string? accessToken,
         string? inboxId)
     {
-        using var request = new HttpRequestMessage(
+        return SendAsync(
+            $"{CancelUrl}/{Uri.EscapeDataString(id)}/cancel",
             HttpMethod.Post,
-            $"{CancelUrl}/{Uri.EscapeDataString(id)}/cancel")
-        {
-            Content = JsonContent.Create(dto)
-        };
-
-        if (!string.IsNullOrWhiteSpace(accessToken))
-        {
-            request.Headers.Authorization =
-                new AuthenticationHeaderValue(
-                    "Bearer",
-                    accessToken);
-        }
-
-        if (inboxId is not null)
-        {
-            request.Headers.Add(InboxHeader, inboxId);
-        }
-
-        return await Client.SendAsync(request);
+            body: dto,
+            accessToken: accessToken,
+            inboxId: inboxId);
     }
 
     private async Task AssertReservationStatusAsync(
@@ -563,5 +548,27 @@ public sealed class ReservationCancelControllerTest : BaseIntegrationTest
             .SingleAsync(item => item.Id == reservationId);
 
         persisted.Status.Should().Be(expectedStatus);
+    }
+    
+    protected async Task<HttpResponseMessage> SendAsync(
+        string url,
+        HttpMethod? method = null,
+        object? body = null,
+        string? accessToken = null,
+        string? inboxId = null)
+    {
+        // Se o método não for informado, assume POST por retrocompatibilidade
+        using var request = new HttpRequestMessage(method ?? HttpMethod.Post, url);
+
+        if (body is not null)
+            request.Content = JsonContent.Create(body, body.GetType());
+
+        if (!string.IsNullOrWhiteSpace(accessToken))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        if (inboxId is not null)
+            request.Headers.Add(InboxHeader, inboxId);
+
+        return await Client.SendAsync(request);
     }
 }

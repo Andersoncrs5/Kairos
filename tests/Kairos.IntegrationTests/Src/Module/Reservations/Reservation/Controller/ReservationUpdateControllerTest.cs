@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
-using Kairos.Api.Common.Enums;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Modules.Categories.Models;
 using Kairos.Api.Modules.Reservations.Reservation.DTOs.Request;
@@ -12,11 +11,9 @@ using Kairos.Api.Modules.Rooms.Room.Models;
 using Kairos.IntegrationTests.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Kairos.IntegrationTests.Module.Reservations.Reservation.Controller;
-
 [Collection("Integration Tests")]
 public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
 {
@@ -109,7 +106,6 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
 
         // Verifica o processamento do Inbox.
         await AssertInboxProcessedAsync(inboxId);
-
     }
 
     [Fact]
@@ -356,7 +352,6 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-        // A validação automática impede a execução da action.
         await AssertInboxProcessedAsync(inboxId);
     }
 
@@ -395,7 +390,6 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         http.Errors.Should().Contain(
             "Reservation title cannot be empty.");
 
-        // A reserva permanece inalterada.
         await AssertReservationExistsAsync(reservation.Id);
     }
 
@@ -858,8 +852,6 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         var reservation = await CreateReservationHttp(tokens);
         var otherReservation = await CreateReservationHttp(tokens);
 
-        // A reserva será movida para a sala da segunda reserva
-        // e utilizará exatamente o mesmo período.
         var dto = new UpdateReservationDto
         {
             RoomId = otherReservation.RoomId,
@@ -890,7 +882,6 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         http.Errors.Should().Contain(
             "Room already has a reservation during this period.");
 
-        // A reserva original não deve ser modificada.
         await AssertReservationRoomAsync(
             reservation.Id,
             reservation.RoomId);
@@ -914,7 +905,6 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         var blockoutStartsAt = reservation.StartsAt.AddDays(2);
         var blockoutEndsAt = blockoutStartsAt.AddHours(2);
 
-        // Insere um bloqueio diretamente no banco.
         using (var scope = CreateScope())
         {
             await CreateRoomBlockoutAsync(
@@ -953,7 +943,6 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
         http.Errors.Should().Contain(
             "Room is blocked during this period.");
 
-        // O período original deve continuar persistido.
         await AssertReservationPeriodAsync(
             reservation.Id,
             reservation.StartsAt,
@@ -1114,43 +1103,9 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
 
         await AssertInboxProcessedAsync(inboxId);
 
-        // A segunda atualização não deve ter sido executada.
         await AssertReservationTitleAsync(
             reservation.Id,
             firstDto.Title);
-    }
-
-    // ---------------------------------------------------------------
-    // Helpers HTTP
-    // ---------------------------------------------------------------
-
-    private async Task<HttpResponseMessage> SendUpdateAsync(
-        string id,
-        UpdateReservationDto dto,
-        string? accessToken,
-        string? inboxId)
-    {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Put,
-            $"{UpdateUrl}/{Uri.EscapeDataString(id)}")
-        {
-            Content = JsonContent.Create(dto)
-        };
-
-        if (!string.IsNullOrWhiteSpace(accessToken))
-        {
-            request.Headers.Authorization =
-                new AuthenticationHeaderValue(
-                    "Bearer",
-                    accessToken);
-        }
-
-        if (inboxId is not null)
-        {
-            request.Headers.Add(InboxHeader, inboxId);
-        }
-
-        return await Client.SendAsync(request);
     }
 
     // ---------------------------------------------------------------
@@ -1245,5 +1200,41 @@ public sealed class ReservationUpdateControllerTest : BaseIntegrationTest
             .CountAsync(item => item.RoomId == roomId);
 
         count.Should().Be(expectedCount);
+    }
+    
+    private Task<HttpResponseMessage> SendUpdateAsync(
+        string id,
+        UpdateReservationDto dto,
+        string? accessToken,
+        string? inboxId)
+    {
+        return SendAsync(
+            $"{UpdateUrl}/{Uri.EscapeDataString(id)}",
+            HttpMethod.Put,
+            body: dto,
+            accessToken: accessToken,
+            inboxId: inboxId);
+    }
+    
+    protected async Task<HttpResponseMessage> SendAsync(
+        string url,
+        HttpMethod? method = null,
+        object? body = null,
+        string? accessToken = null,
+        string? inboxId = null)
+    {
+        // Se o método não for informado, assume POST por retrocompatibilidade
+        using var request = new HttpRequestMessage(method ?? HttpMethod.Post, url);
+
+        if (body is not null)
+            request.Content = JsonContent.Create(body, body.GetType());
+
+        if (!string.IsNullOrWhiteSpace(accessToken))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        if (inboxId is not null)
+            request.Headers.Add(InboxHeader, inboxId);
+
+        return await Client.SendAsync(request);
     }
 }
