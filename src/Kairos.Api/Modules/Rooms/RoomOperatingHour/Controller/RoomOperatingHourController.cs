@@ -275,7 +275,6 @@ public sealed class RoomOperatingHourController(
     [RequirePermissions("rooms.operating-hours.create")]
     [ProducesResponseType(typeof(ResponseHttp<RoomOperatingHourDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ResponseHttp<ValidationErrorResponse>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status404NotFound)]

@@ -1,14 +1,14 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using FluentAssertions;
 using Kairos.Api.Config.DB;
-using Kairos.Api.Modules.Rooms.Room.Models;
 using Kairos.Api.Modules.Rooms.RoomOperatingHour.DTOs.Request;
 using Kairos.Api.Modules.Rooms.RoomOperatingHour.DTOs.Response;
 using Kairos.Api.Modules.Rooms.RoomOperatingHour.Model;
 using Kairos.IntegrationTests.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Kairos.IntegrationTests.Module.Room.RoomOperatingHour.Controller;
@@ -93,6 +93,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         persisted.Version.Should().Be(1);
         persisted.CreatedAt.Should().NotBe(default);
 
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -130,7 +131,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         http.Data.IsActive.Should().BeTrue();
 
         await AssertOperatingHourExistsAsync(http.Data.Id);
-        
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     [Fact]
@@ -174,6 +175,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         http.Data.ClosesAt.Should().Be(new TimeOnly(18, 0));
 
         await AssertOperatingHourCountAsync(room.Id, DayOfWeek.Tuesday, 2);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -204,7 +206,6 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
 
         await AssertNoOperatingHourExistsAsync(room.Id);
     }
@@ -462,6 +463,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         await AssertNoOperatingHourExistsAsync(room.Id);
+        await AssertInboxProcessedAsync(inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -478,6 +480,7 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
 
         return SendAsync(
             url,
+            HttpMethod.Post,
             body: dto,
             accessToken: accessToken,
             inboxId: inboxId);
@@ -538,5 +541,27 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
                 item.RoomId == roomId && item.DayOfWeek == dayOfWeek);
 
         count.Should().Be(expectedCount);
+    }
+    
+    protected async Task<HttpResponseMessage> SendAsync(
+        string url,
+        HttpMethod? method = null,
+        object? body = null,
+        string? accessToken = null,
+        string? inboxId = null)
+    {
+        // Se o método não for informado, assume POST por retrocompatibilidade
+        using var request = new HttpRequestMessage(method ?? HttpMethod.Post, url);
+
+        if (body is not null)
+            request.Content = JsonContent.Create(body, body.GetType());
+
+        if (!string.IsNullOrWhiteSpace(accessToken))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        if (inboxId is not null)
+            request.Headers.Add(InboxHeader, inboxId);
+
+        return await Client.SendAsync(request);
     }
 }
