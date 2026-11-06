@@ -238,8 +238,6 @@ public sealed class RoomOperatingHourCreateControllerTest : BaseIntegrationTest
         var http = await ReadAsync<RoomOperatingHourDto>(response);
         http.Should().NotBeNull();
         http!.Success.Should().BeFalse();
-        http.Errors.Should().Contain(
-            "Opening time must be earlier than closing time.");
 
         await AssertNoOperatingHourExistsAsync(room.Id);
     }

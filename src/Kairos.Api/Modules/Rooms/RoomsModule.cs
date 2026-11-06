@@ -1,3 +1,6 @@
+using Kairos.Api.Modules.Rooms.Equipment.Repositories;
+using Kairos.Api.Modules.Rooms.Equipment.Services.Interfaces;
+using Kairos.Api.Modules.Rooms.Equipment.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 
 using Kairos.Api.Modules.Rooms.Room.Repositories;
@@ -7,7 +10,9 @@ using Kairos.Api.Modules.Rooms.Room.Services.Providers;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Services.Interfaces;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Services.Providers;
-
+using Kairos.Api.Modules.Rooms.RoomEquipment.Repositories;
+using Kairos.Api.Modules.Rooms.RoomEquipment.Services.Interfaces;
+using Kairos.Api.Modules.Rooms.RoomEquipment.Services.Providers;
 using Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
 using Kairos.Api.Modules.Rooms.RoomTypes.Services.Interface;
 using Kairos.Api.Modules.Rooms.RoomTypes.Services.Provider;
@@ -26,7 +31,9 @@ public static class RoomsModule
         // ---------------------------------------------------------------
         // Repositories
         // ---------------------------------------------------------------
-
+        
+        services.AddScoped<IRoomEquipmentRepository, RoomEquipmentRepository>();
+        services.AddScoped<IEquipmentRepository, EquipmentRepository>();
         services.AddScoped<IRoomTypeRepository, RoomTypeRepository>();
         services.AddScoped<IRoomRepository, RoomRepository>();
         services.AddScoped<IRoomBlockoutRepository, RoomBlockoutRepository>();
@@ -79,7 +86,32 @@ public static class RoomsModule
         services.AddScoped<IFindRoomOperatingHoursByRoomIdUseCase, FindRoomOperatingHoursByRoomIdUseCase>();
         services.AddScoped<IFindRoomOperatingHourService, FindRoomOperatingHourService>();
         services.AddScoped<IUpdateRoomOperatingHourUseCase, UpdateRoomOperatingHourUseCase>();
+        
+        // ---------------------------------------------------------------
+        // Equipment use cases
+        // ---------------------------------------------------------------
 
+        services.AddScoped<ICreateEquipmentUseCase, CreateEquipmentUseCase>();
+        services.AddScoped<IUpdateEquipmentUseCase, UpdateEquipmentUseCase>();
+        services.AddScoped<IDeleteEquipmentByIdUseCase, DeleteEquipmentByIdUseCase>();
+        services.AddScoped<IFindEquipmentByIdUseCase, FindEquipmentByIdUseCase>();
+        services.AddScoped<IFindAllEquipmentUseCase, FindAllEquipmentUseCase>();
+        services.AddScoped<IExistsEquipmentByIdUseCase, ExistsEquipmentByIdUseCase>();
+        services.AddScoped<IExistsEquipmentByCodeUseCase, ExistsEquipmentByCodeUseCase>();
+        
+        // ---------------------------------------------------------------
+        // RoomEquipment use cases
+        // ---------------------------------------------------------------
+
+        services.AddScoped<ICreateRoomEquipmentUseCase, CreateRoomEquipmentUseCase>();
+        services.AddScoped<IUpdateRoomEquipmentUseCase, UpdateRoomEquipmentUseCase>();
+        services.AddScoped<IDeleteRoomEquipmentUseCase, DeleteRoomEquipmentUseCase>();
+        services.AddScoped<IFindRoomEquipmentByIdUseCase, FindRoomEquipmentByIdUseCase>();
+        services.AddScoped<IFindRoomEquipmentsUseCase, FindRoomEquipmentsUseCase>();
+        services.AddScoped<IFindRoomEquipmentByRoomAndEquipmentUseCase, FindRoomEquipmentByRoomAndEquipmentUseCase>();
+        services.AddScoped<IExistsRoomEquipmentByRoomAndEquipmentUseCase, ExistsRoomEquipmentByRoomAndEquipmentUseCase>();
+        services.AddScoped<IFindRoomEquipmentsByRoomIdUseCase, FindRoomEquipmentsByRoomIdUseCase>();
+        
         return services;
     }
 }

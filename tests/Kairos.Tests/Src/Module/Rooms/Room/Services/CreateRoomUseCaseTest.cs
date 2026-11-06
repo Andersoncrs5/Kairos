@@ -68,8 +68,7 @@ public sealed class CreateRoomUseCaseTest
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(400);
 
-        result.Errors.Should().Contain(
-            "Room code cannot exceed 30 characters.");
+        result.Errors.Should().Contain("Room code must be between 1 and 30 characters.");
 
         VerifyRoomTypeLookupWasNotCalled();
         VerifyCodeLookupWasNotCalled();

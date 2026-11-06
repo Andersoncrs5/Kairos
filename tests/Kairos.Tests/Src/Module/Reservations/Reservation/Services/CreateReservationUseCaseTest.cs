@@ -236,8 +236,7 @@ public sealed class CreateReservationUseCaseTest
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(400);
 
-        result.Errors.Should().Contain(
-            "Reservation title cannot exceed 150 characters.");
+        result.Errors.Should().Contain("Reservation title must be between 1 and 150 characters.");
 
         await VerifyNoRepositoryInteractions();
     }

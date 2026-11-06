@@ -24,6 +24,9 @@ using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reservations.Reservation.DTOs.Request;
 using Kairos.Api.Modules.Reservations.Reservation.DTOs.Response;
 using Kairos.Api.Modules.Reservations.Reservation.Models;
+using Kairos.Api.Modules.Rooms.Equipment.DTOs.Request;
+using Kairos.Api.Modules.Rooms.Equipment.DTOs.Response;
+using Kairos.Api.Modules.Rooms.Equipment.Model;
 using Kairos.Api.Modules.Rooms.RoomBlockout.DTOs.Request;
 using Kairos.Api.Modules.Rooms.RoomBlockout.DTOs.Response;
 using Kairos.Api.Modules.Rooms.RoomOperatingHour.DTOs.Request;
@@ -33,6 +36,9 @@ using Kairos.Api.Modules.Rooms.Room.DTOs.Request;
 using Kairos.Api.Modules.Rooms.Room.DTOs.Response;
 using Kairos.Api.Modules.Rooms.Room.Models;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
+using Kairos.Api.Modules.Rooms.RoomEquipment.DTOs.Request;
+using Kairos.Api.Modules.Rooms.RoomEquipment.DTOs.Response;
+using Kairos.Api.Modules.Rooms.RoomEquipment.Models;
 using Kairos.Api.Modules.Rooms.RoomTypes.DTOs.Request;
 using Kairos.Api.Modules.Rooms.RoomTypes.DTOs.Response;
 using Kairos.Api.Modules.Rooms.RoomTypes.Models;
@@ -105,6 +111,28 @@ public abstract class BaseIntegrationTest
         string? inboxId = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
+
+        if (body is not null)
+            request.Content = JsonContent.Create(body, body.GetType());
+
+        if (!string.IsNullOrWhiteSpace(accessToken))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        if (inboxId is not null)
+            request.Headers.Add(InboxHeader, inboxId);
+
+        return await Client.SendAsync(request);
+    }
+    
+    protected async Task<HttpResponseMessage> SendAsyncWithMethod(
+        string url,
+        HttpMethod? method = null, // Adicionado aqui
+        object? body = null,
+        string? accessToken = null,
+        string? inboxId = null)
+    {
+        // Usa o método passado ou assume POST por padrão
+        using var request = new HttpRequestMessage(method ?? HttpMethod.Post, url);
 
         if (body is not null)
             request.Content = JsonContent.Create(body, body.GetType());
@@ -1247,4 +1275,172 @@ public abstract class BaseIntegrationTest
         // inbox.MessageId.Should().Be(inboxId);
         // inbox.Status.Should().Be(InboxStatusEnum.Processed);
     }
+    
+    // ------------------------------------------------------------------
+// Equipments via HTTP
+// ------------------------------------------------------------------
+
+    protected async Task<EquipmentDto> CreateEquipmentHttp(Tokens tokens)
+    {
+        string inboxId = Guid.NewGuid().ToString();
+
+        var dto = new CreateEquipmentDto
+        {
+            Code = $"E{Guid.NewGuid():N}"[..30],
+            Name = $"Integration Equipment {Guid.NewGuid():N}"
+        };
+
+        using var response = await SendAsync(
+            "/api/v1/equipments",
+            body: dto,
+            accessToken: tokens.Token,
+            inboxId: inboxId);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await ReadAsync<EquipmentDto>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().Be(inboxId);
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Id.Should().NotBeNullOrWhiteSpace();
+        http.Data.Code.Should().Be(dto.Code);
+        http.Data.Name.Should().Be(dto.Name);
+        http.Data.IsActive.Should().BeTrue();
+
+        // Database persistence
+        using var scope = CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+        var persisted = await db.Set<EquipmentModel>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == http.Data.Id);
+
+        persisted.Should().NotBeNull();
+        persisted!.Id.Should().Be(http.Data.Id);
+        persisted.Code.Should().Be(dto.Code);
+        persisted.Name.Should().Be(dto.Name);
+        persisted.IsActive.Should().BeTrue();
+        persisted.Version.Should().Be(1);
+        persisted.CreatedAt.Should().NotBe(default);
+
+        // Inbox verification
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
+
+        return http.Data;
+    }
+    
+    // ------------------------------------------------------------------
+    // Entidades criadas direto no banco: Equipments & Room Equipments
+    // ------------------------------------------------------------------
+
+    protected static async Task<EquipmentModel> CreateEquipmentAsync(
+        IServiceProvider services,
+        Action<EquipmentModel>? configure = null,
+        CancellationToken cancellationToken = default)
+    {
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var uniqueId = Guid.NewGuid().ToString("N")[..6];
+        var now = DateTimeOffset.UtcNow;
+
+        var equipment = new EquipmentModel
+        {
+            Id = Guid.NewGuid().ToString(),
+            Code = $"EQ-{uniqueId}",
+            Name = $"Integration Equipment {uniqueId}",
+            Description = "Equipment created by integration test.",
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        configure?.Invoke(equipment);
+
+        await dbContext.Set<EquipmentModel>()
+            .AddAsync(equipment, cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return equipment;
+    }
+
+    protected static async Task<RoomEquipmentModel> CreateRoomEquipmentAsync(
+        IServiceProvider services,
+        string? roomId = null,
+        string? equipmentId = null,
+        int quantity = 1,
+        string? notes = "Created by integration test.",
+        Action<RoomEquipmentModel>? configure = null,
+        CancellationToken cancellationToken = default)
+    {
+        roomId ??= (await CreateRoomAsync(services)).Id;
+        equipmentId ??= (await CreateEquipmentAsync(services)).Id;
+
+        var now = DateTimeOffset.UtcNow;
+
+        var roomEquipment = new RoomEquipmentModel
+        {
+            Id = Guid.NewGuid().ToString(),
+            RoomId = roomId,
+            EquipmentId = equipmentId,
+            Quantity = quantity,
+            Notes = notes,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        configure?.Invoke(roomEquipment);
+
+        var dbContext = services.GetRequiredService<AppDbContext>();
+
+        await dbContext.Set<RoomEquipmentModel>()
+            .AddAsync(roomEquipment, cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return roomEquipment;
+    }
+    
+    protected async Task<RoomEquipmentDto> CreateRoomEquipmentHttp(
+        string accessToken,
+        string roomId,
+        string equipmentId)
+    {
+        string inboxId = Guid.NewGuid().ToString();
+        const string CreateUrl = "/api/v1/room-equipments/rooms";
+
+        var dto = new AddEquipmentToRoomDto
+        {
+            RoomId = roomId,
+            EquipmentId = equipmentId,
+            Quantity = 1,
+            Notes = "Created by delete integration tests."
+        };
+
+        using var response = await SendAsync(
+            CreateUrl,
+            body: dto,
+            accessToken: accessToken,
+            inboxId: inboxId);
+        
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await ReadAsync<RoomEquipmentDto>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.Data.Should().NotBeNull();
+        
+        return http.Data!;
+    }
+
+    
 }

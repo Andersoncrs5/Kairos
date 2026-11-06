@@ -9,6 +9,40 @@ public class PermissionSeeder(IUnitOfWork uow) : IPermissionSeeder
     public static IReadOnlyList<PermissionsModel> Permissions { get; } =
         Array.AsReadOnly<PermissionsModel>(
         [
+            // ----------------------------------------------------------
+            // Room equipments
+            // ----------------------------------------------------------
+            
+            CreatePermission(
+                "rooms.equipments.create",
+                "Associate equipments with rooms",
+                PermissionModuleEnum.Rooms,
+                "Allows associating equipment with rooms."),
+
+            CreatePermission(
+                "rooms.equipments.read",
+                "Read room equipment associations",
+                PermissionModuleEnum.Rooms,
+                "Allows retrieving equipment associations by ID, room or equipment."),
+
+            CreatePermission(
+                "rooms.equipments.list",
+                "List room equipment associations",
+                PermissionModuleEnum.Rooms,
+                "Allows listing room equipment associations with filters and pagination."),
+
+            CreatePermission(
+                "rooms.equipments.update",
+                "Update room equipment associations",
+                PermissionModuleEnum.Rooms,
+                "Allows updating room equipment association information."),
+
+            CreatePermission(
+                "rooms.equipments.delete",
+                "Remove equipment from rooms",
+                PermissionModuleEnum.Rooms,
+                "Allows removing equipment associations from rooms."),
+            
             CreatePermission(
                 "identity.users.status.update",
                 "Update user account status",
@@ -341,7 +375,36 @@ public class PermissionSeeder(IUnitOfWork uow) : IPermissionSeeder
                 "reservations.history.list",
                 "List reservation history",
                 PermissionModuleEnum.Reservations,
-                "Allows listing reservation history entries.")
+                "Allows listing reservation history entries."),
+            
+            // ----------------------------------------------------------
+            // Equipments
+            // ----------------------------------------------------------
+            CreatePermission(
+                "equipments.create",
+                "Create equipments",
+                PermissionModuleEnum.Rooms,
+                "Allows creating equipment records."),
+            CreatePermission(
+                "equipments.read",
+                "Read equipments",
+                PermissionModuleEnum.Rooms,
+                "Allows retrieving an equipment by ID or code."),
+            CreatePermission(
+                "equipments.list",
+                "List equipments",
+                PermissionModuleEnum.Rooms,
+                "Allows listing equipments with filters and pagination."),
+            CreatePermission(
+                "equipments.update",
+                "Update equipments",
+                PermissionModuleEnum.Rooms,
+                "Allows updating equipment information."),
+            CreatePermission(
+                "equipments.delete",
+                "Delete equipments",
+                PermissionModuleEnum.Rooms,
+                "Allows deleting equipment records."),
         ]);
 
     private static PermissionsModel CreatePermission(

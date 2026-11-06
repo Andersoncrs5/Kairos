@@ -10,8 +10,10 @@ using Kairos.Api.Modules.Identity.Users.Repositories;
 using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reliability.Inbox.Repository;
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
+using Kairos.Api.Modules.Rooms.Equipment.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
+using Kairos.Api.Modules.Rooms.RoomEquipment.Repositories;
 using Kairos.Api.Modules.Rooms.RoomOperatingHour.Repository;
 using Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -30,7 +32,9 @@ public sealed class UnitOfWork(
     IRoomBlockoutRepository roomBlockoutRepository,
     IReservationRepository reservationRepository,
     IInboxRepository inboxRepository,
-    IRoomOperatingHourRepository roomOperatingHourRepository
+    IRoomOperatingHourRepository roomOperatingHourRepository,
+    IEquipmentRepository equipmentRepository,
+    IRoomEquipmentRepository roomEquipmentRepository
 ) : IUnitOfWork
 {
     public IUserRepository UserRepository => userRepository;
@@ -43,6 +47,8 @@ public sealed class UnitOfWork(
     public IReservationRepository ReservationRepository => reservationRepository;
     public IInboxRepository InboxRepository => inboxRepository;
     public IRoomOperatingHourRepository RoomOperatingHourRepository => roomOperatingHourRepository;
+    public IEquipmentRepository EquipmentRepository => equipmentRepository;
+    public IRoomEquipmentRepository RoomEquipmentRepository => roomEquipmentRepository;
 
     public Task<int> CommitAsync(
         CancellationToken cancellationToken = default)

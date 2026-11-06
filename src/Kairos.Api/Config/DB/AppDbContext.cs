@@ -5,12 +5,16 @@ using Kairos.Api.Modules.Identity.PermissionUsers.Models;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reservations.Reservation.Models;
+using Kairos.Api.Modules.Rooms.Equipment.Model;
 using Kairos.Api.Modules.Rooms.Room.Models;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
+using Kairos.Api.Modules.Rooms.RoomEquipment.Models;
+using Kairos.Api.Modules.Rooms.RoomOperatingHour.Model;
 using Kairos.Api.Modules.Rooms.RoomTypes.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Kairos.Api.Config.DB;
 
@@ -35,6 +39,13 @@ public class AppDbContext(DbContextOptions options)
         Set<ReservationModel>();
 
     public DbSet<InboxModel> Inbox => Set<InboxModel>();
+    
+    public DbSet<EquipmentModel> Equipments => Set<EquipmentModel>();
+    
+    public DbSet<RoomEquipmentModel> RoomEquipments => Set<RoomEquipmentModel>();
+    
+    public DbSet<RoomOperatingHourModel> RoomOperatingHours
+        => Set<RoomOperatingHourModel>();
 
     // ---------------------------------------------------------------
     // SaveChanges
@@ -112,10 +123,83 @@ public class AppDbContext(DbContextOptions options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
+        
         modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(AppDbContext).Assembly);
 
+        // Configuração global para o controle de versão/concorrência otimista
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (typeof(BaseModel).IsAssignableFrom(entityType.ClrType))
+            {
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property(nameof(BaseModel.Version))
+                    .IsConcurrencyToken();
+            }
+        }
+
+        // Precisão padrão para propriedades decimais
+        foreach (var property in modelBuilder.Model.GetEntityTypes()
+            .SelectMany(t => t.GetProperties())
+            .Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?)))
+        {
+            property.SetPrecision(18);
+            property.SetScale(2);
+        }
+
+        // Comportamento global de exclusão restrita (pode ser sobrescrito individualmente se necessário)
+        foreach (var relationship in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
+        {
+            relationship.DeleteBehavior = DeleteBehavior.Restrict;
+        }
+
+        // Converte automaticamente nomes de tabelas, colunas e chaves para snake_case
+        foreach (var entity in modelBuilder.Model.GetEntityTypes())
+        {
+            var tableName = entity.GetTableName();
+            if (!string.IsNullOrEmpty(tableName))
+            {
+                entity.SetTableName(ToSnakeCase(tableName));
+            }
+
+            foreach (var property in entity.GetProperties())
+            {
+                var columnName = property.GetColumnName(StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema()));
+                if (!string.IsNullOrEmpty(columnName))
+                {
+                    property.SetColumnName(ToSnakeCase(columnName));
+                }
+            }
+
+            foreach (var key in entity.GetKeys())
+            {
+                var keyName = key.GetName();
+                if (!string.IsNullOrEmpty(keyName))
+                {
+                    key.SetName(ToSnakeCase(keyName));
+                }
+            }
+
+            foreach (IMutableForeignKey foreignKey in entity.GetForeignKeys())
+            {
+                var fkName = foreignKey.GetConstraintName();
+                if (!string.IsNullOrEmpty(fkName))
+                {
+                    foreignKey.SetConstraintName(ToSnakeCase(fkName));
+                }
+            }
+
+            foreach (var index in entity.GetIndexes())
+            {
+                var indexName = index.GetDatabaseName();
+                if (!string.IsNullOrEmpty(indexName))
+                {
+                    index.SetDatabaseName(ToSnakeCase(indexName));
+                }
+            }
+        }
+
+        // Configurações das tabelas do Identity
         modelBuilder.Entity<IdentityRole>()
             .ToTable("app_roles");
 
@@ -133,5 +217,12 @@ public class AppDbContext(DbContextOptions options)
 
         modelBuilder.Entity<IdentityUserToken<string>>()
             .ToTable("app_user_tokens");
+    }
+
+    private static string ToSnakeCase(string input)
+    {
+        if (string.IsNullOrEmpty(input)) { return input; }
+
+        return string.Concat(input.Select((x, i) => i > 0 && char.IsUpper(x) ? "_" + x.ToString() : x.ToString())).ToLower();
     }
 }

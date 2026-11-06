@@ -267,8 +267,7 @@ public sealed class CreateRoomBlockoutUseCaseTest
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(400);
 
-        result.Errors.Should().Contain(
-            "Room blockout reason cannot exceed 255 characters.");
+        result.Errors.Should().Contain("Room blockout reason must be between 1 and 255 characters.");
 
         VerifyRepositoriesWereNotCalled();
     }
