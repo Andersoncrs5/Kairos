@@ -37,18 +37,33 @@ public class PermissionSeedTest
     // Catálogo
     // ------------------------------------------------------------------
 
-    [Fact]
+   [Fact]
     public void Permissions_ShouldContainAllExpectedPermissions()
     {
         // Arrange
         string[] expectedCodes =
         [
+            // Room equipments
+            "rooms.equipments.create",
+            "rooms.equipments.read",
+            "rooms.equipments.list",
+            "rooms.equipments.update",
+            "rooms.equipments.delete",
+
+            // Room operating hours
+            "rooms.operating-hours.create",
+            "rooms.operating-hours.read",
+            "rooms.operating-hours.list",
+            "rooms.operating-hours.update",
+            "rooms.operating-hours.delete",
+
             // Identity - Users
             "identity.users.create",
             "identity.users.read",
             "identity.users.list",
             "identity.users.update",
             "identity.users.delete",
+            "identity.users.status.update",
 
             // Identity - Permissions
             "identity.permissions.create",
@@ -98,6 +113,7 @@ public class PermissionSeedTest
 
             // Reservations
             "reservations.create",
+            "reservations.delete",
             "reservations.read",
             "reservations.list",
             "reservations.update",
@@ -113,7 +129,14 @@ public class PermissionSeedTest
 
             // Reservation history
             "reservations.history.read",
-            "reservations.history.list"
+            "reservations.history.list",
+
+            // Equipments
+            "equipments.create",
+            "equipments.read",
+            "equipments.list",
+            "equipments.update",
+            "equipments.delete"
         ];
 
         // Act
@@ -121,6 +144,15 @@ public class PermissionSeedTest
             PermissionSeeder.Permissions;
 
         // Assert
+        permissions
+            .Select(permission => permission.Code)
+            .Should()
+            .BeEquivalentTo(expectedCodes);
+
+        permissions
+            .Select(permission => permission.Code)
+            .Should()
+            .OnlyHaveUniqueItems();
     }
 
     [Fact]
@@ -165,7 +197,8 @@ public class PermissionSeedTest
             return PermissionModuleEnum.Categories;
         }
 
-        if (code.StartsWith("rooms.", StringComparison.Ordinal))
+        if (code.StartsWith("rooms.", StringComparison.Ordinal) ||
+            code.StartsWith("equipments.", StringComparison.Ordinal))
         {
             return PermissionModuleEnum.Rooms;
         }
