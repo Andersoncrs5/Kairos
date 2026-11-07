@@ -10,6 +10,8 @@ using Kairos.Api.Modules.Rooms.Equipment.Model;
 using Kairos.Api.Modules.Rooms.Room.Models;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
 using Kairos.Api.Modules.Rooms.RoomEquipment.Models;
+using Kairos.Api.Modules.Rooms.RoomFavorite.Models;
+using Kairos.Api.Modules.Rooms.RoomFeedback.Models;
 using Kairos.Api.Modules.Rooms.RoomOperatingHour.Model;
 using Kairos.Api.Modules.Rooms.RoomTypes.Models;
 using Microsoft.AspNetCore.Identity;
@@ -48,6 +50,10 @@ public class AppDbContext(DbContextOptions options)
     public DbSet<RoomOperatingHourModel> RoomOperatingHours => Set<RoomOperatingHourModel>();
     
     public DbSet<ReservationAttendeeModel> ReservationAttendees => Set<ReservationAttendeeModel>();
+    
+    public DbSet<RoomFavoriteModel> RoomFavorites => Set<RoomFavoriteModel>();
+    
+    public DbSet<RoomFeedbackModel> RoomFeedbacks => Set<RoomFeedbackModel>();
 
     // ---------------------------------------------------------------
     // SaveChanges

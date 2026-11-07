@@ -458,6 +458,34 @@ namespace Kairos.Api.Config.DB.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "room_favorites",
+                columns: table => new
+                {
+                    id = table.Column<string>(type: "text", nullable: false),
+                    user_id = table.Column<string>(type: "text", nullable: false),
+                    room_id = table.Column<string>(type: "text", nullable: false),
+                    version = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("p_k_room_favorites", x => x.id);
+                    table.ForeignKey(
+                        name: "f_k_room_favorites_app_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "app_users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "f_k_room_favorites_rooms_room_id",
+                        column: x => x.room_id,
+                        principalTable: "rooms",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "room_operating_hours",
                 columns: table => new
                 {
@@ -520,6 +548,45 @@ namespace Kairos.Api.Config.DB.Migrations
                         name: "f_k_reservation_attendees_reservations_reservation_id",
                         column: x => x.reservation_id,
                         principalTable: "reservations",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "room_feedbacks",
+                columns: table => new
+                {
+                    id = table.Column<string>(type: "text", nullable: false),
+                    reservation_id = table.Column<string>(type: "text", nullable: false),
+                    room_id = table.Column<string>(type: "text", nullable: false),
+                    user_id = table.Column<string>(type: "text", nullable: false),
+                    rating = table.Column<int>(type: "integer", nullable: false),
+                    comment = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    issue_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    version = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("p_k_room_feedbacks", x => x.id);
+                    table.CheckConstraint("ck_room_feedbacks_rating_range", "rating >= 1 AND rating <= 5");
+                    table.ForeignKey(
+                        name: "f_k_room_feedbacks_app_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "app_users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "f_k_room_feedbacks_reservations_reservation_id",
+                        column: x => x.reservation_id,
+                        principalTable: "reservations",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "f_k_room_feedbacks_rooms_room_id",
+                        column: x => x.room_id,
+                        principalTable: "rooms",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -713,6 +780,33 @@ namespace Kairos.Api.Config.DB.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "ix_room_favorites_room_id",
+                table: "room_favorites",
+                column: "room_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_room_favorites_user_room",
+                table: "room_favorites",
+                columns: new[] { "user_id", "room_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_room_feedbacks_room_created_at",
+                table: "room_feedbacks",
+                columns: new[] { "room_id", "created_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_room_feedbacks_user_id",
+                table: "room_feedbacks",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_room_feedbacks_reservation_user",
+                table: "room_feedbacks",
+                columns: new[] { "reservation_id", "user_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "i_x_room_operating_hours_room_id_day_of_week_is_active",
                 table: "room_operating_hours",
                 columns: new[] { "room_id", "day_of_week", "is_active" });
@@ -769,6 +863,12 @@ namespace Kairos.Api.Config.DB.Migrations
                 name: "room_equipments");
 
             migrationBuilder.DropTable(
+                name: "room_favorites");
+
+            migrationBuilder.DropTable(
+                name: "room_feedbacks");
+
+            migrationBuilder.DropTable(
                 name: "room_operating_hours");
 
             migrationBuilder.DropTable(
@@ -778,10 +878,10 @@ namespace Kairos.Api.Config.DB.Migrations
                 name: "permissions");
 
             migrationBuilder.DropTable(
-                name: "reservations");
+                name: "equipments");
 
             migrationBuilder.DropTable(
-                name: "equipments");
+                name: "reservations");
 
             migrationBuilder.DropTable(
                 name: "app_users");

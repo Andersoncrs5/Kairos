@@ -917,6 +917,115 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.ToTable("room_equipments", (string)null);
                 });
 
+            modelBuilder.Entity("Kairos.Api.Modules.Rooms.RoomFavorite.Models.RoomFavoriteModel", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("RoomId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("room_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("p_k_room_favorites");
+
+                    b.HasIndex("RoomId")
+                        .HasDatabaseName("ix_room_favorites_room_id");
+
+                    b.HasIndex("UserId", "RoomId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_room_favorites_user_room");
+
+                    b.ToTable("room_favorites", (string)null);
+                });
+
+            modelBuilder.Entity("Kairos.Api.Modules.Rooms.RoomFeedback.Models.RoomFeedbackModel", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("IssueType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("issue_type");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer")
+                        .HasColumnName("rating");
+
+                    b.Property<string>("ReservationId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reservation_id");
+
+                    b.Property<string>("RoomId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("room_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("p_k_room_feedbacks");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_room_feedbacks_user_id");
+
+                    b.HasIndex("ReservationId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_room_feedbacks_reservation_user");
+
+                    b.HasIndex("RoomId", "CreatedAt")
+                        .HasDatabaseName("ix_room_feedbacks_room_created_at");
+
+                    b.ToTable("room_feedbacks", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_room_feedbacks_rating_range", "rating >= 1 AND rating <= 5");
+                        });
+                });
+
             modelBuilder.Entity("Kairos.Api.Modules.Rooms.RoomOperatingHour.Model.RoomOperatingHourModel", b =>
                 {
                     b.Property<string>("Id")
@@ -1338,6 +1447,57 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.Navigation("Equipment");
 
                     b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("Kairos.Api.Modules.Rooms.RoomFavorite.Models.RoomFavoriteModel", b =>
+                {
+                    b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_room_favorites_rooms_room_id");
+
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_room_favorites_app_users_user_id");
+
+                    b.Navigation("Room");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Kairos.Api.Modules.Rooms.RoomFeedback.Models.RoomFeedbackModel", b =>
+                {
+                    b.HasOne("Kairos.Api.Modules.Reservations.Reservation.Models.ReservationModel", "Reservation")
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_room_feedbacks_reservations_reservation_id");
+
+                    b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_room_feedbacks_rooms_room_id");
+
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_room_feedbacks_app_users_user_id");
+
+                    b.Navigation("Reservation");
+
+                    b.Navigation("Room");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Kairos.Api.Modules.Rooms.RoomOperatingHour.Model.RoomOperatingHourModel", b =>
