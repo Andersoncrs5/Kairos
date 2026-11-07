@@ -484,6 +484,46 @@ namespace Kairos.Api.Config.DB.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "reservation_attendees",
+                columns: table => new
+                {
+                    id = table.Column<string>(type: "text", nullable: false),
+                    reservation_id = table.Column<string>(type: "text", nullable: false),
+                    user_id = table.Column<string>(type: "text", nullable: false),
+                    role = table.Column<int>(type: "integer", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    invited_by = table.Column<string>(type: "text", nullable: true),
+                    responded_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    response_note = table.Column<string>(type: "text", nullable: true),
+                    checked_in_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    version = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("p_k_reservation_attendees", x => x.id);
+                    table.ForeignKey(
+                        name: "f_k_reservation_attendees_app_users_invited_by",
+                        column: x => x.invited_by,
+                        principalTable: "app_users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "f_k_reservation_attendees_app_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "app_users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "f_k_reservation_attendees_reservations_reservation_id",
+                        column: x => x.reservation_id,
+                        principalTable: "reservations",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "i_x_asp_net_role_claims_role_id",
                 table: "app_role_claims",
@@ -592,6 +632,22 @@ namespace Kairos.Api.Config.DB.Migrations
                 table: "permissions_users",
                 columns: new[] { "user_id", "permission_id" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "i_x_reservation_attendees_invited_by",
+                table: "reservation_attendees",
+                column: "invited_by");
+
+            migrationBuilder.CreateIndex(
+                name: "i_x_reservation_attendees_reservation_id_user_id",
+                table: "reservation_attendees",
+                columns: new[] { "reservation_id", "user_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "i_x_reservation_attendees_user_id",
+                table: "reservation_attendees",
+                column: "user_id");
 
             migrationBuilder.CreateIndex(
                 name: "i_x_reservations_cancelled_by",
@@ -704,7 +760,7 @@ namespace Kairos.Api.Config.DB.Migrations
                 name: "permissions_users");
 
             migrationBuilder.DropTable(
-                name: "reservations");
+                name: "reservation_attendees");
 
             migrationBuilder.DropTable(
                 name: "room_blockouts");
@@ -722,13 +778,16 @@ namespace Kairos.Api.Config.DB.Migrations
                 name: "permissions");
 
             migrationBuilder.DropTable(
-                name: "categories");
+                name: "reservations");
+
+            migrationBuilder.DropTable(
+                name: "equipments");
 
             migrationBuilder.DropTable(
                 name: "app_users");
 
             migrationBuilder.DropTable(
-                name: "equipments");
+                name: "categories");
 
             migrationBuilder.DropTable(
                 name: "rooms");

@@ -540,6 +540,75 @@ namespace Kairos.Api.Config.DB.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Kairos.Api.Modules.Reservations.ReservationAttendees.Models.ReservationAttendeeModel", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("CheckedInAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_in_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("InvitedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("invited_by");
+
+                    b.Property<string>("ReservationId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reservation_id");
+
+                    b.Property<DateTimeOffset?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("responded_at");
+
+                    b.Property<string>("ResponseNote")
+                        .HasColumnType("text")
+                        .HasColumnName("response_note");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer")
+                        .HasColumnName("role");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("p_k_reservation_attendees");
+
+                    b.HasIndex("InvitedBy")
+                        .HasDatabaseName("i_x_reservation_attendees_invited_by");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("i_x_reservation_attendees_user_id");
+
+                    b.HasIndex("ReservationId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("i_x_reservation_attendees_reservation_id_user_id");
+
+                    b.ToTable("reservation_attendees", (string)null);
+                });
+
             modelBuilder.Entity("Kairos.Api.Modules.Rooms.Equipment.Model.EquipmentModel", b =>
                 {
                     b.Property<string>("Id")
@@ -1176,6 +1245,35 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("Room");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Kairos.Api.Modules.Reservations.ReservationAttendees.Models.ReservationAttendeeModel", b =>
+                {
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "Inviter")
+                        .WithMany()
+                        .HasForeignKey("InvitedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("f_k_reservation_attendees_app_users_invited_by");
+
+                    b.HasOne("Kairos.Api.Modules.Reservations.Reservation.Models.ReservationModel", "Reservation")
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_reservation_attendees_reservations_reservation_id");
+
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_reservation_attendees_app_users_user_id");
+
+                    b.Navigation("Inviter");
+
+                    b.Navigation("Reservation");
 
                     b.Navigation("User");
                 });
