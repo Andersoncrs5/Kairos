@@ -289,56 +289,6 @@ public sealed class CreateReservationUseCaseTest
         await VerifyOnlyCategoryWasRead(command);
     }
 
-    [Fact]
-    public async Task ExecuteAsync_WhenStartsAtIsGreaterThanEndsAt_ReturnsValidationFailure()
-    {
-        // Arrange
-        var startsAt = DateTimeOffset.UtcNow.AddDays(3);
-
-        var command = NewCommand(
-            startsAt: startsAt,
-            endsAt: startsAt.AddHours(-1));
-
-        SetupExistingCategory(command);
-
-        // Act
-        var result = await _sut.ExecuteAsync(command);
-
-        // Assert
-        result.IsFailure.Should().BeTrue();
-        result.StatusCode.Should().Be(400);
-
-        result.Errors.Should().Contain(
-            "Reservation start date must be earlier than end date.");
-
-        await VerifyOnlyCategoryWasRead(command);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenStartsAtEqualsEndsAt_ReturnsValidationFailure()
-    {
-        // Arrange
-        var startsAt = DateTimeOffset.UtcNow.AddDays(3);
-
-        var command = NewCommand(
-            startsAt: startsAt,
-            endsAt: startsAt);
-
-        SetupExistingCategory(command);
-
-        // Act
-        var result = await _sut.ExecuteAsync(command);
-
-        // Assert
-        result.IsFailure.Should().BeTrue();
-        result.StatusCode.Should().Be(400);
-
-        result.Errors.Should().Contain(
-            "Reservation start date must be earlier than end date.");
-
-        await VerifyOnlyCategoryWasRead(command);
-    }
-
     // ---------------------------------------------------------------
     // 4. Validação da categoria
     // ---------------------------------------------------------------

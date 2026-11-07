@@ -24,6 +24,9 @@ using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reservations.Reservation.DTOs.Request;
 using Kairos.Api.Modules.Reservations.Reservation.DTOs.Response;
 using Kairos.Api.Modules.Reservations.Reservation.Models;
+using Kairos.Api.Modules.Reservations.ReservationAttendees.DTOs.Request;
+using Kairos.Api.Modules.Reservations.ReservationAttendees.DTOs.Response;
+using Kairos.Api.Modules.Reservations.ReservationAttendees.Models;
 using Kairos.Api.Modules.Rooms.Equipment.DTOs.Request;
 using Kairos.Api.Modules.Rooms.Equipment.DTOs.Response;
 using Kairos.Api.Modules.Rooms.Equipment.Model;
@@ -174,7 +177,115 @@ public abstract class BaseIntegrationTest
             new LoginUserDTO { Email = email, Password = password },
             Guid.NewGuid().ToString());
     }
+    
+    // ------------------------------------------------------------------
+    // Auth: usuário com permissões específicas
+    // ------------------------------------------------------------------
 
+    /// <summary>
+    /// Cria um usuário direto no banco com as permissões informadas e faz login
+    /// via HTTP, para que o JWT carregue essas permissões como claims.
+    /// </summary>
+    protected async Task<(UserModel User, Tokens Tokens)> CreateUserWithPermissionsHttp(
+        params string[] permissions)
+    {
+        UserModel user;
+
+        using (var scope = CreateScope())
+        {
+            user = await CreateUserAsync(
+                scope.ServiceProvider,
+                configure: item => item.Permissions = permissions);
+        }
+
+        using var response = await LoginWithNewInboxAsync(
+            user.Email!,
+            ValidPassword);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var http = await ReadAsync<Tokens>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.Data.Should().NotBeNull();
+        http.Data!.Token.Should().NotBeNullOrEmpty();
+        http.Data.Permissions.Should().BeEquivalentTo(permissions);
+
+        return (user, http.Data);
+    }
+
+    // ------------------------------------------------------------------
+    // Reservation Attendees: Add via HTTP
+    // ------------------------------------------------------------------
+
+    protected async Task<ReservationAttendeeDto> AddReservationAttendeeHttp(
+        Tokens tokens,
+        string reservationId,
+        string userId,
+        AttendeeRoleEnum role = AttendeeRoleEnum.Required)
+    {
+        string inboxId = Guid.NewGuid().ToString();
+
+        var dto = new AddReservationAttendeeDto
+        {
+            UserId = userId,
+            Role = role
+        };
+
+        using var response = await SendAsync(
+            $"/api/v1/reservations/{Uri.EscapeDataString(reservationId)}/attendees",
+            body: dto,
+            accessToken: tokens.Token,
+            inboxId: inboxId);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var http = await ReadAsync<ReservationAttendeeDto>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().Be(inboxId);
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Id.Should().NotBeNullOrWhiteSpace();
+        http.Data.ReservationId.Should().Be(reservationId);
+        http.Data.UserId.Should().Be(userId);
+        http.Data.Role.Should().Be(role);
+        http.Data.Status.Should().Be(AttendeeStatusEnum.Pending);
+        http.Data.InvitedBy.Should().NotBeNullOrWhiteSpace();
+        http.Data.RespondedAt.Should().BeNull();
+        http.Data.ResponseNote.Should().BeNull();
+        http.Data.CheckedInAt.Should().BeNull();
+
+        using var scope = CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var persisted = await db.Set<ReservationAttendeeModel>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == http.Data.Id);
+
+        persisted.Should().NotBeNull();
+        persisted!.ReservationId.Should().Be(reservationId);
+        persisted.UserId.Should().Be(userId);
+        persisted.Role.Should().Be(role);
+        persisted.Status.Should().Be(AttendeeStatusEnum.Pending);
+        persisted.InvitedBy.Should().Be(http.Data.InvitedBy);
+        persisted.Version.Should().Be(1);
+        persisted.CreatedAt.Should().NotBe(default);
+        persisted.UpdatedAt.Should().BeNull();
+        persisted.RespondedAt.Should().BeNull();
+        persisted.ResponseNote.Should().BeNull();
+        persisted.CheckedInAt.Should().BeNull();
+
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
+
+        return http.Data;
+    }
+    
     // ------------------------------------------------------------------
     // Auth: dados de teste e usuários via HTTP
     // ------------------------------------------------------------------
@@ -545,7 +656,7 @@ public abstract class BaseIntegrationTest
 
         bool exists = await db.Set<InboxModel>()
             .AsNoTracking()
-            .AnyAsync(i => i.MessageId == inboxId);
+            .AnyAsync(item => item.MessageId == inboxId);
 
         exists.Should().BeFalse();
     }
@@ -1442,5 +1553,161 @@ public abstract class BaseIntegrationTest
         return http.Data!;
     }
 
+    // ------------------------------------------------------------------
+    // Reservation Attendees: dados e verificações no banco
+    // ------------------------------------------------------------------
+
+    protected async Task<UserModel> CreateAttendeeUserAsync(
+        Action<UserModel>? configure = null)
+    {
+        using var scope = CreateScope();
+
+        return await CreateUserAsync(
+            scope.ServiceProvider,
+            configure);
+    }
+
+    protected async Task<ReservationAttendeeModel> GetAttendeeByIdAsync(
+        string attendeeId)
+    {
+        using var scope = CreateScope();
+
+        return await scope.ServiceProvider
+            .GetRequiredService<AppDbContext>()
+            .Set<ReservationAttendeeModel>()
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == attendeeId);
+    }
+
+    protected async Task AssertAttendeeCountAsync(
+        string reservationId,
+        int expectedCount)
+    {
+        using var scope = CreateScope();
+
+        var count = await scope.ServiceProvider
+            .GetRequiredService<AppDbContext>()
+            .Set<ReservationAttendeeModel>()
+            .AsNoTracking()
+            .CountAsync(attendee =>
+                attendee.ReservationId == reservationId);
+
+        count.Should().Be(expectedCount);
+    }
+
+    protected async Task SetRoomCapacityAsync(string roomId, int capacity)
+    {
+        using var scope = CreateScope();
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var room = await db.Set<RoomModel>()
+            .SingleAsync(item => item.Id == roomId);
+
+        room.Capacity = capacity;
+
+        await db.SaveChangesAsync();
+    }
+
+    protected async Task SetAttendeeStatusAsync(
+        string attendeeId,
+        AttendeeStatusEnum status)
+    {
+        using var scope = CreateScope();
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var attendee = await db.Set<ReservationAttendeeModel>()
+            .SingleAsync(item => item.Id == attendeeId);
+
+        attendee.Status = status;
+
+        await db.SaveChangesAsync();
+    }
+
+    protected async Task MoveReservationToThePastAsync(string reservationId)
+    {
+        using var scope = CreateScope();
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var reservation = await db.Set<ReservationModel>()
+            .SingleAsync(item => item.Id == reservationId);
+
+        reservation.StartsAt = DateTimeOffset.UtcNow.AddHours(-3);
+        reservation.EndsAt = DateTimeOffset.UtcNow.AddHours(-1);
+
+        await db.SaveChangesAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // Reservation Attendees: Update (role) via HTTP
+    // ------------------------------------------------------------------
+
+    protected async Task<ReservationAttendeeDto> UpdateReservationAttendeeHttp(
+        Tokens tokens,
+        string reservationId,
+        string attendeeId,
+        AttendeeRoleEnum role)
+    {
+        string inboxId = Guid.NewGuid().ToString();
+
+        var before = await GetAttendeeByIdAsync(attendeeId);
+
+        var dto = new UpdateReservationAttendeeDto
+        {
+            Role = role
+        };
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"/api/v1/reservations/{Uri.EscapeDataString(reservationId)}" +
+            $"/attendees/{Uri.EscapeDataString(attendeeId)}")
+        {
+            Content = JsonContent.Create(dto)
+        };
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens.Token);
+        request.Headers.Add(InboxHeader, inboxId);
+
+        using var response = await Client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var http = await ReadAsync<ReservationAttendeeDto>(response);
+
+        http.Should().NotBeNull();
+        http!.Success.Should().BeTrue();
+        http.TraceId.Should().Be(inboxId);
+        http.Data.Should().NotBeNull();
+
+        http.Data!.Id.Should().Be(attendeeId);
+        http.Data.ReservationId.Should().Be(reservationId);
+        http.Data.UserId.Should().Be(before.UserId);
+        http.Data.Role.Should().Be(role);
+        http.Data.Status.Should().Be(before.Status);
+
+        var persisted = await GetAttendeeByIdAsync(attendeeId);
+
+        bool changed = before.Role != role;
+
+        persisted.Role.Should().Be(role);
+        persisted.Status.Should().Be(before.Status);
+        persisted.InvitedBy.Should().Be(before.InvitedBy);
+        persisted.CreatedAt.Should().Be(before.CreatedAt);
+        persisted.Version.Should().Be(changed ? before.Version + 1 : before.Version);
+
+        if (changed)
+            persisted.UpdatedAt.Should().NotBeNull();
+        else
+            persisted.UpdatedAt.Should().Be(before.UpdatedAt);
+
+        var inbox = await GetInboxByMessageIdAsync(inboxId);
+        inbox.Should().NotBeNull();
+        inbox.MessageId.Should().Be(inboxId);
+        inbox.Status.Should().Be(InboxStatusEnum.Processed);
+
+        return http.Data;
+    }
     
 }

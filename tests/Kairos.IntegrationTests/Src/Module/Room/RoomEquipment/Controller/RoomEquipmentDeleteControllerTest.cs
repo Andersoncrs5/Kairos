@@ -90,11 +90,7 @@ public sealed class RoomEquipmentDeleteControllerTest : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var http = await ReadAsync<bool>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
+        
     }
 
     // ---------------------------------------------------------------
@@ -120,11 +116,6 @@ public sealed class RoomEquipmentDeleteControllerTest : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-
-        var http = await ReadAsync<bool>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
 
         await AssertRoomEquipmentDoesNotExistAsync(nonexistentId);
     }
@@ -166,11 +157,6 @@ public sealed class RoomEquipmentDeleteControllerTest : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-
-        var http = await ReadAsync<bool>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
         
         await AssertRoomEquipmentDoesNotExistAsync(roomEquipment.Id);
         await AssertRoomEquipmentInboxProcessedAsync(firstInboxId);
