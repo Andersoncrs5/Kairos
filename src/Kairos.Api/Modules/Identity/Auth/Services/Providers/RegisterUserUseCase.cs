@@ -2,6 +2,9 @@ using Kairos.Api.Common.Result;
 using Kairos.Api.Config.UnitOfWork;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
+using Kairos.Api.Modules.Identity.UserPreference.Mapper;
+using Kairos.Api.Modules.Identity.UserPreference.Models;
+using Kairos.Api.Modules.Identity.UserPreference.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Kairos.Api.Modules.Identity.Users.Mapper;
 using Kairos.Api.Modules.Identity.Users.Models;
@@ -13,7 +16,8 @@ public class RegisterUserUseCase(
     IUnitOfWork uow, 
     ICreateUserUseCase createUserUseCase,
     ICreateTokenUseCase createTokenUseCase,
-    ICreateRefreshTokenUseCase createRefreshTokenUseCase
+    ICreateRefreshTokenUseCase createRefreshTokenUseCase,
+    IFindUserPreferenceUseCase findUserPreferenceUseCase
     ): IRegisterUserUseCase
 {
     public async Task<Result<Tokens>> ExecuteAsync(CreateUserDTO dto, CancellationToken ct = default)
@@ -34,13 +38,20 @@ public class RegisterUserUseCase(
         user.RefreshToken = refreshToken;
         await uow.UserRepository.Update(user);
 
+        Result<UserPreferenceModel> result = await findUserPreferenceUseCase.ExecuteAsync(user.Id, ct);
+        if (result.IsFailure || result.Value == null)
+            return Result<Tokens>.Failure(result.Errors, result.StatusCode);
+
+        UserPreferenceModel preference = result.Value;
+        
         Tokens tokens = new()
         {
             ExpiredToken = token.Expired,
             Token = token.Token,
             RefreshToken = refreshToken,
             User = UserMapper.ToDto(user),
-            Permissions = user.Permissions
+            Permissions = user.Permissions,
+            Preference = UserPreferenceMapper.ToDto(preference)
         };
         
         return Result<Tokens>.Success(tokens);

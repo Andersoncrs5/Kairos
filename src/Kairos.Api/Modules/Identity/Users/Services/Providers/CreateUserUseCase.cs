@@ -1,13 +1,19 @@
 using System.ComponentModel.DataAnnotations;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.UnitOfWork;
+using Kairos.Api.Modules.Identity.UserPreference.DTOs.Commands;
+using Kairos.Api.Modules.Identity.UserPreference.Models;
+using Kairos.Api.Modules.Identity.UserPreference.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Identity.Users.Services.Interface;
 
 namespace Kairos.Api.Modules.Identity.Users.Services.Providers;
 
-public sealed class CreateUserUseCase(IUnitOfWork uow)
+public sealed class CreateUserUseCase(
+    IUnitOfWork uow,
+    ICreateUserPreferenceUseCase createUserPreferenceUseCase
+    )
     : ICreateUserUseCase
 {
     public async Task<Result<UserModel>> ExecuteAsync(
@@ -152,7 +158,16 @@ public sealed class CreateUserUseCase(IUnitOfWork uow)
             return Result<UserModel>.ValidationFailure(
                 descriptions);
         }
-        
+
+        CreateUserPreferenceCommand command = new CreateUserPreferenceCommand()
+        {
+            UserId = user.Id
+        };
+
+        Result<UserPreferenceModel> result = await createUserPreferenceUseCase.ExecuteAsync(command, ct);
+        if (result.IsFailure)
+            return Result<UserModel>.Failure(result.Errors, result.StatusCode);
+
         return Result<UserModel>.Created(user);
     }
 }

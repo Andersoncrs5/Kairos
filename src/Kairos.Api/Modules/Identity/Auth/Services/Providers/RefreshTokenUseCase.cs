@@ -3,6 +3,9 @@ using Kairos.Api.Config.Contracts;
 using Kairos.Api.Config.UnitOfWork;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Auth.Services.Interfaces;
+using Kairos.Api.Modules.Identity.UserPreference.Mapper;
+using Kairos.Api.Modules.Identity.UserPreference.Models;
+using Kairos.Api.Modules.Identity.UserPreference.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.Mapper;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Microsoft.Extensions.Options;
@@ -13,12 +16,11 @@ public class RefreshTokenUseCase(
     IUnitOfWork uow,
     ICreateTokenUseCase createTokenUseCase,
     ICreateRefreshTokenUseCase createRefreshTokenUseCase,
-    IOptions<JwtOptions> jwtOptions
+    IOptions<JwtOptions> jwtOptions,
+    IFindUserPreferenceUseCase findUserPreferenceUseCase
 ) : IRefreshTokenUseCase
 {
-    public async Task<Result<Tokens>> ExecuteAsync(
-        string refreshToken,
-        CancellationToken ct = default)
+    public async Task<Result<Tokens>> ExecuteAsync(string refreshToken, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(refreshToken))
             return Result<Tokens>.Unauthorized("Refresh token invalid");
@@ -37,11 +39,7 @@ public class RefreshTokenUseCase(
             await createTokenUseCase.ExecuteAsync(user);
 
         if (tokenResult.IsFailure || tokenResult.Value is null)
-        {
-            return Result<Tokens>.Failure(
-                tokenResult.Errors,
-                tokenResult.StatusCode);
-        }
+            return Result<Tokens>.Failure(tokenResult.Errors, tokenResult.StatusCode);
 
         TokenResponse token = tokenResult.Value;
         string newRefreshToken = createRefreshTokenUseCase.Execute();
@@ -51,14 +49,21 @@ public class RefreshTokenUseCase(
             jwtOptions.Value.RefreshTokenValidityInMinutes);
 
         await uow.UserRepository.Update(user);
+        
+        Result<UserPreferenceModel> result = await findUserPreferenceUseCase.ExecuteAsync(user.Id, ct);
+        if (result.IsFailure || result.Value == null)
+            return Result<Tokens>.Failure(result.Errors, result.StatusCode);
 
+        UserPreferenceModel preference = result.Value;
+        
         Tokens tokens = new()
         {
-            Token = token.Token,
             ExpiredToken = token.Expired,
-            RefreshToken = newRefreshToken,
+            Token = token.Token,
+            RefreshToken = refreshToken,
             User = UserMapper.ToDto(user),
-            Permissions = user.Permissions
+            Permissions = user.Permissions,
+            Preference = UserPreferenceMapper.ToDto(preference)
         };
 
         return Result<Tokens>.Success(tokens);

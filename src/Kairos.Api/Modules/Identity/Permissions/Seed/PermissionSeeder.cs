@@ -48,12 +48,6 @@ public class PermissionSeeder(IUnitOfWork uow) : IPermissionSeeder
                 "View room rating summary",
                 PermissionModuleEnum.Rooms,
                 "Allows viewing the aggregated rating of a room."),
-
-            CreatePermission(
-                "rooms.feedbacks.manage",
-                "Manage room feedback",
-                PermissionModuleEnum.Rooms,
-                "Allows viewing and deleting room feedback written by any user."),
             
             CreatePermission(
                 "rooms.feedbacks.manage",

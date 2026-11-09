@@ -1,6 +1,9 @@
 using FluentAssertions;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.UnitOfWork;
+using Kairos.Api.Modules.Identity.UserPreference.DTOs.Commands;
+using Kairos.Api.Modules.Identity.UserPreference.Models;
+using Kairos.Api.Modules.Identity.UserPreference.Services.Interfaces;
 using Kairos.Api.Modules.Identity.Users.DTOs.Request;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Identity.Users.Repositories;
@@ -15,6 +18,7 @@ public sealed class CreateUserUseCaseTest
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IUserRepository _userRepository;
+    private readonly ICreateUserPreferenceUseCase _createUserPreferenceUseCase;
     private readonly CreateUserUseCase _sut;
 
     public CreateUserUseCaseTest()
@@ -22,10 +26,37 @@ public sealed class CreateUserUseCaseTest
         _unitOfWork = Substitute.For<IUnitOfWork>();
         _userRepository = Substitute.For<IUserRepository>();
 
+        _createUserPreferenceUseCase =
+            Substitute.For<ICreateUserPreferenceUseCase>();
+
         _unitOfWork.UserRepository.Returns(_userRepository);
 
-        _sut = new CreateUserUseCase(_unitOfWork);
+        _createUserPreferenceUseCase
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var command = call.Arg<CreateUserPreferenceCommand>();
+
+                return Task.FromResult(
+                    Result<UserPreferenceModel>.Created(
+                        new UserPreferenceModel
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            UserId = command.UserId,
+                            CreatedAt = DateTimeOffset.UtcNow
+                        }));
+            });
+
+        _sut = new CreateUserUseCase(
+            _unitOfWork,
+            _createUserPreferenceUseCase);
     }
+
+    // ---------------------------------------------------------------
+    // Null request
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenDtoIsNull_ReturnsValidationFailure()
@@ -51,7 +82,17 @@ public sealed class CreateUserUseCaseTest
             .Insert(
                 Arg.Any<UserModel>(),
                 Arg.Any<string>());
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
+
+    // ---------------------------------------------------------------
+    // Username validation
+    // ---------------------------------------------------------------
 
     [Theory]
     [InlineData(null)]
@@ -86,8 +127,8 @@ public sealed class CreateUserUseCaseTest
     }
 
     [Theory]
-    [InlineData("ab")]
     [InlineData("a")]
+    [InlineData("ab")]
     public async Task ExecuteAsync_WhenUsernameIsTooShort_ReturnsValidationFailure(
         string userName)
     {
@@ -128,6 +169,10 @@ public sealed class CreateUserUseCaseTest
             .DidNotReceive()
             .ExistsByUsername(Arg.Any<string>());
     }
+
+    // ---------------------------------------------------------------
+    // Email validation
+    // ---------------------------------------------------------------
 
     [Theory]
     [InlineData(null)]
@@ -203,6 +248,10 @@ public sealed class CreateUserUseCaseTest
             .ExistsByUsername(Arg.Any<string>());
     }
 
+    // ---------------------------------------------------------------
+    // Password validation
+    // ---------------------------------------------------------------
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -249,6 +298,10 @@ public sealed class CreateUserUseCaseTest
             .DidNotReceive()
             .ExistsByUsername(Arg.Any<string>());
     }
+
+    // ---------------------------------------------------------------
+    // Optional fields validation
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenFullNameExceeds150Characters_ReturnsValidationFailure()
@@ -311,6 +364,10 @@ public sealed class CreateUserUseCaseTest
             .ExistsByUsername(Arg.Any<string>());
     }
 
+    // ---------------------------------------------------------------
+    // Duplicate validation
+    // ---------------------------------------------------------------
+
     [Fact]
     public async Task ExecuteAsync_WhenUsernameAlreadyExists_ReturnsConflict()
     {
@@ -344,6 +401,12 @@ public sealed class CreateUserUseCaseTest
             .Insert(
                 Arg.Any<UserModel>(),
                 Arg.Any<string>());
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -383,7 +446,17 @@ public sealed class CreateUserUseCaseTest
             .Insert(
                 Arg.Any<UserModel>(),
                 Arg.Any<string>());
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
+
+    // ---------------------------------------------------------------
+    // Successful user creation
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenInputIsValid_CreatesUser()
@@ -413,20 +486,20 @@ public sealed class CreateUserUseCaseTest
 
         var afterExecution = DateTimeOffset.UtcNow;
 
-        // Assert: resultado
+        // Assert: result
         result.IsSuccess.Should().BeTrue();
         result.StatusCode.Should().Be(201);
         result.Value.Should().NotBeNull();
 
         var user = result.Value!;
 
-        // Assert: dados normalizados
+        // Assert: normalized data
         user.UserName.Should().Be("anderson");
         user.Email.Should().Be("anderson@example.com");
         user.FullName.Should().Be("Anderson Carvalho");
         user.PhoneNumber.Should().BeNull();
 
-        // Assert: valores iniciais
+        // Assert: initial values
         user.Id.Should().NotBeNullOrWhiteSpace();
         user.Permissions.Should().BeEmpty();
         user.RefreshToken.Should().BeNull();
@@ -436,7 +509,7 @@ public sealed class CreateUserUseCaseTest
         user.CreatedAt.Should().BeOnOrBefore(afterExecution);
         user.UpdatedAt.Should().BeNull();
 
-        // Assert: verificações de unicidade
+        // Assert: uniqueness checks
         await _userRepository
             .Received(1)
             .ExistsByUsername("anderson");
@@ -445,7 +518,7 @@ public sealed class CreateUserUseCaseTest
             .Received(1)
             .ExistsByEmail("anderson@example.com");
 
-        // Assert: criação e envio da senha original ao Identity
+        // Assert: Identity insertion
         await _userRepository
             .Received(1)
             .Insert(
@@ -456,13 +529,26 @@ public sealed class CreateUserUseCaseTest
                     entity.FullName == "Anderson Carvalho" &&
                     entity.Permissions.Length == 0),
                 "Password123!");
+
+        // Assert: preference creation
+        await _createUserPreferenceUseCase
+            .Received(1)
+            .ExecuteAsync(
+                Arg.Is<CreateUserPreferenceCommand>(
+                    command => command.UserId == user.Id),
+                Arg.Any<CancellationToken>());
     }
+
+    // ---------------------------------------------------------------
+    // Input normalization
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenUsernameHasSurroundingWhitespace_UsesTrimmedUsername()
     {
         // Arrange
-        var dto = CreateDto(userName: "  new-user  ");
+        var dto = CreateDto(
+            userName: "  new-user  ");
 
         SetupNoDuplicates(
             "new-user",
@@ -494,7 +580,8 @@ public sealed class CreateUserUseCaseTest
     public async Task ExecuteAsync_WhenEmailHasSurroundingWhitespace_UsesTrimmedEmail()
     {
         // Arrange
-        var dto = CreateDto(email: "  new@example.com  ");
+        var dto = CreateDto(
+            email: "  new@example.com  ");
 
         SetupNoDuplicates(
             dto.UserName,
@@ -526,7 +613,8 @@ public sealed class CreateUserUseCaseTest
     public async Task ExecuteAsync_WhenFullNameIsWhitespace_SetsFullNameToNull()
     {
         // Arrange
-        var dto = CreateDto(fullName: "   ");
+        var dto = CreateDto(
+            fullName: "   ");
 
         SetupNoDuplicates(dto.UserName, dto.Email);
 
@@ -548,7 +636,8 @@ public sealed class CreateUserUseCaseTest
     public async Task ExecuteAsync_WhenPhoneNumberIsWhitespace_SetsPhoneNumberToNull()
     {
         // Arrange
-        var dto = CreateDto(phoneNumber: "   ");
+        var dto = CreateDto(
+            phoneNumber: "   ");
 
         SetupNoDuplicates(dto.UserName, dto.Email);
 
@@ -565,6 +654,10 @@ public sealed class CreateUserUseCaseTest
         result.IsSuccess.Should().BeTrue();
         result.Value!.PhoneNumber.Should().BeNull();
     }
+
+    // ---------------------------------------------------------------
+    // Identity errors
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenIdentityReturnsDuplicateUserName_ReturnsConflict()
@@ -595,6 +688,12 @@ public sealed class CreateUserUseCaseTest
         result.StatusCode.Should().Be(409);
         result.Errors.Should().Contain(
             "Username is already taken.");
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -626,6 +725,12 @@ public sealed class CreateUserUseCaseTest
         result.StatusCode.Should().Be(409);
         result.Errors.Should().Contain(
             "Email is already registered.");
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -660,10 +765,18 @@ public sealed class CreateUserUseCaseTest
         // Assert
         result.IsFailure.Should().BeTrue();
         result.StatusCode.Should().Be(400);
+
         result.Errors.Should().Contain(
             "Password does not meet the requirements.");
+
         result.Errors.Should().Contain(
             "Password must contain a digit.");
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -690,7 +803,145 @@ public sealed class CreateUserUseCaseTest
         result.StatusCode.Should().Be(500);
         result.Errors.Should().Contain(
             "User could not be created.");
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
+
+    // ---------------------------------------------------------------
+    // User preference creation
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task ExecuteAsync_WhenUserIsCreated_CreatesPreferencesForSameUser()
+    {
+        // Arrange
+        var dto = CreateDto();
+
+        SetupNoDuplicates(dto.UserName, dto.Email);
+
+        _userRepository
+            .Insert(
+                Arg.Any<UserModel>(),
+                dto.Password)
+            .Returns(Task.FromResult(IdentityResult.Success));
+
+        string? createdPreferenceUserId = null;
+
+        _createUserPreferenceUseCase
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var command = call.Arg<CreateUserPreferenceCommand>();
+
+                createdPreferenceUserId = command.UserId;
+
+                return Task.FromResult(
+                    Result<UserPreferenceModel>.Created(
+                        new UserPreferenceModel
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            UserId = command.UserId,
+                            CreatedAt = DateTimeOffset.UtcNow
+                        }));
+            });
+
+        // Act
+        var result = await _sut.ExecuteAsync(dto);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        createdPreferenceUserId.Should().Be(result.Value!.Id);
+
+        await _createUserPreferenceUseCase
+            .Received(1)
+            .ExecuteAsync(
+                Arg.Is<CreateUserPreferenceCommand>(
+                    command => command.UserId == result.Value.Id),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenPreferenceCreationFails_ReturnsPreferenceFailure()
+    {
+        // Arrange
+        var dto = CreateDto();
+
+        SetupNoDuplicates(dto.UserName, dto.Email);
+
+        _userRepository
+            .Insert(
+                Arg.Any<UserModel>(),
+                dto.Password)
+            .Returns(Task.FromResult(IdentityResult.Success));
+
+        _createUserPreferenceUseCase
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>())
+            .Returns(
+                Task.FromResult(
+                    Result<UserPreferenceModel>.Failure(
+                        ["Preference creation failed."],
+                        500)));
+
+        // Act
+        var result = await _sut.ExecuteAsync(dto);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.StatusCode.Should().Be(500);
+        result.Errors.Should().Contain(
+            "Preference creation failed.");
+
+        await _createUserPreferenceUseCase
+            .Received(1)
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenPreferenceCreationThrows_PropagatesException()
+    {
+        // Arrange
+        var dto = CreateDto();
+
+        SetupNoDuplicates(dto.UserName, dto.Email);
+
+        _userRepository
+            .Insert(
+                Arg.Any<UserModel>(),
+                dto.Password)
+            .Returns(Task.FromResult(IdentityResult.Success));
+
+        _createUserPreferenceUseCase
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>())
+            .Returns(
+                Task.FromException<Result<UserPreferenceModel>>(
+                    new InvalidOperationException(
+                        "Preference creation failed unexpectedly.")));
+
+        // Act
+        Func<Task> act = () => _sut.ExecuteAsync(dto);
+
+        // Assert
+        await act.Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage(
+                "Preference creation failed unexpectedly.");
+    }
+
+    // ---------------------------------------------------------------
+    // Exception handling
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenUsernameLookupThrows_PropagatesException()
@@ -722,6 +973,12 @@ public sealed class CreateUserUseCaseTest
             .Insert(
                 Arg.Any<UserModel>(),
                 Arg.Any<string>());
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -754,6 +1011,12 @@ public sealed class CreateUserUseCaseTest
             .Insert(
                 Arg.Any<UserModel>(),
                 Arg.Any<string>());
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -780,7 +1043,17 @@ public sealed class CreateUserUseCaseTest
         await act.Should()
             .ThrowAsync<InvalidOperationException>()
             .WithMessage("User creation failed.");
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
+
+    // ---------------------------------------------------------------
+    // Cancellation
+    // ---------------------------------------------------------------
 
     [Fact]
     public async Task ExecuteAsync_WhenCancellationIsAlreadyRequested_ThrowsOperationCanceledException()
@@ -811,6 +1084,12 @@ public sealed class CreateUserUseCaseTest
             .Insert(
                 Arg.Any<UserModel>(),
                 Arg.Any<string>());
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -845,9 +1124,71 @@ public sealed class CreateUserUseCaseTest
             .Insert(
                 Arg.Any<UserModel>(),
                 Arg.Any<string>());
+
+        await _createUserPreferenceUseCase
+            .DidNotReceive()
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>());
     }
 
-    private void SetupNoDuplicates(string userName, string email)
+    [Fact]
+    public async Task ExecuteAsync_WhenCancellationOccursDuringPreferenceCreation_PropagatesCancellationToken()
+    {
+        // Arrange
+        var dto = CreateDto();
+
+        SetupNoDuplicates(dto.UserName, dto.Email);
+
+        _userRepository
+            .Insert(
+                Arg.Any<UserModel>(),
+                dto.Password)
+            .Returns(Task.FromResult(IdentityResult.Success));
+
+        using var cts = new CancellationTokenSource();
+
+        CancellationToken receivedToken = default;
+
+        _createUserPreferenceUseCase
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                receivedToken = call.Arg<CancellationToken>();
+
+                return Task.FromResult(
+                    Result<UserPreferenceModel>.Created(
+                        new UserPreferenceModel
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            UserId = call.Arg<CreateUserPreferenceCommand>().UserId,
+                            CreatedAt = DateTimeOffset.UtcNow
+                        }));
+            });
+
+        // Act
+        var result = await _sut.ExecuteAsync(dto, cts.Token);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        receivedToken.Should().Be(cts.Token);
+
+        await _createUserPreferenceUseCase
+            .Received(1)
+            .ExecuteAsync(
+                Arg.Any<CreateUserPreferenceCommand>(),
+                cts.Token);
+    }
+
+    // ---------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------
+
+    private void SetupNoDuplicates(
+        string userName,
+        string email)
     {
         _userRepository
             .ExistsByUsername(userName)

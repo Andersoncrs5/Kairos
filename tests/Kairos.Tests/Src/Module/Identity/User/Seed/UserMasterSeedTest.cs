@@ -2,6 +2,8 @@ using FluentAssertions;
 using Kairos.Api.Config.Contracts;
 using Kairos.Api.Config.UnitOfWork;
 using Kairos.Api.Modules.Identity.Permissions.Seed;
+using Kairos.Api.Modules.Identity.UserPreference.Models;
+using Kairos.Api.Modules.Identity.UserPreference.Repositories;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Identity.Users.Repositories;
 using Kairos.Api.Modules.Identity.Users.Seed;
@@ -22,6 +24,7 @@ public sealed class UserMasterSeedTest
 
     private readonly Mock<IUnitOfWork> _uowMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
+    private readonly Mock<IUserPreferenceRepository> _userPreferenceRepositoryMock = new();
     private readonly Mock<ILogger<UserMasterSeed>> _loggerMock = new();
 
     private readonly UserMasterSeed _sut;
@@ -31,6 +34,10 @@ public sealed class UserMasterSeedTest
         _uowMock
             .Setup(uow => uow.UserRepository)
             .Returns(_userRepositoryMock.Object);
+
+        _uowMock
+            .Setup(uow => uow.UserPreferenceRepository)
+            .Returns(_userPreferenceRepositoryMock.Object);
 
         _userRepositoryMock
             .Setup(repository => repository.GetByUsername(UserName))
@@ -51,6 +58,16 @@ public sealed class UserMasterSeedTest
                 It.IsAny<UserModel>()))
             .ReturnsAsync(IdentityResult.Success);
 
+        _userPreferenceRepositoryMock
+            .Setup(repository => repository.GetByUserIdAsync(
+                It.IsAny<string>()))
+            .ReturnsAsync((UserPreferenceModel?)null);
+
+        _userPreferenceRepositoryMock
+            .Setup(repository => repository.AddAsync(
+                It.IsAny<UserPreferenceModel>()))
+            .Returns(Task.CompletedTask);
+
         _uowMock
             .Setup(uow => uow.ExecuteTransactionAsync(
                 It.IsAny<Func<CancellationToken, Task>>(),
@@ -62,6 +79,10 @@ public sealed class UserMasterSeedTest
 
         _sut = CreateSut(CreateOptions());
     }
+
+    // ------------------------------------------------------------------
+    // User creation
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task Execute_ShouldCreateMasterUser_WhenUserDoesNotExist()
@@ -113,6 +134,8 @@ public sealed class UserMasterSeedTest
                 It.IsAny<UserModel>()),
             Times.Never);
 
+        VerifyPreferenceCreation(createdUser.Id);
+
         VerifyTransaction(Times.Once());
     }
 
@@ -145,7 +168,13 @@ public sealed class UserMasterSeedTest
         createdUser!.UserName.Should().Be(UserName);
         createdUser.Email.Should().Be(Email);
         createdUser.FullName.Should().Be(FullName);
+
+        VerifyPreferenceCreation(createdUser.Id);
     }
+
+    // ------------------------------------------------------------------
+    // User permissions
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task Execute_ShouldNotUpdateUser_WhenPermissionsAreAlreadyCorrect()
@@ -170,6 +199,8 @@ public sealed class UserMasterSeedTest
             repository => repository.Update(
                 It.IsAny<UserModel>()),
             Times.Never);
+
+        VerifyPreferenceCreation(existingUser.Id);
 
         VerifyTransaction(Times.Once());
     }
@@ -208,6 +239,8 @@ public sealed class UserMasterSeedTest
                 It.IsAny<UserModel>(),
                 It.IsAny<string>()),
             Times.Never);
+
+        VerifyPreferenceCreation(existingUser.Id);
     }
 
     [Fact]
@@ -234,6 +267,8 @@ public sealed class UserMasterSeedTest
                 It.IsAny<UserModel>(),
                 It.IsAny<string>()),
             Times.Never);
+
+        VerifyPreferenceCreation(existingUser.Id);
     }
 
     [Fact]
@@ -264,7 +299,83 @@ public sealed class UserMasterSeedTest
                 It.IsAny<UserModel>(),
                 It.IsAny<string>()),
             Times.Never);
+
+        VerifyPreferenceCreation(existingUser.Id);
     }
+
+    // ------------------------------------------------------------------
+    // User preferences
+    // ------------------------------------------------------------------
+
+
+    [Fact]
+    public async Task Execute_ShouldNotCreatePreferences_WhenPreferencesAlreadyExist()
+    {
+        // Arrange
+        UserModel existingUser = CreateMasterUser();
+
+        ConfigureExistingUser(existingUser, existingUser);
+
+        UserPreferenceModel existingPreference = new()
+        {
+            Id = "existing-preference-id",
+            UserId = existingUser.Id,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-10)
+        };
+
+        _userPreferenceRepositoryMock
+            .Setup(repository => repository.GetByUserIdAsync(existingUser.Id))
+            .ReturnsAsync(existingPreference);
+
+        // Act
+        await _sut.Execute();
+
+        // Assert
+        _userPreferenceRepositoryMock.Verify(
+            repository => repository.GetByUserIdAsync(existingUser.Id),
+            Times.Once);
+
+        _userPreferenceRepositoryMock.Verify(
+            repository => repository.AddAsync(
+                It.IsAny<UserPreferenceModel>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Execute_ShouldPropagateException_WhenCreatingPreferencesFails()
+    {
+        // Arrange
+        UserModel existingUser = CreateMasterUser();
+
+        ConfigureExistingUser(existingUser, existingUser);
+
+        _userPreferenceRepositoryMock
+            .Setup(repository => repository.AddAsync(
+                It.IsAny<UserPreferenceModel>()))
+            .ThrowsAsync(new InvalidOperationException(
+                "Preference creation failed."));
+
+        // Act
+        Func<Task> act = () => _sut.Execute();
+
+        // Assert
+        await act.Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("Preference creation failed.");
+
+        _userPreferenceRepositoryMock.Verify(
+            repository => repository.GetByUserIdAsync(existingUser.Id),
+            Times.Once);
+
+        _userPreferenceRepositoryMock.Verify(
+            repository => repository.AddAsync(
+                It.IsAny<UserPreferenceModel>()),
+            Times.Once);
+    }
+
+    // ------------------------------------------------------------------
+    // User identity validation
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task Execute_ShouldThrow_WhenUsernameExistsButEmailDoesNot()
@@ -290,6 +401,7 @@ public sealed class UserMasterSeedTest
                 "The configured master username or email belongs to a different user.");
 
         VerifyNoUserWrites();
+        VerifyNoPreferenceWrites();
     }
 
     [Fact]
@@ -316,6 +428,7 @@ public sealed class UserMasterSeedTest
                 "The configured master username or email belongs to a different user.");
 
         VerifyNoUserWrites();
+        VerifyNoPreferenceWrites();
     }
 
     [Fact]
@@ -337,7 +450,12 @@ public sealed class UserMasterSeedTest
                 "The configured master username or email belongs to a different user.");
 
         VerifyNoUserWrites();
+        VerifyNoPreferenceWrites();
     }
+
+    // ------------------------------------------------------------------
+    // Identity failures
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task Execute_ShouldThrow_WhenCreatingMasterUserFails()
@@ -372,6 +490,8 @@ public sealed class UserMasterSeedTest
             repository => repository.Update(
                 It.IsAny<UserModel>()),
             Times.Never);
+
+        VerifyNoPreferenceWrites();
     }
 
     [Fact]
@@ -404,7 +524,13 @@ public sealed class UserMasterSeedTest
         _userRepositoryMock.Verify(
             repository => repository.Update(existingUser),
             Times.Once);
+
+        VerifyNoPreferenceWrites();
     }
+
+    // ------------------------------------------------------------------
+    // Cancellation
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task Execute_ShouldThrowImmediately_WhenCancellationIsRequested()
@@ -428,6 +554,15 @@ public sealed class UserMasterSeedTest
         _userRepositoryMock.Verify(
             repository => repository.GetByEmail(It.IsAny<string>()),
             Times.Never);
+
+        _userPreferenceRepositoryMock.Verify(
+            repository => repository.GetByUserIdAsync(It.IsAny<string>()),
+            Times.Never);
+
+        _userPreferenceRepositoryMock.Verify(
+            repository => repository.AddAsync(
+                It.IsAny<UserPreferenceModel>()),
+            Times.Never);
     }
 
     [Fact]
@@ -435,6 +570,7 @@ public sealed class UserMasterSeedTest
     {
         // Arrange
         using CancellationTokenSource cts = new();
+
         CancellationToken expectedToken = cts.Token;
         CancellationToken receivedToken = default;
 
@@ -458,6 +594,10 @@ public sealed class UserMasterSeedTest
 
         VerifyTransaction(Times.Once(), expectedToken);
     }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
 
     private static UserMasterOptions CreateOptions(
         string userName = UserName,
@@ -515,6 +655,32 @@ public sealed class UserMasterSeedTest
         return PermissionSeeder.Permissions
             .Select(permission => permission.Code)
             .ToArray();
+    }
+
+    private void VerifyPreferenceCreation(string userId)
+    {
+        _userPreferenceRepositoryMock.Verify(
+            repository => repository.GetByUserIdAsync(userId),
+            Times.Once);
+
+        _userPreferenceRepositoryMock.Verify(
+            repository => repository.AddAsync(
+                It.Is<UserPreferenceModel>(
+                    preference => preference.UserId == userId)),
+            Times.Once);
+    }
+
+    private void VerifyNoPreferenceWrites()
+    {
+        _userPreferenceRepositoryMock.Verify(
+            repository => repository.GetByUserIdAsync(
+                It.IsAny<string>()),
+            Times.Never);
+
+        _userPreferenceRepositoryMock.Verify(
+            repository => repository.AddAsync(
+                It.IsAny<UserPreferenceModel>()),
+            Times.Never);
     }
 
     private void VerifyNoUserWrites()

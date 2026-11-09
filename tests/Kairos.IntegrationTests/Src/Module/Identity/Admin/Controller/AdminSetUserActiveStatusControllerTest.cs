@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Kairos.Api.Common.Enums;
 using Kairos.Api.Common.Res;
+using Kairos.Api.Modules.Identity.Auth.DTOs.Request;
 using Kairos.Api.Modules.Identity.Auth.DTOs.Response;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.IntegrationTests.Config;
@@ -20,13 +21,9 @@ public sealed class AdminSetUserActiveStatusControllerTest : BaseIntegrationTest
     private const string StatusPermission = "identity.users.status.update";
     private readonly ITestOutputHelper _output;
 
-    public AdminSetUserActiveStatusControllerTest(
-        KairosApiFactory factory, ITestOutputHelper output
-        )
-        : base(factory)
+    public AdminSetUserActiveStatusControllerTest(KairosApiFactory factory, ITestOutputHelper output) : base(factory)
     {
         _output = output;
-        
     }
 
     // ------------------------------------------------------------------

@@ -1,6 +1,7 @@
 using Kairos.Api.Config.Contracts;
 using Kairos.Api.Config.UnitOfWork;
 using Kairos.Api.Modules.Identity.Permissions.Seed;
+using Kairos.Api.Modules.Identity.UserPreference.Models;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
@@ -48,7 +49,12 @@ public sealed class UserMasterSeed(
                 UserModel? userByEmail =
                     await uow.UserRepository.GetByEmail(email);
 
-                // 1. Create the master user if neither username nor email exists.
+                UserModel masterUser;
+
+                // ----------------------------------------------------------
+                // 1. Create master user if it does not exist
+                // ----------------------------------------------------------
+
                 if (userByUserName is null && userByEmail is null)
                 {
                     UserModel user = new()
@@ -69,52 +75,74 @@ public sealed class UserMasterSeed(
                         createResult,
                         "Could not create the master user.");
 
+                    masterUser = user;
                     action = "created";
-
-                    return;
                 }
-
-                // 2. Ensure the configured username and email belong to the same user.
-                if (userByUserName is null ||
-                    userByEmail is null ||
-                    userByUserName.Id != userByEmail.Id)
+                else
                 {
-                    throw new InvalidOperationException(
-                        "The configured master username or email " +
-                        "belongs to a different user.");
+                    // ------------------------------------------------------
+                    // 2. Ensure username and email belong to the same user
+                    // ------------------------------------------------------
+
+                    if (userByUserName is null ||
+                        userByEmail is null ||
+                        userByUserName.Id != userByEmail.Id)
+                    {
+                        throw new InvalidOperationException(
+                            "The configured master username or email " +
+                            "belongs to a different user.");
+                    }
+
+                    masterUser = userByUserName;
+
+                    // ------------------------------------------------------
+                    // 3. Synchronize master user permissions
+                    // ------------------------------------------------------
+
+                    bool permissionsChanged =
+                        masterUser.Permissions is null ||
+                        !masterUser.Permissions
+                            .OrderBy(permission => permission, StringComparer.OrdinalIgnoreCase)
+                            .SequenceEqual(
+                                permissions.OrderBy(
+                                    permission => permission,
+                                    StringComparer.OrdinalIgnoreCase),
+                                StringComparer.OrdinalIgnoreCase);
+
+                    if (permissionsChanged)
+                    {
+                        masterUser.Permissions = permissions;
+
+                        IdentityResult updateResult =
+                            await uow.UserRepository.Update(masterUser);
+
+                        EnsureSucceeded(
+                            updateResult,
+                            "Could not update the master user's permissions.");
+
+                        action = "updated";
+                    }
                 }
 
-                UserModel masterUser = userByUserName;
+                // ----------------------------------------------------------
+                // 4. Ensure master user preferences exist
+                // ----------------------------------------------------------
 
-                // 3. Check whether the permission array needs updating.
-                bool permissionsChanged =
-                    masterUser.Permissions is null ||
-                    !masterUser.Permissions
-                        .OrderBy(
-                            permission => permission,
-                            StringComparer.OrdinalIgnoreCase)
-                        .SequenceEqual(
-                            permissions.OrderBy(
-                                permission => permission,
-                                StringComparer.OrdinalIgnoreCase),
-                            StringComparer.OrdinalIgnoreCase);
+                UserPreferenceModel? existingPreference =
+                    await uow.UserPreferenceRepository.GetByUserIdAsync(
+                        masterUser.Id);
 
-                if (!permissionsChanged)
+                if (existingPreference is null)
                 {
-                    return;
+                    UserPreferenceModel preference = new()
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        UserId = masterUser.Id,
+                        CreatedAt = DateTimeOffset.UtcNow
+                    };
+
+                    await uow.UserPreferenceRepository.AddAsync(preference);
                 }
-
-                // 4. Update the master user's permission array.
-                masterUser.Permissions = permissions;
-
-                IdentityResult updateResult =
-                    await uow.UserRepository.Update(masterUser);
-
-                EnsureSucceeded(
-                    updateResult,
-                    "Could not update the master user's permissions.");
-
-                action = "updated";
             },
             cancellationToken);
 

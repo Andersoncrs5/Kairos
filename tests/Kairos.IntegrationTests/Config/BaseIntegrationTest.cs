@@ -374,6 +374,8 @@ public abstract class BaseIntegrationTest
         request.Headers.Add("X-Inbox-Id", inboxId);
 
         using var response = await Client.SendAsync(request);
+        
+        
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 

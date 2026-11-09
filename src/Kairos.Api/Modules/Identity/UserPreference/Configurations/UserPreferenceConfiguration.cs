@@ -38,8 +38,8 @@ public sealed class UserPreferenceConfiguration
 
         builder.HasOne(preference => preference.User)
             .WithOne()
-            .HasForeignKey<UserPreferenceModel>(
-                preference => preference.UserId);
+            .HasForeignKey<UserPreferenceModel>(preference => preference.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(preference => preference.UserId)
             .IsUnique()
