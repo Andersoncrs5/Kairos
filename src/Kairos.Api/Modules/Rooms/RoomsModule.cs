@@ -13,6 +13,12 @@ using Kairos.Api.Modules.Rooms.RoomBlockout.Services.Providers;
 using Kairos.Api.Modules.Rooms.RoomEquipment.Repositories;
 using Kairos.Api.Modules.Rooms.RoomEquipment.Services.Interfaces;
 using Kairos.Api.Modules.Rooms.RoomEquipment.Services.Providers;
+using Kairos.Api.Modules.Rooms.RoomFavorite.Repositories;
+using Kairos.Api.Modules.Rooms.RoomFavorite.Services.Interfaces;
+using Kairos.Api.Modules.Rooms.RoomFavorite.Services.Providers;
+using Kairos.Api.Modules.Rooms.RoomFeedback.Repositories;
+using Kairos.Api.Modules.Rooms.RoomFeedback.Services.Interfaces;
+using Kairos.Api.Modules.Rooms.RoomFeedback.Services.Providers;
 using Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
 using Kairos.Api.Modules.Rooms.RoomTypes.Services.Interface;
 using Kairos.Api.Modules.Rooms.RoomTypes.Services.Provider;
@@ -38,6 +44,8 @@ public static class RoomsModule
         services.AddScoped<IRoomRepository, RoomRepository>();
         services.AddScoped<IRoomBlockoutRepository, RoomBlockoutRepository>();
         services.AddScoped<IRoomOperatingHourRepository, RoomOperatingHourRepository>();
+        services.AddScoped<IRoomFavoriteRepository, RoomFavoriteRepository>();
+        services.AddScoped<IRoomFeedbackRepository, RoomFeedbackRepository>();
 
         // ---------------------------------------------------------------
         // RoomType use cases
@@ -111,6 +119,23 @@ public static class RoomsModule
         services.AddScoped<IFindRoomEquipmentByRoomAndEquipmentUseCase, FindRoomEquipmentByRoomAndEquipmentUseCase>();
         services.AddScoped<IExistsRoomEquipmentByRoomAndEquipmentUseCase, ExistsRoomEquipmentByRoomAndEquipmentUseCase>();
         services.AddScoped<IFindRoomEquipmentsByRoomIdUseCase, FindRoomEquipmentsByRoomIdUseCase>();
+        
+        // ---------------------------------------------------------------
+        // RoomFavorite use cases
+        // ---------------------------------------------------------------
+        services.AddScoped<IFindRoomFavoritesUseCase, FindRoomFavoritesUseCase>();
+        services.AddScoped<IAddRoomFavoriteUseCase, AddRoomFavoriteUseCase>();
+        services.AddScoped<IRemoveRoomFavoriteUseCase, RemoveRoomFavoriteUseCase>();
+        
+        // ---------------------------------------------------------------
+        // RoomFeedBack use cases
+        // ---------------------------------------------------------------
+        services.AddScoped<IFindRoomFeedbacksUseCase, FindRoomFeedbacksUseCase>();
+        services.AddScoped<IFindRoomFeedbackByIdUseCase, FindRoomFeedbackByIdUseCase>();
+        services.AddScoped<IGetRoomFeedbackSummaryUseCase, GetRoomFeedbackSummaryUseCase>();
+        services.AddScoped<ICreateRoomFeedbackUseCase, CreateRoomFeedbackUseCase>();
+        services.AddScoped<IUpdateRoomFeedbackUseCase, UpdateRoomFeedbackUseCase>();
+        services.AddScoped<IDeleteRoomFeedbackUseCase, DeleteRoomFeedbackUseCase>();
         
         return services;
     }
