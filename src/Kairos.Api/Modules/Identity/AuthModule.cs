@@ -7,6 +7,9 @@ using Kairos.Api.Modules.Identity.Permissions.Services.Provider;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Services.Interface;
 using Kairos.Api.Modules.Identity.PermissionUsers.Services.Provider;
+using Kairos.Api.Modules.Identity.UserPreference.Repositories;
+using Kairos.Api.Modules.Identity.UserPreference.Services.Interfaces;
+using Kairos.Api.Modules.Identity.UserPreference.Services.Providers;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Identity.Users.Repositories;
 using Kairos.Api.Modules.Identity.Users.Services.Interface;
@@ -33,12 +36,15 @@ public static class AuthModule
                 options.Password.RequireUppercase = true;
                 options.Password.RequireLowercase = true;
                 options.Password.RequireNonAlphanumeric = true;
+                
+                options.User.RequireUniqueEmail = true;
             })
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
 
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<IPermissionUserRepository, PermissionUserRepository>();
 
@@ -82,6 +88,14 @@ public static class AuthModule
         // Admin
         services.AddScoped<ISetUserActiveStatusUseCase, SetUserActiveStatusUseCase>();
 
+        // User Preference Use Cases
+        services.AddScoped<ICreateUserPreferenceUseCase, CreateUserPreferenceUseCase>();
+        services.AddScoped<IFindUserPreferenceUseCase, FindUserPreferenceUseCase>();
+        services.AddScoped<IUpdateUserPreferenceUseCase, UpdateUserPreferenceUseCase>();
+        services.AddScoped<IResetUserPreferenceUseCase, ResetUserPreferenceUseCase>();
+        services.AddScoped<IEnsureUserPreferenceUseCase, EnsureUserPreferenceUseCase>();
+        services.AddScoped<IExistsUserPreferenceByUserIdUseCase, ExistsUserPreferenceByUserIdUseCase>();
+        
         return services;
     }
 }
