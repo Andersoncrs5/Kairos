@@ -9,6 +9,52 @@ public class PermissionSeeder(IUnitOfWork uow) : IPermissionSeeder
     public static IReadOnlyList<PermissionsModel> Permissions { get; } =
         Array.AsReadOnly<PermissionsModel>(
         [
+            // ----------------------------------------------------------
+            // Room feedback
+            // ----------------------------------------------------------
+
+            CreatePermission(
+                "rooms.feedbacks.create",
+                "Create room feedback",
+                PermissionModuleEnum.Rooms,
+                "Allows reviewing rooms used in finished reservations."),
+
+            CreatePermission(
+                "rooms.feedbacks.read",
+                "Read room feedback",
+                PermissionModuleEnum.Rooms,
+                "Allows retrieving a room feedback by ID."),
+
+            CreatePermission(
+                "rooms.feedbacks.list",
+                "List room feedback",
+                PermissionModuleEnum.Rooms,
+                "Allows listing room feedback with filters and pagination."),
+
+            CreatePermission(
+                "rooms.feedbacks.update",
+                "Update room feedback",
+                PermissionModuleEnum.Rooms,
+                "Allows authors to update their own room feedback."),
+
+            CreatePermission(
+                "rooms.feedbacks.delete",
+                "Delete room feedback",
+                PermissionModuleEnum.Rooms,
+                "Allows authors to delete their own room feedback."),
+
+            CreatePermission(
+                "rooms.feedbacks.summary",
+                "View room rating summary",
+                PermissionModuleEnum.Rooms,
+                "Allows viewing the aggregated rating of a room."),
+
+            CreatePermission(
+                "rooms.feedbacks.manage",
+                "Manage room feedback",
+                PermissionModuleEnum.Rooms,
+                "Allows viewing and deleting room feedback written by any user."),
+            
             CreatePermission(
                 "rooms.feedbacks.manage",
                 "Manage room feedback",
