@@ -2,6 +2,7 @@ using Kairos.Api.Common.Base.Model;
 using Kairos.Api.Modules.Categories.Models;
 using Kairos.Api.Modules.Identity.Permissions.Models;
 using Kairos.Api.Modules.Identity.PermissionUsers.Models;
+using Kairos.Api.Modules.Identity.UserPreference.Models;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reservations.Reservation.Models;
@@ -54,6 +55,7 @@ public class AppDbContext(DbContextOptions options)
     public DbSet<RoomFavoriteModel> RoomFavorites => Set<RoomFavoriteModel>();
     
     public DbSet<RoomFeedbackModel> RoomFeedbacks => Set<RoomFeedbackModel>();
+    public DbSet<UserPreferenceModel> UserPreferences => Set<UserPreferenceModel>();
 
     // ---------------------------------------------------------------
     // SaveChanges
