@@ -6,6 +6,7 @@ using Kairos.Api.Config.Observability;
 using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
+using Kairos.Api.Modules.Identity.UserPreference.Repositories;
 using Kairos.Api.Modules.Identity.Users.Repositories;
 using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reliability.Inbox.Repository;
@@ -40,7 +41,8 @@ public sealed class UnitOfWork(
     IRoomOperatingHourRepository roomOperatingHourRepository,
     IEquipmentRepository equipmentRepository,
     IRoomEquipmentRepository roomEquipmentRepository,
-    IReservationAttendeeRepository reservationAttendeeRepository
+    IReservationAttendeeRepository reservationAttendeeRepository,
+    IUserPreferenceRepository userPreferenceRepository
 ) : IUnitOfWork
 {
     public IUserRepository UserRepository => userRepository;
@@ -58,6 +60,7 @@ public sealed class UnitOfWork(
     public IReservationAttendeeRepository ReservationAttendeeRepository => reservationAttendeeRepository;
     public IRoomFavoriteRepository RoomFavoriteRepository => roomFavoriteRepository;
     public IRoomFeedbackRepository RoomFeedbackRepository => roomFeedbackRepository;
+    public IUserPreferenceRepository UserPreferenceRepository => userPreferenceRepository;
 
     public Task<int> CommitAsync(
         CancellationToken cancellationToken = default)

@@ -2,6 +2,7 @@ using Kairos.Api.Common.Result;
 using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
+using Kairos.Api.Modules.Identity.UserPreference.Repositories;
 using Kairos.Api.Modules.Identity.Users.Repositories;
 using Kairos.Api.Modules.Reliability.Inbox.Repository;
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
@@ -21,6 +22,7 @@ namespace Kairos.Api.Config.UnitOfWork;
 public interface IUnitOfWork
 {
     IRoomOperatingHourRepository RoomOperatingHourRepository { get; }
+    IUserPreferenceRepository UserPreferenceRepository { get; }
     IReservationAttendeeRepository ReservationAttendeeRepository { get; }
     IEquipmentRepository EquipmentRepository { get; }
     IRoomEquipmentRepository RoomEquipmentRepository { get; }
