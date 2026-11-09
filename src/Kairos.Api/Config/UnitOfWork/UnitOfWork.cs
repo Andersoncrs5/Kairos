@@ -15,6 +15,8 @@ using Kairos.Api.Modules.Rooms.Equipment.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
 using Kairos.Api.Modules.Rooms.RoomEquipment.Repositories;
+using Kairos.Api.Modules.Rooms.RoomFavorite.Repositories;
+using Kairos.Api.Modules.Rooms.RoomFeedback.Repositories;
 using Kairos.Api.Modules.Rooms.RoomOperatingHour.Repository;
 using Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +26,8 @@ namespace Kairos.Api.Config.UnitOfWork;
 
 public sealed class UnitOfWork(
     AppDbContext context,
+    IRoomFavoriteRepository roomFavoriteRepository,
+    IRoomFeedbackRepository roomFeedbackRepository,
     IUserRepository userRepository,
     IPermissionRepository permissionRepository,
     IPermissionUserRepository permissionUserRepository,
@@ -52,6 +56,8 @@ public sealed class UnitOfWork(
     public IEquipmentRepository EquipmentRepository => equipmentRepository;
     public IRoomEquipmentRepository RoomEquipmentRepository => roomEquipmentRepository;
     public IReservationAttendeeRepository ReservationAttendeeRepository => reservationAttendeeRepository;
+    public IRoomFavoriteRepository RoomFavoriteRepository => roomFavoriteRepository;
+    public IRoomFeedbackRepository RoomFeedbackRepository => roomFeedbackRepository;
 
     public Task<int> CommitAsync(
         CancellationToken cancellationToken = default)

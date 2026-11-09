@@ -10,6 +10,8 @@ using Kairos.Api.Modules.Rooms.Equipment.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
 using Kairos.Api.Modules.Rooms.RoomEquipment.Repositories;
+using Kairos.Api.Modules.Rooms.RoomFavorite.Repositories;
+using Kairos.Api.Modules.Rooms.RoomFeedback.Repositories;
 using Kairos.Api.Modules.Rooms.RoomOperatingHour.Repository;
 using Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -38,6 +40,8 @@ public interface IUnitOfWork
 
     IReservationRepository ReservationRepository { get; }
     IInboxRepository InboxRepository { get; }
+    IRoomFavoriteRepository RoomFavoriteRepository { get; }
+    IRoomFeedbackRepository RoomFeedbackRepository { get; }
 
     Task<int> CommitAsync(
         CancellationToken cancellationToken = default);
