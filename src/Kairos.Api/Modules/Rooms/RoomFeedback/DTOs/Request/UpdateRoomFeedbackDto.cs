@@ -3,9 +3,6 @@ using Kairos.Api.Common.Enums;
 
 namespace Kairos.Api.Modules.Rooms.RoomFeedback.DTOs.Request;
 
-/// <summary>
-/// Substituição completa (PUT): Comment e IssueType nulos limpam o valor atual.
-/// </summary>
 public sealed class UpdateRoomFeedbackDto
 {
     [Required(ErrorMessage = "Room feedback rating is required.")]

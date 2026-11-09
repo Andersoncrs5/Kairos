@@ -43,6 +43,14 @@ public class PermissionSeedTest
         // Arrange
         string[] expectedCodes =
         [
+            // Room feedbacks
+            "rooms.feedbacks.manage",
+
+            // Room favorites
+            "rooms.favorites.create",
+            "rooms.favorites.delete",
+            "rooms.favorites.list",
+            
             // Room equipments
             "rooms.equipments.create",
             "rooms.equipments.read",
@@ -519,4 +527,40 @@ public class PermissionSeedTest
                 cts.Token),
             Times.Once);
     }
+    
+    [Theory]
+    [InlineData(
+        "rooms.feedbacks.manage",
+        "Manage room feedback",
+        "Allows viewing and deleting room feedback written by any user.")]
+    [InlineData(
+        "rooms.favorites.create",
+        "Favorite rooms",
+        "Allows adding rooms to the user's favorites.")]
+    [InlineData(
+        "rooms.favorites.delete",
+        "Unfavorite rooms",
+        "Allows removing rooms from the user's favorites.")]
+    [InlineData(
+        "rooms.favorites.list",
+        "List favorite rooms",
+        "Allows listing the user's favorite rooms with filters and pagination.")]
+    public void Permissions_ShouldHaveCorrectMetadataForRoomFeatures(
+        string code,
+        string expectedName,
+        string expectedDescription)
+    {
+        // Arrange & Act
+        PermissionsModel permission = PermissionSeeder.Permissions
+            .Single(permission => permission.Code == code);
+
+        // Assert
+        permission.Name.Should().Be(expectedName);
+        permission.Description.Should().Be(expectedDescription);
+        permission.Module.Should().Be(PermissionModuleEnum.Rooms);
+        permission.IsSystem.Should().BeTrue();
+        permission.IsActive.Should().BeTrue();
+        permission.CreatedAt.Should().NotBe(default);
+    }
+    
 }

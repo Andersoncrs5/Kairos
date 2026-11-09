@@ -9,6 +9,34 @@ public class PermissionSeeder(IUnitOfWork uow) : IPermissionSeeder
     public static IReadOnlyList<PermissionsModel> Permissions { get; } =
         Array.AsReadOnly<PermissionsModel>(
         [
+            CreatePermission(
+                "rooms.feedbacks.manage",
+                "Manage room feedback",
+                PermissionModuleEnum.Rooms,
+                "Allows viewing and deleting room feedback written by any user."),
+            
+            // ----------------------------------------------------------
+            // Room favorites
+            // ----------------------------------------------------------
+
+            CreatePermission(
+                "rooms.favorites.create",
+                "Favorite rooms",
+                PermissionModuleEnum.Rooms,
+                "Allows adding rooms to the user's favorites."),
+
+            CreatePermission(
+                "rooms.favorites.delete",
+                "Unfavorite rooms",
+                PermissionModuleEnum.Rooms,
+                "Allows removing rooms from the user's favorites."),
+
+            CreatePermission(
+                "rooms.favorites.list",
+                "List favorite rooms",
+                PermissionModuleEnum.Rooms,
+                "Allows listing the user's favorite rooms with filters and pagination."),
+            
             // ----------------------------------------------------------
             // Room equipments
             // ----------------------------------------------------------
