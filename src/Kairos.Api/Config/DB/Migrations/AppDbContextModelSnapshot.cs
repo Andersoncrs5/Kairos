@@ -212,6 +212,126 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.ToTable("permissions", (string)null);
                 });
 
+            modelBuilder.Entity("Kairos.Api.Modules.Identity.UserPreference.Models.UserPreferenceModel", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AnimationsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("animations_enabled");
+
+                    b.Property<bool>("CompactMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("compact_mode");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("EmailNotificationsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("email_notifications_enabled");
+
+                    b.Property<bool>("HighContrast")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("high_contrast");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("pt-BR")
+                        .HasColumnName("language");
+
+                    b.Property<bool>("NotificationsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("notifications_enabled");
+
+                    b.Property<bool>("ReducedMotion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("reduced_motion");
+
+                    b.Property<bool>("ReservationRemindersEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("reservation_reminders_enabled");
+
+                    b.Property<bool>("ReservationUpdatesEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("reservation_updates_enabled");
+
+                    b.Property<bool>("SidebarCollapsed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("sidebar_collapsed");
+
+                    b.Property<string>("Theme")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("System")
+                        .HasColumnName("theme");
+
+                    b.Property<string>("TimeFormat")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("Hour24")
+                        .HasColumnName("time_format");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("America/Fortaleza")
+                        .HasColumnName("time_zone_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("p_k_user_preferences");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_user_preferences_user_id");
+
+                    b.ToTable("user_preferences", (string)null);
+                });
+
             modelBuilder.Entity("Kairos.Api.Modules.Identity.Users.Models.UserModel", b =>
                 {
                     b.Property<string>("Id")
@@ -1316,6 +1436,18 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasConstraintName("f_k_permissions_users_app_users_user_id");
 
                     b.Navigation("Permissions");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Kairos.Api.Modules.Identity.UserPreference.Models.UserPreferenceModel", b =>
+                {
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "User")
+                        .WithOne()
+                        .HasForeignKey("Kairos.Api.Modules.Identity.UserPreference.Models.UserPreferenceModel", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_user_preferences_app_users_user_id");
 
                     b.Navigation("User");
                 });

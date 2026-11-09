@@ -269,6 +269,40 @@ namespace Kairos.Api.Config.DB.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "user_preferences",
+                columns: table => new
+                {
+                    id = table.Column<string>(type: "text", nullable: false),
+                    user_id = table.Column<string>(type: "text", nullable: false),
+                    theme = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false, defaultValue: "System"),
+                    compact_mode = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    reduced_motion = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    high_contrast = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    sidebar_collapsed = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    animations_enabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    language = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false, defaultValue: "pt-BR"),
+                    time_zone_id = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false, defaultValue: "America/Fortaleza"),
+                    time_format = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false, defaultValue: "Hour24"),
+                    notifications_enabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    email_notifications_enabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    reservation_reminders_enabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    reservation_updates_enabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    version = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("p_k_user_preferences", x => x.id);
+                    table.ForeignKey(
+                        name: "f_k_user_preferences_app_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "app_users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "permissions_users",
                 columns: table => new
                 {
@@ -827,6 +861,12 @@ namespace Kairos.Api.Config.DB.Migrations
                 name: "i_x_rooms_room_type_id",
                 table: "rooms",
                 column: "room_type_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_user_preferences_user_id",
+                table: "user_preferences",
+                column: "user_id",
+                unique: true);
         }
 
         /// <inheritdoc />
@@ -870,6 +910,9 @@ namespace Kairos.Api.Config.DB.Migrations
 
             migrationBuilder.DropTable(
                 name: "room_operating_hours");
+
+            migrationBuilder.DropTable(
+                name: "user_preferences");
 
             migrationBuilder.DropTable(
                 name: "app_roles");
