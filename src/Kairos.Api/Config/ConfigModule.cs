@@ -6,6 +6,7 @@ using Kairos.Api.Config.DB.Transaction;
 using Kairos.Api.Config.Health;
 using Kairos.Api.Config.Http;
 using Kairos.Api.Config.Options;
+using Kairos.Api.Config.RateLimiting;
 using Kairos.Api.Config.Swagger;
 using Kairos.Api.Config.UnitOfWork;
 using Kairos.Api.Config.Version;
@@ -55,6 +56,9 @@ public static class ConfigModule
         services.AddHttpHardeningConfig();
         
         services.AddOutputCacheConfig();
+        
+        services.AddRateLimitingOptionsConfig();
+        services.AddRateLimitingConfig();
         
         // Transactions
         services.AddScoped(

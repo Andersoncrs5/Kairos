@@ -6,12 +6,14 @@ using Kairos.Api.Config.Cors.Contracts;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Config.Health;
 using Kairos.Api.Config.Observability;
+using Kairos.Api.Config.RateLimiting;
 using Kairos.Api.Config.Swagger;
 using Kairos.Api.Modules.Categories;
 using Kairos.Api.Modules.Identity;
 using Kairos.Api.Modules.Reliability;
 using Kairos.Api.Modules.Reservations;
 using Kairos.Api.Modules.Rooms;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -31,17 +33,13 @@ builder.Host.UseSerilog((context, services, loggerConfiguration) =>
             context.Configuration,
             context.HostingEnvironment));
 
-builder.Services.AddObservabilityConfig(
-    builder.Configuration,
-    builder.Environment);
+builder.Services.AddObservabilityConfig(builder.Configuration, builder.Environment);
 
 // ==========================================
 // Infrastructure
 // ==========================================
 
-builder.Services.AddDatabase(
-    builder.Configuration,
-    builder.Environment);
+builder.Services.AddDatabase(builder.Configuration, builder.Environment);
 
 builder.Services.AddProblemDetails();
 
@@ -57,6 +55,11 @@ builder.Services
     .AddReliabilityModule()
     .AddAuthModule();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // ==========================================
@@ -64,6 +67,13 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 // ==========================================
 
 WebApplication app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseRateLimiter();
+    app.UseForwardedHeaders();
+    app.UseRateLimitingConfig();
+}
 
 // ==========================================
 // Swagger
@@ -96,12 +106,8 @@ app.UseAuthentication();
 
 app.UseAuthorization();
 
-app.UseExceptionHandler();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseRateLimiter();
-}
+app.UseExceptionHandler();
 
 app.UseOutputCache();
 
@@ -134,6 +140,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 app.MapControllers();
 
 app.MapHealthChecksConfig();
+
 
 // ==========================================
 // Run

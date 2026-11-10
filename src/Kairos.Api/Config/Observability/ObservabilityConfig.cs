@@ -171,6 +171,8 @@ public static class ObservabilityConfig
         {
             metrics.AddNpgsqlInstrumentation();
         }
+        
+        metrics.AddMeter("Microsoft.AspNetCore.RateLimiting");
 
         metrics.AddOtlpExporter((exporter, reader) =>
         {
@@ -244,4 +246,6 @@ public static class ObservabilityConfig
                    .Get<ObservabilityOptions>()
                ?? new ObservabilityOptions();
     }
+    
+    
 }
