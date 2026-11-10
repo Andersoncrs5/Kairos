@@ -4,6 +4,7 @@ using Kairos.Api.Config.Bootstrap;
 using Kairos.Api.Config.Cors;
 using Kairos.Api.Config.DB.Transaction;
 using Kairos.Api.Config.Health;
+using Kairos.Api.Config.Http;
 using Kairos.Api.Config.Options;
 using Kairos.Api.Config.Swagger;
 using Kairos.Api.Config.UnitOfWork;
@@ -50,6 +51,10 @@ public static class ConfigModule
         // CORS
         services.AddCorsOptionsConfig();
         services.AddCorsConfig();
+        
+        services.AddHttpHardeningConfig();
+        
+        services.AddOutputCacheConfig();
         
         // Transactions
         services.AddScoped(
