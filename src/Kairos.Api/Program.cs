@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using Kairos.Api.Common.Middleware;
 using Kairos.Api.Config;
 using Kairos.Api.Config.Bootstrap;
@@ -11,6 +12,7 @@ using Kairos.Api.Modules.Identity;
 using Kairos.Api.Modules.Reliability;
 using Kairos.Api.Modules.Reservations;
 using Kairos.Api.Modules.Rooms;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -55,6 +57,8 @@ builder.Services
     .AddReliabilityModule()
     .AddAuthModule();
 
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
 // ==========================================
 // Application
 // ==========================================
@@ -83,11 +87,28 @@ app.UseCors(CorsOptions.PolicyName);
 
 app.UseHttpsRedirection();
 
+app.UseResponseCompression();
+
 app.UseMiddleware<RequireInboxIdMiddleware>();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+app.UseExceptionHandler();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseRateLimiter();
+}
+
+app.UseOutputCache();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
 
 // ==========================================
 // Database Migration & Bootstrap
