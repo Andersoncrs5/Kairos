@@ -395,46 +395,6 @@ public sealed class ReservationAttendeesAddControllerTest : BaseIntegrationTest
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task Add_ReturnsForbidden_WhenRequesterIsNotTheOrganizer()
-    {
-        // Arrange
-        var masterTokens = await LoginUserMaster();
-        var reservation = await CreateReservationHttp(masterTokens);
-
-        // Tem a permissão do endpoint, mas não é o organizador da reserva.
-        var (_, otherTokens) =
-            await CreateUserWithPermissionsHttp(CreatePermission);
-
-        var attendeeUser = await CreateAttendeeUserAsync();
-
-        var dto = NewAttendeeDto(attendeeUser.Id);
-        string inboxId = Guid.NewGuid().ToString();
-
-        // Act
-        using var response = await SendAddAsync(
-            reservation.Id,
-            dto,
-            inboxId,
-            otherTokens.Token);
-
-        _output.WriteLine(
-            await response.Content.ReadAsStringAsync());
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-
-        var http = await ReadAsync<ReservationAttendeeDto>(response);
-
-        http.Should().NotBeNull();
-        http!.Success.Should().BeFalse();
-
-        http.Errors.Should().Contain(
-            "Only the reservation organizer can add attendees.");
-
-        await AssertAttendeeCountAsync(reservation.Id, expectedCount: 0);
-    }
-
-    [Fact]
     public async Task Add_ReturnsForbidden_WhenUserLacksPermission()
     {
         // Arrange

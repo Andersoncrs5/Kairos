@@ -14,8 +14,9 @@ public sealed class RequireInboxIdMiddleware(RequestDelegate next)
             await next(context);
             return;
         }
-        
-        if (context.Request.Path.StartsWithSegments("/api") && string.IsNullOrWhiteSpace(context.Request.Headers[HeaderName]))
+
+        if (context.Request.Path.StartsWithSegments("/api") &&
+            string.IsNullOrWhiteSpace(context.Request.Headers[HeaderName]))
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
 

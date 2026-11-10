@@ -50,6 +50,7 @@
 
   <ItemGroup>
     <Folder Include="Common\Extensions\" />
+    <Folder Include="Config\Logs\" />
     <Folder Include="Modules\Categories\Configurations\" />
     <Folder Include="Modules\Categories\Models\" />
     <Folder Include="Modules\Identity\Admin\Services\Interfaces\" />

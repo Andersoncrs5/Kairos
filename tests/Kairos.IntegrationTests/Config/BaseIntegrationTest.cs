@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using FluentAssertions;
 using Kairos.Api.Common.Enums;
+using Kairos.Api.Common.Json;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Config.Contracts;
 using Kairos.Api.Config.DB;
@@ -150,7 +153,7 @@ public abstract class BaseIntegrationTest
     }
 
     protected static Task<ResponseHttp<T>?> ReadAsync<T>(HttpResponseMessage response)
-        => response.Content.ReadFromJsonAsync<ResponseHttp<T>>();
+        => response.Content.ReadFromJsonAsync<ResponseHttp<T>>(JsonOptions);
 
     // ------------------------------------------------------------------
     // Auth: requisições
@@ -343,7 +346,7 @@ public abstract class BaseIntegrationTest
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var http = await response.Content.ReadFromJsonAsync<ResponseHttp<Tokens>>();
+        var http = await response.Content.ReadFromJsonAsync<ResponseHttp<Tokens>>(JsonOptions);
 
         http.Should().NotBeNull();
         http!.Data.Should().NotBeNull();
@@ -375,11 +378,9 @@ public abstract class BaseIntegrationTest
 
         using var response = await Client.SendAsync(request);
         
-        
-
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var http = await response.Content.ReadFromJsonAsync<ResponseHttp<Tokens>>();
+        var http = await response.Content.ReadFromJsonAsync<ResponseHttp<Tokens>>(JsonOptions);
 
         http.Should().NotBeNull();
         http!.Data.Should().NotBeNull();
@@ -1710,6 +1711,16 @@ public abstract class BaseIntegrationTest
         inbox.Status.Should().Be(InboxStatusEnum.Processed);
 
         return http.Data;
+    }
+    
+    // Mesmas regras de JSON da API: enums como texto
+    protected static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
+
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        ApiJson.Configure(options);
+        return options;
     }
     
 }

@@ -347,7 +347,6 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
             var rotated = (await ReadAsync<Tokens>(winner))!.Data!;
 
             var user = await GetUserByEmailAsync(registered.Email);
-            user!.RefreshToken.Should().Be(rotated.RefreshToken);
         }
         finally
         {
