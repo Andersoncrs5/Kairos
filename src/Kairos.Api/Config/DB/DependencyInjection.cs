@@ -116,8 +116,9 @@ public static class DependencyInjection
                                 postgresSettings.MaxRetryDelaySeconds),
                             errorCodesToAdd: null);
 
-                        npgsql.CommandTimeout(
-                            postgresSettings.CommandTimeoutSeconds);
+                        npgsql.CommandTimeout(postgresSettings.CommandTimeoutSeconds);
+                        
+                        npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
                     });
 
                 if (postgresSettings.EnableLocking)
