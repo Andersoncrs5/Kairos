@@ -12,6 +12,9 @@ namespace Kairos.Api.Config.DB.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:PostgresExtension:btree_gist", ",,");
+
             migrationBuilder.CreateTable(
                 name: "app_roles",
                 columns: table => new
@@ -71,6 +74,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     icon = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     display_order = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -89,6 +93,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     description = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -116,6 +121,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     last_error = table.Column<string>(type: "text", nullable: true),
                     locked_by = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     correlation_id = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -136,6 +142,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     is_system = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     description = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -153,6 +160,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     description = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false, defaultValue: 1L),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -287,6 +295,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     email_notifications_enabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     reservation_reminders_enabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     reservation_updates_enabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -299,7 +308,7 @@ namespace Kairos.Api.Config.DB.Migrations
                         column: x => x.user_id,
                         principalTable: "app_users",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -310,6 +319,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     user_id = table.Column<string>(type: "text", nullable: false),
                     permission_id = table.Column<string>(type: "text", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -347,6 +357,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     is_accessible = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     is_reservable = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -383,6 +394,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     cancellation_reason = table.Column<string>(type: "text", nullable: true),
                     checked_in_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     checked_out_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -433,6 +445,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     cancellation_reason = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     cancelled_by = table.Column<string>(type: "text", nullable: true),
                     created_by = table.Column<string>(type: "text", nullable: false),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -470,6 +483,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     equipment_id = table.Column<string>(type: "character varying(36)", maxLength: 36, nullable: false),
                     quantity = table.Column<int>(type: "integer", nullable: false, defaultValue: 1),
                     notes = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -488,7 +502,7 @@ namespace Kairos.Api.Config.DB.Migrations
                         column: x => x.room_id,
                         principalTable: "rooms",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -498,6 +512,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     id = table.Column<string>(type: "text", nullable: false),
                     user_id = table.Column<string>(type: "text", nullable: false),
                     room_id = table.Column<string>(type: "text", nullable: false),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -510,13 +525,13 @@ namespace Kairos.Api.Config.DB.Migrations
                         column: x => x.user_id,
                         principalTable: "app_users",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "f_k_room_favorites_rooms_room_id",
                         column: x => x.room_id,
                         principalTable: "rooms",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -531,6 +546,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     is_closed = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     notes = table.Column<string>(type: "text", nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -543,7 +559,7 @@ namespace Kairos.Api.Config.DB.Migrations
                         column: x => x.room_id,
                         principalTable: "rooms",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -559,6 +575,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     responded_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     response_note = table.Column<string>(type: "text", nullable: true),
                     checked_in_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -597,6 +614,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     rating = table.Column<int>(type: "integer", nullable: false),
                     comment = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     issue_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     version = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)

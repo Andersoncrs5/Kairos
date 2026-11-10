@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Kairos.Api.Config.DB.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261109191925_InitMigrations")]
+    [Migration("20261110000401_InitMigrations")]
     partial class InitMigrations
     {
         /// <inheritdoc />
@@ -23,6 +23,7 @@ namespace Kairos.Api.Config.DB.Migrations
                 .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "btree_gist");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Kairos.Api.Modules.Categories.Models.CategoryModel", b =>
@@ -79,9 +80,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("updated_at");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_categories");
@@ -134,9 +140,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("user_id");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_permissions_users");
@@ -201,9 +212,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("updated_at");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_permissions");
@@ -321,9 +337,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("user_id");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_user_preferences");
@@ -532,9 +553,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("updated_at");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_inbox_messages");
@@ -633,9 +659,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("user_id");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_reservations");
@@ -712,9 +743,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("user_id");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_reservation_attendees");
@@ -770,9 +806,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("updated_at");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_equipments");
@@ -866,9 +907,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("updated_at");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_rooms");
@@ -957,9 +1003,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("updated_at");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_room_blockouts");
@@ -1023,9 +1074,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("updated_at");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_room_equipments");
@@ -1065,9 +1121,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("user_id");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_room_favorites");
@@ -1126,9 +1187,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("user_id");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_room_feedbacks");
@@ -1197,9 +1263,14 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("updated_at");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_room_operating_hours");
@@ -1242,11 +1313,16 @@ namespace Kairos.Api.Config.DB.Migrations
                         .HasColumnName("updated_at");
 
                     b.Property<long>("Version")
-                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint")
                         .HasDefaultValue(1L)
                         .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("p_k_room_types");
@@ -1448,7 +1524,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "User")
                         .WithOne()
                         .HasForeignKey("Kairos.Api.Modules.Identity.UserPreference.Models.UserPreferenceModel", "UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("f_k_user_preferences_app_users_user_id");
 
@@ -1575,7 +1651,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", "Room")
                         .WithMany()
                         .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("f_k_room_equipments_rooms_room_id");
 
@@ -1589,14 +1665,14 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", "Room")
                         .WithMany()
                         .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("f_k_room_favorites_rooms_room_id");
 
                     b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("f_k_room_favorites_app_users_user_id");
 
@@ -1640,7 +1716,7 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", "Room")
                         .WithMany()
                         .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("f_k_room_operating_hours_rooms_room_id");
 
