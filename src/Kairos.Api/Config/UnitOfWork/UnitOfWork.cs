@@ -3,6 +3,7 @@ using Kairos.Api.Common.Enums;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Config.Observability;
+using Kairos.Api.Config.Storage;
 using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
@@ -11,6 +12,7 @@ using Kairos.Api.Modules.Identity.Users.Repositories;
 using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reliability.Inbox.Repository;
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
+using Kairos.Api.Modules.Reservations.ReservationAttachment.Repositories;
 using Kairos.Api.Modules.Reservations.ReservationAttendees.Repositories;
 using Kairos.Api.Modules.Rooms.Equipment.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
@@ -42,7 +44,9 @@ public sealed class UnitOfWork(
     IEquipmentRepository equipmentRepository,
     IRoomEquipmentRepository roomEquipmentRepository,
     IReservationAttendeeRepository reservationAttendeeRepository,
-    IUserPreferenceRepository userPreferenceRepository
+    IUserPreferenceRepository userPreferenceRepository,
+    IReservationAttachmentRepository reservationAttachmentRepository,
+    IFileStorageService fileStorageService
 ) : IUnitOfWork
 {
     public IUserRepository UserRepository => userRepository;
@@ -61,6 +65,8 @@ public sealed class UnitOfWork(
     public IRoomFavoriteRepository RoomFavoriteRepository => roomFavoriteRepository;
     public IRoomFeedbackRepository RoomFeedbackRepository => roomFeedbackRepository;
     public IUserPreferenceRepository UserPreferenceRepository => userPreferenceRepository;
+    public IFileStorageService FileStorageService => fileStorageService;
+    public IReservationAttachmentRepository ReservationAttachmentRepository => reservationAttachmentRepository;
 
     public Task<int> CommitAsync(
         CancellationToken cancellationToken = default)

@@ -1,4 +1,5 @@
 using Kairos.Api.Common.Result;
+using Kairos.Api.Config.Storage;
 using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
@@ -6,6 +7,7 @@ using Kairos.Api.Modules.Identity.UserPreference.Repositories;
 using Kairos.Api.Modules.Identity.Users.Repositories;
 using Kairos.Api.Modules.Reliability.Inbox.Repository;
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
+using Kairos.Api.Modules.Reservations.ReservationAttachment.Repositories;
 using Kairos.Api.Modules.Reservations.ReservationAttendees.Repositories;
 using Kairos.Api.Modules.Rooms.Equipment.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
@@ -21,6 +23,7 @@ namespace Kairos.Api.Config.UnitOfWork;
 
 public interface IUnitOfWork
 {
+    IFileStorageService FileStorageService { get; }
     IRoomOperatingHourRepository RoomOperatingHourRepository { get; }
     IUserPreferenceRepository UserPreferenceRepository { get; }
     IReservationAttendeeRepository ReservationAttendeeRepository { get; }
@@ -44,6 +47,7 @@ public interface IUnitOfWork
     IInboxRepository InboxRepository { get; }
     IRoomFavoriteRepository RoomFavoriteRepository { get; }
     IRoomFeedbackRepository RoomFeedbackRepository { get; }
+    IReservationAttachmentRepository ReservationAttachmentRepository { get; }
 
     Task<int> CommitAsync(
         CancellationToken cancellationToken = default);
