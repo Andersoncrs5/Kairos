@@ -18,7 +18,7 @@ public sealed class ReservationAttendeeRepository(AppDbContext context)
         string userId,
         CancellationToken ct = default)
     {
-        return context.Set<ReservationAttendeeModel>()
+        return context.ReservationAttendees
             .SingleOrDefaultAsync(
                 attendee =>
                     attendee.ReservationId == reservationId &&
@@ -32,7 +32,7 @@ public sealed class ReservationAttendeeRepository(AppDbContext context)
         string reservationId,
         CancellationToken ct = default)
     {
-        return context.Set<ReservationAttendeeModel>()
+        return context.ReservationAttendees
             .SingleOrDefaultAsync(
                 attendee =>
                     attendee.Id == attendeeId &&
@@ -44,7 +44,7 @@ public sealed class ReservationAttendeeRepository(AppDbContext context)
         string reservationId,
         CancellationToken ct = default)
     {
-        return await context.Set<ReservationAttendeeModel>()
+        return await context.ReservationAttendees
             .AsNoTracking()
             .Include(attendee => attendee.User)
             .Where(attendee => attendee.ReservationId == reservationId)
@@ -58,7 +58,7 @@ public sealed class ReservationAttendeeRepository(AppDbContext context)
         string userId,
         CancellationToken ct = default)
     {
-        return context.Set<ReservationAttendeeModel>()
+        return context.ReservationAttendees
             .AsNoTracking()
             .AnyAsync(
                 attendee =>
@@ -71,7 +71,7 @@ public sealed class ReservationAttendeeRepository(AppDbContext context)
         string reservationId,
         CancellationToken ct = default)
     {
-        return context.Set<ReservationAttendeeModel>()
+        return context.ReservationAttendees
             .AsNoTracking()
             .CountAsync(
                 attendee =>
@@ -87,7 +87,7 @@ public sealed class ReservationAttendeeRepository(AppDbContext context)
         ArgumentNullException.ThrowIfNull(dto);
 
         IQueryable<ReservationAttendeeModel> query =
-            context.Set<ReservationAttendeeModel>()
+            context.ReservationAttendees
                 .AsNoTracking()
                 .Include(x => x.Reservation)
                 .Include(x => x.User)
