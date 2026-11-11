@@ -5,6 +5,7 @@ using Kairos.Api.Config.Bootstrap;
 using Kairos.Api.Config.Cors.Contracts;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Config.Health;
+using Kairos.Api.Config.LogConfigs;
 using Kairos.Api.Config.Observability;
 using Kairos.Api.Config.RateLimiting;
 using Kairos.Api.Config.Swagger;
@@ -24,14 +25,7 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 // Logging & Observability
 // ==========================================
 
-builder.Host.UseSerilog((context, services, loggerConfiguration) =>
-    loggerConfiguration
-        .ReadFrom.Configuration(context.Configuration)
-        .Enrich.FromLogContext()
-        .WriteTo.Console()
-        .WriteToObservability(
-            context.Configuration,
-            context.HostingEnvironment));
+builder.Host.ConfigureSerilog();
 
 builder.Services.AddObservabilityConfig(builder.Configuration, builder.Environment);
 
