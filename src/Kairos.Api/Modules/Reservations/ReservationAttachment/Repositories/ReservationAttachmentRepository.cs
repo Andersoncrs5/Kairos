@@ -18,23 +18,18 @@ public sealed class ReservationAttachmentRepository(AppDbContext context)
         string storageKey,
         CancellationToken ct = default)
     {
-        return context.Set<ReservationAttachmentModel>()
-            .AsNoTracking()
-            .SingleOrDefaultAsync(
-                attachment => attachment.StorageKey == storageKey,
-                ct);
+        return context.ReservationAttachments.AsNoTracking()
+            .SingleOrDefaultAsync(attachment => attachment.StorageKey == storageKey, ct);
     }
     public Task<ReservationAttachmentModel?> GetByIdWithDetailsAsync(
         string attachmentId,
         CancellationToken ct = default)
     {
-        return context.Set<ReservationAttachmentModel>()
+        return context.ReservationAttachments
             .AsNoTracking()
             .Include(attachment => attachment.Reservation)
             .Include(attachment => attachment.Uploader)
-            .SingleOrDefaultAsync(
-                attachment => attachment.Id == attachmentId,
-                ct);
+            .SingleOrDefaultAsync(attachment => attachment.Id == attachmentId, ct);
     }
 
     public async Task<Page<ReservationAttachmentModel>> Find(
@@ -44,7 +39,7 @@ public sealed class ReservationAttachmentRepository(AppDbContext context)
         ArgumentNullException.ThrowIfNull(dto);
 
         IQueryable<ReservationAttachmentModel> query =
-            context.Set<ReservationAttachmentModel>()
+            context.ReservationAttachments
                 .AsNoTracking()
                 .Include(attachment => attachment.Reservation)
                 .Include(attachment => attachment.Uploader)
