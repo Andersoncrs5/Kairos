@@ -2,5 +2,12 @@ Tabela	Colunas-chave	Por quê
 BookingPolicies	scope (sala, tipo ou categoria), max_duration_min, min_advance_min, max_advance_days, max_per_user_per_day	Hoje qualquer um reserva qualquer duração e qualquer antecedência. Regras por tipo de sala evitam que alguém ocupe a sala de reunião o dia todo.
 Teams / TeamMembers	name, user_id, role	Reservar em nome de um departamento, limites por equipe e relatórios por área.
 ReservationHistory	reservation_id, from_status, to_status, changed_by, changed_at, reason	Linha do tempo da reserva, diferente do AuditLogs (que é genérico). Responde “quando foi confirmada, remarcada e cancelada”.
-RoomAttachments	room_id, type (foto, planta), storage_key, sort_order	Fotos e planta da sala para a tela de busca.
 MaintenanceTickets	room_id, reported_by, description, status, blockout_id	Problema na sala (projetor quebrado) abre um chamado e já cria o RoomBlockout correspondente.
+ReservationHistory
+RoomReservationPolicy
+Notifications e NotificationDeliveries
+OutboxMessages
+ReservationWaitlist
+ReservationSeries
+Buildings e Floors
+RoomAccess

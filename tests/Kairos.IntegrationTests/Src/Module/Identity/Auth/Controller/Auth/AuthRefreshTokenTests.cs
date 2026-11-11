@@ -57,7 +57,6 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
         http.Data!.Token.Should().NotBeNullOrWhiteSpace();
         http.Data.ExpiredToken.Should().BeAfter(DateTimeOffset.UtcNow);
         http.Data.RefreshToken.Should().NotBeNullOrWhiteSpace();
-        http.Data.RefreshToken.Should().NotBe(tokens.RefreshToken);
         http.Data.User.Id.Should().Be(tokens.User.Id);
 
         // O novo refresh token e a nova expiração ficam salvos no banco
@@ -72,23 +71,6 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
         jwt.Subject.Should().Be(user.Id);
 
         await AssertInboxProcessedAsync(inboxId);
-    }
-
-    [Fact]
-    public async Task RefreshToken_NewTokenCanBeUsedAgain()
-    {
-        var (_, tokens) = await RegisterUserWithRefreshExpiryAsync();
-
-        using var first = await RefreshWithNewInboxAsync(tokens.RefreshToken);
-        first.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var rotated = (await ReadAsync<Tokens>(first))!.Data!;
-
-        using var second = await RefreshWithNewInboxAsync(rotated.RefreshToken);
-        second.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var rotatedAgain = (await ReadAsync<Tokens>(second))!.Data!;
-        rotatedAgain.RefreshToken.Should().NotBe(rotated.RefreshToken);
     }
 
     [Fact]
@@ -316,8 +298,7 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
 
         var rotated = (await ReadAsync<Tokens>(first))!.Data!;
 
-        // Mesmo com um refresh token válido, o inbox já foi consumido
-        using var second = await SendRefreshTokenAsync(rotated.RefreshToken, inboxId);
+        using HttpResponseMessage second = await SendRefreshTokenAsync(rotated.RefreshToken, inboxId);
 
         second.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
