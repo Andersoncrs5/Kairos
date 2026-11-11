@@ -6,7 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Services.Interfaces;
 using Kairos.Api.Modules.Rooms.Room.Services.Providers;
-
+using Kairos.Api.Modules.Rooms.RoomAttachment.Repositories;
+using Kairos.Api.Modules.Rooms.RoomAttachment.Services.Interfaces;
+using Kairos.Api.Modules.Rooms.RoomAttachment.Services.Providers;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Services.Interfaces;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Services.Providers;
@@ -46,6 +48,7 @@ public static class RoomsModule
         services.AddScoped<IRoomOperatingHourRepository, RoomOperatingHourRepository>();
         services.AddScoped<IRoomFavoriteRepository, RoomFavoriteRepository>();
         services.AddScoped<IRoomFeedbackRepository, RoomFeedbackRepository>();
+        services.AddScoped<IRoomAttachmentRepository, RoomAttachmentRepository>();
 
         // ---------------------------------------------------------------
         // RoomType use cases
@@ -136,6 +139,13 @@ public static class RoomsModule
         services.AddScoped<ICreateRoomFeedbackUseCase, CreateRoomFeedbackUseCase>();
         services.AddScoped<IUpdateRoomFeedbackUseCase, UpdateRoomFeedbackUseCase>();
         services.AddScoped<IDeleteRoomFeedbackUseCase, DeleteRoomFeedbackUseCase>();
+        
+        services.AddScoped<IFindRoomAttachmentByIdUseCase, FindRoomAttachmentByIdUseCase>();
+        services.AddScoped<IFindRoomAttachmentUseCase, FindRoomAttachmentUseCase>();
+        services.AddScoped<IDownloadRoomAttachmentByIdUseCase, DownloadRoomAttachmentByIdUseCase>();
+        services.AddScoped<IDownloadRoomAttachmentByStorageKeyUseCase, DownloadRoomAttachmentByStorageKeyUseCase>();
+        services.AddScoped<IDeleteRoomAttachmentUseCase, DeleteRoomAttachmentUseCase>();
+        services.AddScoped<IUpdateRoomAttachmentUseCase, UpdateRoomAttachmentUseCase>();
         
         return services;
     }
