@@ -10,6 +10,41 @@ public class PermissionSeeder(IUnitOfWork uow) : IPermissionSeeder
         Array.AsReadOnly<PermissionsModel>(
         [
             // ----------------------------------------------------------
+            // Reservation attachments
+            // ----------------------------------------------------------
+            
+            CreatePermission(
+                "reservations.attachments.create",
+                "Upload reservation attachments",
+                PermissionModuleEnum.Reservations,
+                "Allows uploading attachments to a reservation."),
+            CreatePermission(
+                "reservations.attachments.read",
+                "Read reservation attachments",
+                PermissionModuleEnum.Reservations,
+                "Allows retrieving a reservation attachment by ID."),
+            CreatePermission(
+                "reservations.attachments.list",
+                "List reservation attachments",
+                PermissionModuleEnum.Reservations,
+                "Allows listing attachments of a reservation."),
+            CreatePermission(
+                "reservations.attachments.update",
+                "Update reservation attachments",
+                PermissionModuleEnum.Reservations,
+                "Allows updating attachment name, description and visibility."),
+            CreatePermission(
+                "reservations.attachments.delete",
+                "Delete reservation attachments",
+                PermissionModuleEnum.Reservations,
+                "Allows deleting reservation attachments."),
+            CreatePermission(
+                "reservations.attachments.download",
+                "Download reservation attachments",
+                PermissionModuleEnum.Reservations,
+                "Allows downloading reservation attachment files."),
+            
+            // ----------------------------------------------------------
             // Room feedback
             // ----------------------------------------------------------
 
