@@ -6,9 +6,11 @@ using Kairos.Api.Modules.Identity.UserPreference.Models;
 using Kairos.Api.Modules.Identity.Users.Models;
 using Kairos.Api.Modules.Reliability.Inbox.Model;
 using Kairos.Api.Modules.Reservations.Reservation.Models;
+using Kairos.Api.Modules.Reservations.ReservationAttachment.Models;
 using Kairos.Api.Modules.Reservations.ReservationAttendees.Models;
 using Kairos.Api.Modules.Rooms.Equipment.Model;
 using Kairos.Api.Modules.Rooms.Room.Models;
+using Kairos.Api.Modules.Rooms.RoomAttachment.Models;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
 using Kairos.Api.Modules.Rooms.RoomEquipment.Models;
 using Kairos.Api.Modules.Rooms.RoomFavorite.Models;
@@ -68,6 +70,10 @@ public class AppDbContext(DbContextOptions options)
     public DbSet<RoomFeedbackModel> RoomFeedbacks => Set<RoomFeedbackModel>();
     
     public DbSet<UserPreferenceModel> UserPreferences => Set<UserPreferenceModel>();
+    
+    public DbSet<RoomAttachmentModel> RoomAttachments => Set<RoomAttachmentModel>();
+    
+    public DbSet<ReservationAttachmentModel> ReservationAttachments => Set<ReservationAttachmentModel>();
 
     // ---------------------------------------------------------------
     // SaveChanges
