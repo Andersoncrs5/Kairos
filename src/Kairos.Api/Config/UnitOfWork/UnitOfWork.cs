@@ -16,6 +16,7 @@ using Kairos.Api.Modules.Reservations.ReservationAttachment.Repositories;
 using Kairos.Api.Modules.Reservations.ReservationAttendees.Repositories;
 using Kairos.Api.Modules.Rooms.Equipment.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
+using Kairos.Api.Modules.Rooms.RoomAttachment.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
 using Kairos.Api.Modules.Rooms.RoomEquipment.Repositories;
 using Kairos.Api.Modules.Rooms.RoomFavorite.Repositories;
@@ -46,6 +47,7 @@ public sealed class UnitOfWork(
     IReservationAttendeeRepository reservationAttendeeRepository,
     IUserPreferenceRepository userPreferenceRepository,
     IReservationAttachmentRepository reservationAttachmentRepository,
+    IRoomAttachmentRepository roomAttachmentRepository,
     IFileStorageService fileStorageService
 ) : IUnitOfWork
 {
@@ -67,6 +69,7 @@ public sealed class UnitOfWork(
     public IUserPreferenceRepository UserPreferenceRepository => userPreferenceRepository;
     public IFileStorageService FileStorageService => fileStorageService;
     public IReservationAttachmentRepository ReservationAttachmentRepository => reservationAttachmentRepository;
+    public IRoomAttachmentRepository RoomAttachmentRepository => roomAttachmentRepository;
 
     public Task<int> CommitAsync(
         CancellationToken cancellationToken = default)

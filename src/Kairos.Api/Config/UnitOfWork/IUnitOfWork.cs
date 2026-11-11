@@ -11,6 +11,7 @@ using Kairos.Api.Modules.Reservations.ReservationAttachment.Repositories;
 using Kairos.Api.Modules.Reservations.ReservationAttendees.Repositories;
 using Kairos.Api.Modules.Rooms.Equipment.Repositories;
 using Kairos.Api.Modules.Rooms.Room.Repositories;
+using Kairos.Api.Modules.Rooms.RoomAttachment.Repositories;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Repository;
 using Kairos.Api.Modules.Rooms.RoomEquipment.Repositories;
 using Kairos.Api.Modules.Rooms.RoomFavorite.Repositories;
@@ -30,24 +31,18 @@ public interface IUnitOfWork
     IEquipmentRepository EquipmentRepository { get; }
     IRoomEquipmentRepository RoomEquipmentRepository { get; }
     IUserRepository UserRepository { get; }
-
     IPermissionRepository PermissionRepository { get; }
-
     IPermissionUserRepository PermissionUserRepository { get; }
-
     ICategoryRepository CategoryRepository { get; }
-
     IRoomRepository RoomRepository { get; }
-
     IRoomTypeRepository RoomTypeRepository { get; }
-
     IRoomBlockoutRepository RoomBlockoutRepository { get; }
-
     IReservationRepository ReservationRepository { get; }
     IInboxRepository InboxRepository { get; }
     IRoomFavoriteRepository RoomFavoriteRepository { get; }
     IRoomFeedbackRepository RoomFeedbackRepository { get; }
     IReservationAttachmentRepository ReservationAttachmentRepository { get; }
+    IRoomAttachmentRepository RoomAttachmentRepository { get; }
 
     Task<int> CommitAsync(
         CancellationToken cancellationToken = default);
