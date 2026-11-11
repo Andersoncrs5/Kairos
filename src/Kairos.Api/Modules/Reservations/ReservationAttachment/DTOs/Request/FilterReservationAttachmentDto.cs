@@ -6,11 +6,9 @@ namespace Kairos.Api.Modules.Reservations.ReservationAttachment.DTOs.Request;
 
 public sealed class FilterReservationAttachmentDto : BaseFilter, IValidatableObject
 {
-    public string? ReservationId { get; init; }
-    
+    public string? ReservationId { get; set; }
     public string? ReservationTitle { get; set; }
     public bool? ReservationTitleIgnoreCase { get; init; }
-
     
     public string? UploadedBy { get; init; }
     public string? UploadedUserName { get; set; }
