@@ -16,7 +16,7 @@ public sealed class RoomOperatingHourRepository(AppDbContext context)
         string roomId,
         CancellationToken ct = default)
     {
-        return await context.Set<RoomOperatingHourModel>()
+        return await context.RoomOperatingHours
             .AsNoTracking()
             .Where(x => x.RoomId == roomId)
             .OrderBy(x => x.DayOfWeek)
@@ -24,16 +24,11 @@ public sealed class RoomOperatingHourRepository(AppDbContext context)
             .ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<RoomOperatingHourModel>> GetByRoomIdAndDayAsync(
-        string roomId,
-        DayOfWeek dayOfWeek,
-        CancellationToken ct = default)
+    public async Task<IReadOnlyList<RoomOperatingHourModel>> GetByRoomIdAndDayAsync(string roomId, DayOfWeek dayOfWeek, CancellationToken ct = default)
     {
-        return await context.Set<RoomOperatingHourModel>()
+        return await context.RoomOperatingHours
             .AsNoTracking()
-            .Where(x =>
-                x.RoomId == roomId &&
-                x.DayOfWeek == dayOfWeek)
+            .Where(x => x.RoomId == roomId && x.DayOfWeek == dayOfWeek)
             .OrderBy(x => x.OpensAt)
             .ToListAsync(ct);
     }
@@ -44,7 +39,7 @@ public sealed class RoomOperatingHourRepository(AppDbContext context)
     {
         ArgumentNullException.ThrowIfNull(dto);
 
-        var query = context.Set<RoomOperatingHourModel>()
+        var query = context.RoomOperatingHours
             .AsNoTracking()
             .Include(x => x.Room)
             .AsQueryable();
