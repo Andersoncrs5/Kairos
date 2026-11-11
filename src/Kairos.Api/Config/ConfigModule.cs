@@ -7,6 +7,7 @@ using Kairos.Api.Config.Health;
 using Kairos.Api.Config.Http;
 using Kairos.Api.Config.Options;
 using Kairos.Api.Config.RateLimiting;
+using Kairos.Api.Config.Storage;
 using Kairos.Api.Config.Swagger;
 using Kairos.Api.Config.UnitOfWork;
 using Kairos.Api.Config.Version;
@@ -60,11 +61,12 @@ public static class ConfigModule
         services.AddRateLimitingOptionsConfig();
         services.AddRateLimitingConfig();
         
+        services.AddStorageOptionsConfig();
+        services.AddStorageConfig();
+        
         // Transactions
-        services.AddScoped(
-            typeof(IInboxTransactionUseCase<,,>),
-            typeof(InboxTransactionUseCase<,,>));
-
+        services.AddScoped(typeof(IInboxTransactionUseCase<,,>), typeof(InboxTransactionUseCase<,,>));
+        
         services.AddScoped(
             typeof(ITransactionUseCase<,,>),
             typeof(TransactionUseCase<,,>));
