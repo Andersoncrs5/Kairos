@@ -15,6 +15,7 @@
   <ItemGroup>
     <PackageReference Include="Asp.Versioning.Mvc" Version="10.2.1" />
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.2.1" />
+    <PackageReference Include="AWSSDK.S3" Version="4.0.104.11" />
     <PackageReference Include="EFCoreSecondLevelCacheInterceptor" Version="5.6.0" />
     <PackageReference Include="EFCoreSecondLevelCacheInterceptor.MemoryCache" Version="5.6.0" />
     <PackageReference Include="EFCoreSecondLevelCacheInterceptor.StackExchange.Redis" Version="5.6.0" />
@@ -50,7 +51,6 @@
 
   <ItemGroup>
     <Folder Include="Common\Extensions\" />
-    <Folder Include="Config\Logs\" />
     <Folder Include="Modules\Categories\Configurations\" />
     <Folder Include="Modules\Categories\Models\" />
     <Folder Include="Modules\Identity\Admin\Services\Interfaces\" />

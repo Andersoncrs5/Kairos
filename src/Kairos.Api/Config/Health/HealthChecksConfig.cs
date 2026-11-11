@@ -16,14 +16,9 @@ public static class HealthChecksConfig
     {
         services
             .AddHealthChecks()
-            .AddCheck<PostgreSqlHealthCheck>(
-                "postgresql",
-                failureStatus: HealthStatus.Unhealthy,
-                tags: ["ready"])
-            .AddCheck<RedisHealthCheck>(
-                "redis",
-                failureStatus: HealthStatus.Unhealthy,
-                tags: ["ready"]);
+            .AddCheck<StorageHealthCheck>("storage", failureStatus: HealthStatus.Degraded, tags: ["ready"])
+            .AddCheck<PostgreSqlHealthCheck>("postgresql", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
+            .AddCheck<RedisHealthCheck>("redis", failureStatus: HealthStatus.Unhealthy, tags: ["ready"]);
 
         return services;
     }
