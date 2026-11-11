@@ -2,6 +2,9 @@
 using Kairos.Api.Modules.Reservations.Reservation.Repositories;
 using Kairos.Api.Modules.Reservations.Reservation.Services.Interfaces;
 using Kairos.Api.Modules.Reservations.Reservation.Services.Providers;
+using Kairos.Api.Modules.Reservations.ReservationAttachment.Repositories;
+using Kairos.Api.Modules.Reservations.ReservationAttachment.Services.Interfaces;
+using Kairos.Api.Modules.Reservations.ReservationAttachment.Services.Providers;
 using Kairos.Api.Modules.Reservations.ReservationAttendees.Repositories;
 using Kairos.Api.Modules.Reservations.ReservationAttendees.Services.Interfaces;
 using Kairos.Api.Modules.Reservations.ReservationAttendees.Services.Providers;
@@ -19,6 +22,7 @@ public static class ReservationsModule
 
         services.AddScoped<IReservationRepository, ReservationRepository>();
         services.AddScoped<IReservationAttendeeRepository, ReservationAttendeeRepository>();
+        services.AddScoped<IReservationAttachmentRepository, ReservationAttachmentRepository>();
 
         // ---------------------------------------------------------------
         // Reservations
@@ -46,6 +50,18 @@ public static class ReservationsModule
         services.AddScoped<IRespondReservationAttendeeUseCase, RespondReservationAttendeeUseCase>();
         services.AddScoped<IUpdateReservationAttendeeUseCase, UpdateReservationAttendeeUseCase>();
 
+        // ---------------------------------------------------------------
+        // Reservation Attachments
+        // ---------------------------------------------------------------
+        
+        services.AddScoped<IFindReservationAttachmentUseCase, FindReservationAttachmentUseCase>();
+        services.AddScoped<IFindReservationAttachmentByIdUseCase, FindReservationAttachmentByIdUseCase>();
+        services.AddScoped<IDownloadReservationAttachmentByIdUseCase, DownloadReservationAttachmentByIdUseCase>();
+        services.AddScoped<IDownloadReservationAttachmentByStorageKeyUseCase, DownloadReservationAttachmentByStorageKeyUseCase>();
+        services.AddScoped<IUpdateReservationAttachmentUseCase, UpdateReservationAttachmentUseCase>();
+        services.AddScoped<ICreateReservationAttachmentUseCase, CreateReservationAttachmentUseCase>();
+        services.AddScoped<IDeleteReservationAttachmentUseCase, DeleteReservationAttachmentUseCase>();
+        
         return services;
     }
 }
