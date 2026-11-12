@@ -9,6 +9,7 @@ using Kairos.Api.Modules.Reservations.Reservation.Models;
 using Kairos.Api.Modules.Reservations.ReservationAttachment.Models;
 using Kairos.Api.Modules.Reservations.ReservationAttendees.Models;
 using Kairos.Api.Modules.Rooms.Equipment.Model;
+using Kairos.Api.Modules.Rooms.MaintenanceTicket.Models;
 using Kairos.Api.Modules.Rooms.Room.Models;
 using Kairos.Api.Modules.Rooms.RoomAttachment.Models;
 using Kairos.Api.Modules.Rooms.RoomBlockout.Models;
@@ -74,6 +75,8 @@ public class AppDbContext(DbContextOptions options)
     public DbSet<RoomAttachmentModel> RoomAttachments => Set<RoomAttachmentModel>();
     
     public DbSet<ReservationAttachmentModel> ReservationAttachments => Set<ReservationAttachmentModel>();
+    
+    public DbSet<MaintenanceTicketModel> MaintenanceTickets => Set<MaintenanceTicketModel>();
 
     // ---------------------------------------------------------------
     // SaveChanges

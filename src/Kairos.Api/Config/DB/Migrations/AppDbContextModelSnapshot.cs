@@ -936,6 +936,128 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.ToTable("equipments", (string)null);
                 });
 
+            modelBuilder.Entity("Kairos.Api.Modules.Rooms.MaintenanceTicket.Models.MaintenanceTicketModel", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BlockoutId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("blockout_id");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("Other")
+                        .HasColumnName("category");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("Normal")
+                        .HasColumnName("priority");
+
+                    b.Property<string>("ReportedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reported_by");
+
+                    b.Property<string>("ResolvedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("resolved_by");
+
+                    b.Property<string>("RoomId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("room_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("Open")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("p_k_maintenance_tickets");
+
+                    b.HasIndex("BlockoutId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_maintenance_tickets_blockout_id");
+
+                    b.HasIndex("ResolvedBy")
+                        .HasDatabaseName("ix_maintenance_tickets_resolved_by");
+
+                    b.HasIndex("Category", "Status")
+                        .HasDatabaseName("ix_maintenance_tickets_category_status");
+
+                    b.HasIndex("ReportedBy", "CreatedAt")
+                        .HasDatabaseName("ix_maintenance_tickets_reported_by_created_at");
+
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("ix_maintenance_tickets_status_created_at");
+
+                    b.HasIndex("Priority", "Status", "DueAt")
+                        .HasDatabaseName("ix_maintenance_tickets_priority_status_due_at");
+
+                    b.HasIndex("RoomId", "Status", "CreatedAt")
+                        .HasDatabaseName("ix_maintenance_tickets_room_status_created_at");
+
+                    b.ToTable("maintenance_tickets", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_maintenance_tickets_description_not_empty", "length(trim(description)) > 0");
+
+                            t.HasCheckConstraint("ck_maintenance_tickets_title_not_empty", "length(trim(title)) > 0");
+
+                            t.HasCheckConstraint("ck_maintenance_tickets_valid_category", "category IN (\n    'Equipment',\n    'Electrical',\n    'Network',\n    'Furniture',\n    'AirConditioning',\n    'Plumbing',\n    'Cleaning',\n    'Structural',\n    'Other'\n)");
+
+                            t.HasCheckConstraint("ck_maintenance_tickets_valid_priority", "priority IN (\n    'Low',\n    'Normal',\n    'High',\n    'Critical'\n)");
+
+                            t.HasCheckConstraint("ck_maintenance_tickets_valid_status", "status IN (\n    'Open',\n    'InProgress',\n    'Resolved',\n    'Cancelled'\n)");
+                        });
+                });
+
             modelBuilder.Entity("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", b =>
                 {
                     b.Property<string>("Id")
@@ -1830,6 +1952,44 @@ namespace Kairos.Api.Config.DB.Migrations
                     b.Navigation("Reservation");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Kairos.Api.Modules.Rooms.MaintenanceTicket.Models.MaintenanceTicketModel", b =>
+                {
+                    b.HasOne("Kairos.Api.Modules.Rooms.RoomBlockout.Models.RoomBlockoutModel", "Blockout")
+                        .WithOne()
+                        .HasForeignKey("Kairos.Api.Modules.Rooms.MaintenanceTicket.Models.MaintenanceTicketModel", "BlockoutId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_maintenance_tickets_room_blockouts_blockout_id");
+
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "Reporter")
+                        .WithMany()
+                        .HasForeignKey("ReportedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_maintenance_tickets_app_users_reported_by");
+
+                    b.HasOne("Kairos.Api.Modules.Identity.Users.Models.UserModel", "Resolver")
+                        .WithMany()
+                        .HasForeignKey("ResolvedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("f_k_maintenance_tickets_app_users_resolved_by");
+
+                    b.HasOne("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_maintenance_tickets_rooms_room_id");
+
+                    b.Navigation("Blockout");
+
+                    b.Navigation("Reporter");
+
+                    b.Navigation("Resolver");
+
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("Kairos.Api.Modules.Rooms.Room.Models.RoomModel", b =>

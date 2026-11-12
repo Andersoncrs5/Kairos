@@ -724,6 +724,60 @@ namespace Kairos.Api.Config.DB.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "maintenance_tickets",
+                columns: table => new
+                {
+                    id = table.Column<string>(type: "text", nullable: false),
+                    room_id = table.Column<string>(type: "text", nullable: false),
+                    reported_by = table.Column<string>(type: "text", nullable: false),
+                    title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    description = table.Column<string>(type: "character varying(4000)", maxLength: 4000, nullable: false),
+                    category = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, defaultValue: "Other"),
+                    priority = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false, defaultValue: "Normal"),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false, defaultValue: "Open"),
+                    due_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    resolved_by = table.Column<string>(type: "text", nullable: true),
+                    blockout_id = table.Column<string>(type: "text", nullable: false),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
+                    version = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("p_k_maintenance_tickets", x => x.id);
+                    table.CheckConstraint("ck_maintenance_tickets_description_not_empty", "length(trim(description)) > 0");
+                    table.CheckConstraint("ck_maintenance_tickets_title_not_empty", "length(trim(title)) > 0");
+                    table.CheckConstraint("ck_maintenance_tickets_valid_category", "category IN (\n    'Equipment',\n    'Electrical',\n    'Network',\n    'Furniture',\n    'AirConditioning',\n    'Plumbing',\n    'Cleaning',\n    'Structural',\n    'Other'\n)");
+                    table.CheckConstraint("ck_maintenance_tickets_valid_priority", "priority IN (\n    'Low',\n    'Normal',\n    'High',\n    'Critical'\n)");
+                    table.CheckConstraint("ck_maintenance_tickets_valid_status", "status IN (\n    'Open',\n    'InProgress',\n    'Resolved',\n    'Cancelled'\n)");
+                    table.ForeignKey(
+                        name: "f_k_maintenance_tickets_app_users_reported_by",
+                        column: x => x.reported_by,
+                        principalTable: "app_users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "f_k_maintenance_tickets_app_users_resolved_by",
+                        column: x => x.resolved_by,
+                        principalTable: "app_users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "f_k_maintenance_tickets_room_blockouts_blockout_id",
+                        column: x => x.blockout_id,
+                        principalTable: "room_blockouts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "f_k_maintenance_tickets_rooms_room_id",
+                        column: x => x.room_id,
+                        principalTable: "rooms",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "i_x_asp_net_role_claims_role_id",
                 table: "app_role_claims",
@@ -815,6 +869,42 @@ namespace Kairos.Api.Config.DB.Migrations
                 name: "i_x_inbox_messages_status_next_attempt_at",
                 table: "inbox_messages",
                 columns: new[] { "status", "next_attempt_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_maintenance_tickets_category_status",
+                table: "maintenance_tickets",
+                columns: new[] { "category", "status" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_maintenance_tickets_priority_status_due_at",
+                table: "maintenance_tickets",
+                columns: new[] { "priority", "status", "due_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_maintenance_tickets_reported_by_created_at",
+                table: "maintenance_tickets",
+                columns: new[] { "reported_by", "created_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_maintenance_tickets_resolved_by",
+                table: "maintenance_tickets",
+                column: "resolved_by");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_maintenance_tickets_room_status_created_at",
+                table: "maintenance_tickets",
+                columns: new[] { "room_id", "status", "created_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_maintenance_tickets_status_created_at",
+                table: "maintenance_tickets",
+                columns: new[] { "status", "created_at" });
+
+            migrationBuilder.CreateIndex(
+                name: "ux_maintenance_tickets_blockout_id",
+                table: "maintenance_tickets",
+                column: "blockout_id",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "i_x_permissions_code",
@@ -1029,6 +1119,9 @@ namespace Kairos.Api.Config.DB.Migrations
                 name: "inbox_messages");
 
             migrationBuilder.DropTable(
+                name: "maintenance_tickets");
+
+            migrationBuilder.DropTable(
                 name: "permissions_users");
 
             migrationBuilder.DropTable(
@@ -1039,9 +1132,6 @@ namespace Kairos.Api.Config.DB.Migrations
 
             migrationBuilder.DropTable(
                 name: "room_attachments");
-
-            migrationBuilder.DropTable(
-                name: "room_blockouts");
 
             migrationBuilder.DropTable(
                 name: "room_equipments");
@@ -1060,6 +1150,9 @@ namespace Kairos.Api.Config.DB.Migrations
 
             migrationBuilder.DropTable(
                 name: "app_roles");
+
+            migrationBuilder.DropTable(
+                name: "room_blockouts");
 
             migrationBuilder.DropTable(
                 name: "permissions");
