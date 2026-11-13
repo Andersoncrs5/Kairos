@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 
-namespace Kairos.Api.Common.Middleware.Exceptions.Abstractions;
+namespace Kairos.Api.Config.Middleware.Exceptions.Abstractions;
 
 public abstract class ApiExceptionHandler<TException>(
     ExceptionResponseWriter responseWriter,

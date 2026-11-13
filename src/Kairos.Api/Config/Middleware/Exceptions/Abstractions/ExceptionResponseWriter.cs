@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using Kairos.Api.Common.Res;
 
-namespace Kairos.Api.Common.Middleware.Exceptions.Abstractions;
+namespace Kairos.Api.Config.Middleware.Exceptions.Abstractions;
 
 public sealed class ExceptionResponseWriter
 {

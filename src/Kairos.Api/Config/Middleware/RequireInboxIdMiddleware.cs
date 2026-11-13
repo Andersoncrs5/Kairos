@@ -1,7 +1,6 @@
 using Kairos.Api.Common.Res;
-using Microsoft.AspNetCore.Mvc;
 
-namespace Kairos.Api.Common.Middleware;
+namespace Kairos.Api.Config.Middleware;
 
 public sealed class RequireInboxIdMiddleware(RequestDelegate next)
 {

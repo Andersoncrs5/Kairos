@@ -1,11 +1,11 @@
 using EntityFramework.Exceptions.Common;
 using EntityFrameworkCore.Locking.Exceptions;
-using Kairos.Api.Common.Middleware.Exceptions.Abstractions;
+using Kairos.Api.Config.Middleware.Exceptions.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Npgsql;
 
-namespace Kairos.Api.Common.Middleware.Exceptions.Handlers;
+namespace Kairos.Api.Config.Middleware.Exceptions.Handlers;
 
 public sealed class EntityFrameworkExceptionHandler(
     ExceptionResponseWriter writer,

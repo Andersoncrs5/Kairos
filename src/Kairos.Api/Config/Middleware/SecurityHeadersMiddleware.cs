@@ -1,6 +1,6 @@
 using Microsoft.Net.Http.Headers;
 
-namespace Kairos.Api.Common.Middleware;
+namespace Kairos.Api.Config.Middleware;
 
 public sealed class SecurityHeadersMiddleware(RequestDelegate next)
 {

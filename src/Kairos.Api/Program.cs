@@ -1,11 +1,11 @@
-using Kairos.Api.Common.Middleware;
-using Kairos.Api.Common.Middleware.Exceptions;
 using Kairos.Api.Config;
 using Kairos.Api.Config.Bootstrap;
 using Kairos.Api.Config.Cors.Contracts;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Config.Health;
 using Kairos.Api.Config.LogConfigs;
+using Kairos.Api.Config.Middleware;
+using Kairos.Api.Config.Middleware.Exceptions;
 using Kairos.Api.Config.Observability;
 using Kairos.Api.Config.RateLimiting;
 using Kairos.Api.Config.Swagger;

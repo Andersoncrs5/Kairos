@@ -1,6 +1,6 @@
-using Kairos.Api.Common.Middleware.Exceptions.Abstractions;
+using Kairos.Api.Config.Middleware.Exceptions.Abstractions;
 
-namespace Kairos.Api.Common.Middleware.Exceptions.Handlers;
+namespace Kairos.Api.Config.Middleware.Exceptions.Handlers;
 
 public sealed class UnhandledExceptionHandler(
     ExceptionResponseWriter writer,

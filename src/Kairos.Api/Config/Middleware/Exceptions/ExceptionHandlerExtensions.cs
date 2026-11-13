@@ -1,7 +1,7 @@
-using Kairos.Api.Common.Middleware.Exceptions.Abstractions;
-using Kairos.Api.Common.Middleware.Exceptions.Handlers;
+using Kairos.Api.Config.Middleware.Exceptions.Abstractions;
+using Kairos.Api.Config.Middleware.Exceptions.Handlers;
 
-namespace Kairos.Api.Common.Middleware.Exceptions;
+namespace Kairos.Api.Config.Middleware.Exceptions;
 
 public static class ExceptionHandlerExtensions
 {
