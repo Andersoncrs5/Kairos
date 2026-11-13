@@ -493,7 +493,7 @@ flowchart LR
 ```
 
 - **One resource identity** (`service.name`, namespace, version, instance, environment) is shared by traces, metrics and logs so everything correlates in Grafana.
-- **Traces:** ASP.NET Core, HttpClient, Npgsql (one span per SQL command) and Redis instrumentation, plus a custom `inbox.transaction` span tagged with inbox id, worker id and outcome. Only `5xx` outcomes mark a span as an error, since `4xx` results are expected business outcomes.
+- **Two trace backends.** Tempo is the durable store that Grafana correlates with logs and metrics, while Jaeger adds a dedicated trace-search UI. Jaeger runs with in-memory storage, so its history is lost on restart and its memory usage follows trace volume. During load tests, lower `Observability:TraceSamplingRatio` (default `1.0`), or drop Jaeger if a single backend is enough.
 - **Metrics:** ASP.NET Core, runtime, Npgsql, HttpClient, and the custom counter `kairos.inbox.conflicts`.
 - **Enrichment:** each request span carries `kairos.inbox.id` and `enduser.id`.
 - **Noise reduction:** `/health`, `/swagger` and `/favicon.ico` are excluded from tracing.

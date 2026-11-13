@@ -17,9 +17,20 @@ otelcol.receiver.otlp "default" {
 
 otelcol.processor.batch "default" {
   output {
-    traces  = [otelcol.exporter.otlp.tempo.input]
+    traces  = [otelcol.exporter.otlp.tempo.input, otelcol.exporter.otlp.jaeger.input]
     metrics = [otelcol.exporter.prometheus.default.input]
     logs    = [otelcol.exporter.otlphttp.loki.input]
+  }
+}
+
+// Traces -> Jaeger
+otelcol.exporter.otlp "jaeger" {
+  client {
+    endpoint = "jaeger:4317"
+
+    tls {
+      insecure = true
+    }
   }
 }
 

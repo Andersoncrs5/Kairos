@@ -80,6 +80,16 @@ services:
       - tempo
       - loki
       - prometheus
+      - jaeger
+
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.20.0
+    container_name: jaeger-kairos
+    restart: unless-stopped
+    environment:
+      JAEGER_LISTEN_HOST: 0.0.0.0
+    ports:
+      - "16686:16686"
 
   tempo:
     image: grafana/tempo:2.8.2

@@ -321,15 +321,19 @@ Inbox processing is instrumented so conflicts and failures are visible without r
 
 Only status codes **≥ 500** (and thrown exceptions) mark the span as an error. `4xx` results are expected business outcomes and do not turn spans red.
 
-The incoming request span also carries `kairos.inbox.id` and `enduser.id`, so you can jump from an HTTP request to its Inbox span in Tempo.
+The incoming request span also carries `kairos.inbox.id` and `enduser.id`, so you can jump from an HTTP request to its Inbox span in Tempo or Jaeger.
 
 **Metric.** `kairos.inbox.conflicts` (a counter) increments every time a message cannot be acquired. In Prometheus it is typically exposed as `kairos_inbox_conflicts_total` (verify the exact name in your Prometheus). A sustained rise usually means clients are retrying with consumed ids or a client bug is reusing ids.
 
-Useful investigations in Grafana:
+Useful investigations:
 
-- *"Why did this request return 409?"* Search Tempo for the `kairos.inbox.id` and read `kairos.inbox.outcome`.
-- *"Are clients retrying badly?"* Graph the rate of `kairos_inbox_conflicts_total`.
+- *"Why did this request return 409?"* Search for the `kairos.inbox.id` and read `kairos.inbox.outcome`:
+    - In Grafana (Tempo), query `{ span.kairos.inbox.id = "<inbox-id>" }`.
+    - In the Jaeger UI (http://localhost:16686), select the `kairos-api` service and put `kairos.inbox.id=<inbox-id>` in the *Tags* field.
+- *"Are clients retrying badly?"* Graph the rate of `kairos_inbox_conflicts_total` in Grafana (Prometheus).
 
+> Jaeger keeps traces in memory, so older Inbox spans disappear when its container restarts. Tempo retains them for longer, so prefer Tempo when investigating something that happened a while ago.
+ 
 ## 11. Testing
 
 The integration tests exercise the Inbox for real, against PostgreSQL and Redis containers:

@@ -51,7 +51,7 @@ Beyond the business domain, the project is a showcase of production-minded backe
 | Mapping | Riok.Mapperly (compile-time) and Mapster |
 | API docs | Swashbuckle (Swagger UI), Asp.Versioning |
 | Logging | Serilog (console + OTLP) |
-| Observability | OpenTelemetry, Grafana Alloy, Tempo, Loki, Prometheus, Grafana, cAdvisor, node-exporter, Redis and Postgres exporters |
+| Observability | OpenTelemetry, Grafana Alloy, Tempo, Jaeger, Loki, Prometheus, Grafana, cAdvisor, node-exporter, Redis and Postgres exporters |
 | Containers | Docker, Docker Compose |
 | Tests | xUnit, Moq, NSubstitute, Shouldly, FluentAssertions, Bogus, Testcontainers (PostgreSQL + Redis), Respawn |
 
@@ -143,7 +143,8 @@ This starts the API, PostgreSQL, Redis and the full observability stack. Once th
 | API | http://localhost:5093 |
 | Swagger UI | http://localhost:5093/swagger |
 | Health | http://localhost:5093/health |
-| Grafana | http://localhost:3000 |
+| Grafana | http://localhost:3001 |
+| Jaeger UI | http://localhost:16686 |
 | Prometheus | http://localhost:9090 |
 
 > Compose runs the API with `ASPNETCORE_ENVIRONMENT=Development`, which is what enables Swagger. Change it for production.
@@ -489,26 +490,39 @@ Common status codes: `200`, `201`, `400` (validation), `401` (unauthenticated), 
 
 ## Observability
 
-Kairos exports **traces, metrics and logs** over OTLP to **Grafana Alloy**, which fans them out to Tempo, Prometheus and Loki. Grafana is pre-provisioned with all three data sources.
+Kairos exports **traces, metrics and logs** over OTLP to **Grafana Alloy**, which fans them out: traces go to both **Tempo** and **Jaeger**, metrics to Prometheus and logs to Loki. Grafana is pre-provisioned with the Prometheus, Tempo, Loki and Jaeger data sources.
 
 | Signal | Source | Backend |
 | --- | --- | --- |
-| Traces | ASP.NET Core, HttpClient, Npgsql (one span per SQL command), Redis, custom `inbox.transaction` spans | Tempo |
+| Traces | ASP.NET Core, HttpClient, Npgsql (one span per SQL command), Redis, custom `inbox.transaction` spans | Tempo and Jaeger |
 | Metrics | ASP.NET Core, HttpClient, .NET runtime, Npgsql, custom `kairos.inbox.conflicts` counter | Prometheus |
 | Logs | Serilog → OTLP | Loki |
 | Infrastructure | cAdvisor, node-exporter, redis-exporter, postgres-exporter | Prometheus |
+| Tracing backend | Jaeger internal telemetry (`jaeger:8888`) | Prometheus |
 
+### Viewing traces
+
+The same traces are available in two places:
+
+- **Grafana → Explore → Tempo**: persistent (48h retention), correlated with logs (Loki) and metrics (Prometheus), with a service map.
+- **Jaeger UI** (http://localhost:16686): pick the `kairos-api` service and click *Find Traces*. Useful for trace search, comparing traces and inspecting span trees.
+
+> Jaeger runs with **in-memory storage**, so its traces are lost when the container restarts. Tempo keeps them on disk. Jaeger only receives traces; logs and metrics are not affected.
+ 
 Requests are enriched with the `X-Inbox-Id` and the authenticated user id, making it easy to follow a single operation across traces and logs. Noise such as `/health` and `/swagger` is excluded from tracing, and exporting is disabled automatically in the `Testing` environment.
 
 | Tool | Port |
 | --- | --- |
-| Grafana | 3000 |
+| Grafana | 3001 |
 | Prometheus | 9090 |
 | Tempo | 3200 |
+| Jaeger UI | 16686 |
 | Loki | 3100 |
 | Alloy UI | 12345 |
-| OTLP (gRPC / HTTP) | 4317 / 4318 |
+| OTLP (gRPC / HTTP) | 4317 / 4318 (Alloy) |
 | cAdvisor | 8085 |
+
+Jaeger's own OTLP ports (4317 / 4318) and its metrics port (8888) are not published on the host. Alloy and Prometheus reach them over the internal Docker network.
 
 ## Testing
 
