@@ -1,5 +1,5 @@
-using System.Threading.RateLimiting;
 using Kairos.Api.Common.Middleware;
+using Kairos.Api.Common.Middleware.Exceptions;
 using Kairos.Api.Config;
 using Kairos.Api.Config.Bootstrap;
 using Kairos.Api.Config.Cors.Contracts;
@@ -15,9 +15,7 @@ using Kairos.Api.Modules.Reliability;
 using Kairos.Api.Modules.Reservations;
 using Kairos.Api.Modules.Rooms;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Serilog;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -54,7 +52,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
 });
 
-builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddApiExceptionHandlers();
 
 // ==========================================
 // Application
@@ -99,7 +97,6 @@ app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseAuthentication();
 
 app.UseAuthorization();
-
 
 app.UseExceptionHandler();
 

@@ -115,6 +115,7 @@ public static class DependencyInjection
                         npgsql.CommandTimeout(postgresSettings.CommandTimeoutSeconds);
 
                         npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+                        
                     });
 
                 if (postgresSettings.EnableLocking)
