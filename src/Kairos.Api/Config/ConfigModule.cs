@@ -7,6 +7,7 @@ using Kairos.Api.Config.Health;
 using Kairos.Api.Config.Http;
 using Kairos.Api.Config.Options;
 using Kairos.Api.Config.RateLimiting;
+using Kairos.Api.Config.Resilience;
 using Kairos.Api.Config.Storage;
 using Kairos.Api.Config.Swagger;
 using Kairos.Api.Config.UnitOfWork;
@@ -19,6 +20,9 @@ public static class ConfigModule
     public static IServiceCollection AddConfigModule(
         this IServiceCollection services)
     {
+        services.AddResilienceOptionsConfig();
+        services.AddResilienceConfig();
+        
         // API
         services.AddApiVersioningConfig();
         services.AddSwaggerConfig();

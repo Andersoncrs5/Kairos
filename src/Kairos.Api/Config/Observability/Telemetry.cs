@@ -15,4 +15,9 @@ public static class Telemetry
         Meter.CreateCounter<long>(
             "kairos.inbox.conflicts",
             description: "Inbox messages that could not be acquired for processing.");
+    
+    public static readonly Counter<long> ResilienceRetries =
+        Meter.CreateCounter<long>(
+            "kairos.resilience.retries",
+            description: "Retry attempts executed by the resilience pipelines.");
 }
