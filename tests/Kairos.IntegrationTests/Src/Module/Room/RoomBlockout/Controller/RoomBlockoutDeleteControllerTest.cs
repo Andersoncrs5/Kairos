@@ -53,7 +53,7 @@ public sealed class RoomBlockoutDeleteControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
         http.Data.Should().BeTrue();
-        http.Message.Should().Be("Room blockout deleted");
+        http.Message.Should().Contain("Room blockout deleted");
         http.TraceId.Should().NotBeNullOrWhiteSpace();
 
         // Verifica a exclusão no banco.

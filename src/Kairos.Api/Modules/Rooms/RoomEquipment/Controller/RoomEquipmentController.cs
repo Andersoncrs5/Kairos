@@ -1,5 +1,7 @@
+
 using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
+using Kairos.Api.Common.Base.Controller;
 using Kairos.Api.Common.Page;
 using Kairos.Api.Common.Res;
 using Kairos.Api.Common.Result;
@@ -17,21 +19,35 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Kairos.Api.Modules.Rooms.RoomEquipment.Controller;
 
-[ApiController]
 [Route("api/v{version:apiVersion}/room-equipments")]
 [ApiVersion("1.0")]
-[Produces("application/json")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public sealed class RoomEquipmentController(
-    IInboxTransactionUseCase<AddEquipmentToRoomCommand, RoomEquipmentModel, ICreateRoomEquipmentUseCase> createRoomEquipmentUseCase,
-    IInboxTransactionUseCase<UpdateRoomEquipmentCommand, RoomEquipmentModel, IUpdateRoomEquipmentUseCase> updateRoomEquipmentUseCase,
-    IInboxTransactionUseCase<string, bool, IDeleteRoomEquipmentUseCase> deleteRoomEquipmentUseCase,
+    IInboxTransactionUseCase<
+        AddEquipmentToRoomCommand,
+        RoomEquipmentModel,
+        ICreateRoomEquipmentUseCase> createRoomEquipmentUseCase,
+
+    IInboxTransactionUseCase<
+        UpdateRoomEquipmentCommand,
+        RoomEquipmentModel,
+        IUpdateRoomEquipmentUseCase> updateRoomEquipmentUseCase,
+
+    IInboxTransactionUseCase<
+        string,
+        bool,
+        IDeleteRoomEquipmentUseCase> deleteRoomEquipmentUseCase,
+
     IFindRoomEquipmentByIdUseCase findRoomEquipmentByIdUseCase,
+
     IFindRoomEquipmentByRoomAndEquipmentUseCase findRoomEquipmentByRoomAndEquipmentUseCase,
+
     IFindRoomEquipmentsByRoomIdUseCase findRoomEquipmentsByRoomIdUseCase,
+
     IFindRoomEquipmentsUseCase findRoomEquipmentsUseCase,
+
     IExistsRoomEquipmentByRoomAndEquipmentUseCase existsRoomEquipmentByRoomAndEquipmentUseCase
-) : ControllerBase
+) : ApiControllerBase
 {
     // ---------------------------------------------------------------
     // Find all
@@ -42,15 +58,12 @@ public sealed class RoomEquipmentController(
     /// </summary>
     /// <remarks>
     /// Supports filtering, pagination and sort direction.
-    /// Requires a valid JWT.
     /// </remarks>
     [HttpGet]
     [RequirePermissions("rooms.equipments.list")]
-    [ProducesResponseType(typeof(ResponseHttp<Page<RoomEquipmentDto>>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ResponseHttp<object>), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<Page<RoomEquipmentDto>>),
+        StatusCodes.Status200OK)]
     public async Task<IActionResult> FindAll(
         [FromQuery] FilterRoomEquipmentDto dto,
         [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
@@ -59,22 +72,12 @@ public sealed class RoomEquipmentController(
         Page<RoomEquipmentModel> result =
             await findRoomEquipmentsUseCase.ExecuteAsync(dto, ct);
 
-        Page<RoomEquipmentDto> data =
-            Page<RoomEquipmentDto>.Create(
-                result.Data
-                    .Select(RoomEquipmentMapper.ToDto)
-                    .ToArray(),
-                result.TotalCount,
-                result.PageNumber,
-                result.PageSize);
+        Page<RoomEquipmentDto> data = ToPageDto(result);
 
-        return Ok(
-            new ResponseHttp<Page<RoomEquipmentDto>>(
-                Data: data,
-                Message: "Room equipments retrieved successfully",
-                TraceId: inboxId,
-                Success: true,
-                Timestamp: DateTimeOffset.UtcNow));
+        return SuccessResponse(
+            data,
+            "Room equipments retrieved successfully",
+            inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -86,62 +89,44 @@ public sealed class RoomEquipmentController(
     /// </summary>
     [HttpGet("{id}")]
     [RequirePermissions("rooms.equipments.read")]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<RoomEquipmentDto>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<RoomEquipmentDto>),
+        StatusCodes.Status404NotFound)]
     public async Task<IActionResult> FindById(
-        [FromRoute] string id,
+        [FromRoute, Required] string id,
         [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
         CancellationToken ct)
     {
         Result<RoomEquipmentModel> result =
-            await findRoomEquipmentByIdUseCase.ExecuteAsync(id, ct);
+            await findRoomEquipmentByIdUseCase.ExecuteAsync(
+                id,
+                ct);
 
-        if (result.IsFailure || result.Value is null)
-        {
-            return StatusCode(
-                result.StatusCode,
-                new ResponseHttp<RoomEquipmentDto>(
-                    Data: null,
-                    Message: "Error finding room equipment",
-                    TraceId: inboxId,
-                    Success: false,
-                    Timestamp: DateTimeOffset.UtcNow,
-                    Errors: result.Errors));
-        }
-
-        RoomEquipmentDto roomEquipment =
-            RoomEquipmentMapper.ToDto(result.Value);
-
-        return Ok(
-            new ResponseHttp<RoomEquipmentDto>(
-                Data: roomEquipment,
-                Message: "Room equipment found",
-                TraceId: inboxId,
-                Success: true,
-                Timestamp: DateTimeOffset.UtcNow));
+        return ToResponse(
+            result,
+            RoomEquipmentMapper.ToDto,
+            "Room equipment found",
+            "Error finding room equipment",
+            inboxId);
     }
 
     // ---------------------------------------------------------------
     // Find by Room ID
-    // ------------------------------------------   ---------------------
+    // ---------------------------------------------------------------
 
     /// <summary>
     /// Retrieves all equipment associations belonging to a room.
     /// </summary>
     [HttpGet("rooms/{roomId}")]
     [RequirePermissions("rooms.equipments.read")]
-    [ProducesResponseType(typeof(ResponseHttp<IReadOnlyList<RoomEquipmentDto>>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ResponseHttp<IReadOnlyList<RoomEquipmentDto>>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ResponseHttp<IReadOnlyList<RoomEquipmentDto>>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ResponseHttp<IReadOnlyList<RoomEquipmentDto>>), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ResponseHttp<IReadOnlyList<RoomEquipmentDto>>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ResponseHttp<IReadOnlyList<RoomEquipmentDto>>), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<IReadOnlyList<RoomEquipmentDto>>),
+        StatusCodes.Status200OK)]
     public async Task<IActionResult> FindByRoomId(
-        [FromRoute] string roomId,
+        [FromRoute, Required] string roomId,
         [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
         CancellationToken ct)
     {
@@ -150,31 +135,12 @@ public sealed class RoomEquipmentController(
                 roomId,
                 ct);
 
-        if (result.IsFailure || result.Value is null)
-        {
-            return StatusCode(
-                result.StatusCode,
-                new ResponseHttp<IReadOnlyList<RoomEquipmentDto>>(
-                    Data: null,
-                    Message: "Error retrieving room equipments",
-                    TraceId: inboxId,
-                    Success: false,
-                    Timestamp: DateTimeOffset.UtcNow,
-                    Errors: result.Errors));
-        }
-
-        IReadOnlyList<RoomEquipmentDto> data =
-            result.Value
-                .Select(RoomEquipmentMapper.ToDto)
-                .ToArray();
-
-        return Ok(
-            new ResponseHttp<IReadOnlyList<RoomEquipmentDto>>(
-                Data: data,
-                Message: "Room equipments retrieved successfully",
-                TraceId: inboxId,
-                Success: true,
-                Timestamp: DateTimeOffset.UtcNow));
+        return ToResponse(
+            result,
+            ToDtos,
+            "Room equipments retrieved successfully",
+            "Error retrieving room equipments",
+            inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -186,15 +152,15 @@ public sealed class RoomEquipmentController(
     /// </summary>
     [HttpGet("rooms/{roomId}/equipments/{equipmentId}")]
     [RequirePermissions("rooms.equipments.read")]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<RoomEquipmentDto>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<RoomEquipmentDto>),
+        StatusCodes.Status404NotFound)]
     public async Task<IActionResult> FindByRoomAndEquipment(
-        [FromRoute] string roomId,
-        [FromRoute] string equipmentId,
+        [FromRoute, Required] string roomId,
+        [FromRoute, Required] string equipmentId,
         [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
         CancellationToken ct)
     {
@@ -204,29 +170,12 @@ public sealed class RoomEquipmentController(
                 equipmentId,
                 ct);
 
-        if (result.IsFailure || result.Value is null)
-        {
-            return StatusCode(
-                result.StatusCode,
-                new ResponseHttp<RoomEquipmentDto>(
-                    Data: null,
-                    Message: "Error finding room equipment association",
-                    TraceId: inboxId,
-                    Success: false,
-                    Timestamp: DateTimeOffset.UtcNow,
-                    Errors: result.Errors));
-        }
-
-        RoomEquipmentDto roomEquipment =
-            RoomEquipmentMapper.ToDto(result.Value);
-
-        return Ok(
-            new ResponseHttp<RoomEquipmentDto>(
-                Data: roomEquipment,
-                Message: "Room equipment association found",
-                TraceId: inboxId,
-                Success: true,
-                Timestamp: DateTimeOffset.UtcNow));
+        return ToResponse(
+            result,
+            RoomEquipmentMapper.ToDto,
+            "Room equipment association found",
+            "Error finding room equipment association",
+            inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -238,14 +187,12 @@ public sealed class RoomEquipmentController(
     /// </summary>
     [HttpGet("exists/rooms/{roomId}/equipments/{equipmentId}")]
     [RequirePermissions("rooms.equipments.read")]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<bool?>),
+        StatusCodes.Status200OK)]
     public async Task<IActionResult> ExistsByRoomAndEquipment(
-        [FromRoute] string roomId,
-        [FromRoute] string equipmentId,
+        [FromRoute, Required] string roomId,
+        [FromRoute, Required] string equipmentId,
         [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
         CancellationToken ct)
     {
@@ -255,28 +202,12 @@ public sealed class RoomEquipmentController(
                 equipmentId,
                 ct);
 
-        if (result.IsFailure)
-        {
-            return StatusCode(
-                result.StatusCode,
-                new ResponseHttp<bool?>(
-                    Data: null,
-                    Message: "Error checking room equipment association",
-                    TraceId: inboxId,
-                    Success: false,
-                    Timestamp: DateTimeOffset.UtcNow,
-                    Errors: result.Errors));
-        }
-
-        return Ok(
-            new ResponseHttp<bool?>(
-                Data: result.Value,
-                Message: result.Value
-                    ? "Equipment is associated with this room"
-                    : "Equipment is not associated with this room",
-                TraceId: inboxId,
-                Success: true,
-                Timestamp: DateTimeOffset.UtcNow));
+        return ToExistsResponse(
+            result,
+            "Equipment is associated with this room",
+            "Equipment is not associated with this room",
+            "Error checking room equipment association",
+            inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -289,59 +220,35 @@ public sealed class RoomEquipmentController(
     /// <remarks>
     /// The room and equipment must exist.
     /// An equipment cannot be associated with the same room twice.
-    /// Requires a valid JWT and the X-Inbox-Id header.
     /// The operation is processed through the Inbox transaction service.
     /// </remarks>
     [HttpPost("rooms")]
     [RequirePermissions("rooms.equipments.create")]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<RoomEquipmentDto>),
+        StatusCodes.Status201Created)]
     public async Task<IActionResult> Create(
         [FromBody] AddEquipmentToRoomDto dto,
         [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
         CancellationToken ct)
     {
-        string workerId = $"http-{Guid.NewGuid():N}";
-
         AddEquipmentToRoomCommand command =
-            new AddEquipmentToRoomCommand(dto.RoomId, dto);
+            new(dto.RoomId, dto);
 
         Result<RoomEquipmentModel> result =
             await createRoomEquipmentUseCase.ExecuteAsync(
                 inboxId,
-                workerId,
+                NewWorkerId(),
                 command,
                 ct);
 
-        if (result.IsFailure || result.Value is null)
-        {
-            return StatusCode(
-                result.StatusCode,
-                new ResponseHttp<RoomEquipmentDto>(
-                    Data: null,
-                    Message: "Error associating equipment with room",
-                    TraceId: inboxId,
-                    Success: false,
-                    Timestamp: DateTimeOffset.UtcNow,
-                    Errors: result.Errors));
-        }
-
-        RoomEquipmentDto roomEquipment =
-            RoomEquipmentMapper.ToDto(result.Value);
-
-        return StatusCode(
-            StatusCodes.Status201Created,
-            new ResponseHttp<RoomEquipmentDto>(
-                Data: roomEquipment,
-                Message: "Equipment associated with room successfully",
-                TraceId: inboxId,
-                Success: true,
-                Timestamp: DateTimeOffset.UtcNow));
+        return ToResponse(
+            result,
+            RoomEquipmentMapper.ToDto,
+            "Equipment associated with room successfully",
+            "Error associating equipment with room",
+            inboxId,
+            StatusCodes.Status201Created);
     }
 
     // ---------------------------------------------------------------
@@ -352,59 +259,37 @@ public sealed class RoomEquipmentController(
     /// Updates an existing room equipment association.
     /// </summary>
     /// <remarks>
-    /// Requires a valid JWT and the X-Inbox-Id header.
     /// The operation is processed through the Inbox transaction service.
     /// </remarks>
     [HttpPut("{id}")]
     [RequirePermissions("rooms.equipments.update")]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(ResponseHttp<RoomEquipmentDto>), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<RoomEquipmentDto>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<RoomEquipmentDto>),
+        StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(
-        [FromRoute] string id,
+        [FromRoute, Required] string id,
         [FromBody] UpdateRoomEquipmentDto dto,
         [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
         CancellationToken ct)
     {
-        string workerId = $"http-{Guid.NewGuid():N}";
-
-        UpdateRoomEquipmentCommand command =
-            new UpdateRoomEquipmentCommand(id, dto);
+        UpdateRoomEquipmentCommand command = new(id, dto);
 
         Result<RoomEquipmentModel> result =
             await updateRoomEquipmentUseCase.ExecuteAsync(
                 inboxId,
-                workerId,
+                NewWorkerId(),
                 command,
                 ct);
 
-        if (result.IsFailure || result.Value is null)
-        {
-            return StatusCode(
-                result.StatusCode,
-                new ResponseHttp<RoomEquipmentDto>(
-                    Data: null,
-                    Message: "Error updating room equipment association",
-                    TraceId: inboxId,
-                    Success: false,
-                    Timestamp: DateTimeOffset.UtcNow,
-                    Errors: result.Errors));
-        }
-
-        RoomEquipmentDto roomEquipment =
-            RoomEquipmentMapper.ToDto(result.Value);
-
-        return Ok(
-            new ResponseHttp<RoomEquipmentDto>(
-                Data: roomEquipment,
-                Message: "Room equipment association updated successfully",
-                TraceId: inboxId,
-                Success: true,
-                Timestamp: DateTimeOffset.UtcNow));
+        return ToResponse(
+            result,
+            RoomEquipmentMapper.ToDto,
+            "Room equipment association updated successfully",
+            "Error updating room equipment association",
+            inboxId);
     }
 
     // ---------------------------------------------------------------
@@ -416,51 +301,79 @@ public sealed class RoomEquipmentController(
     /// </summary>
     /// <remarks>
     /// This removes the association, not the equipment itself.
-    /// Requires a valid JWT and the X-Inbox-Id header.
     /// The operation is processed through the Inbox transaction service.
     /// </remarks>
     [HttpDelete("{id}")]
     [RequirePermissions("rooms.equipments.delete")]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(ResponseHttp<bool?>), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<bool?>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ResponseHttp<bool?>),
+        StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
-        [FromRoute] string id,
+        [FromRoute, Required] string id,
         [FromHeader(Name = "X-Inbox-Id"), Required] string inboxId,
         CancellationToken ct)
     {
-        string workerId = $"http-{Guid.NewGuid():N}";
-
         Result<bool> result =
             await deleteRoomEquipmentUseCase.ExecuteAsync(
                 inboxId,
-                workerId,
+                NewWorkerId(),
                 id,
                 ct);
 
+        return ToResponse(
+            result,
+            value => (bool?)value,
+            "Room equipment association deleted successfully",
+            "Error deleting room equipment association",
+            inboxId);
+    }
+
+    // ---------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------
+
+    private static Page<RoomEquipmentDto> ToPageDto(
+        Page<RoomEquipmentModel> page)
+    {
+        return Page<RoomEquipmentDto>.Create(
+            page.Data
+                .Select(RoomEquipmentMapper.ToDto)
+                .ToArray(),
+            page.TotalCount,
+            page.PageNumber,
+            page.PageSize);
+    }
+
+    private static IReadOnlyList<RoomEquipmentDto> ToDtos(
+        IReadOnlyList<RoomEquipmentModel> models)
+    {
+        return models
+            .Select(RoomEquipmentMapper.ToDto)
+            .ToArray();
+    }
+
+    private ObjectResult ToExistsResponse(
+        Result<bool> result,
+        string existsMessage,
+        string notExistsMessage,
+        string errorMessage,
+        string inboxId)
+    {
         if (result.IsFailure)
         {
-            return StatusCode(
+            return FailureResponse<bool?>(
                 result.StatusCode,
-                new ResponseHttp<bool?>(
-                    Data: null,
-                    Message: "Error deleting room equipment association",
-                    TraceId: inboxId,
-                    Success: false,
-                    Timestamp: DateTimeOffset.UtcNow,
-                    Errors: result.Errors));
+                result.Errors,
+                errorMessage,
+                inboxId);
         }
 
-        return Ok(
-            new ResponseHttp<bool?>(
-                Data: result.Value,
-                Message: "Room equipment association deleted",
-                TraceId: inboxId,
-                Success: true,
-                Timestamp: DateTimeOffset.UtcNow));
+        return SuccessResponse(
+            (bool?)result.Value,
+            result.Value ? existsMessage : notExistsMessage,
+            inboxId);
     }
 }

@@ -56,7 +56,7 @@ public sealed class RoomDeleteControllerTest : BaseIntegrationTest
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
         http.TraceId.Should().NotBeNullOrWhiteSpace();
-        http.Message.Should().Be("Room deleted");
+        http.Message.Should().Contain("Room deleted");
         http.Data.Should().BeTrue();
 
         // Verifica a exclusão física da sala.

@@ -106,18 +106,14 @@ public static class DependencyInjection
                     .GetRequiredService<IOptions<PostgresOptions>>()
                     .Value;
 
+                // O retry do banco agora é do Polly (pipeline "database"),
+                // por isso não há mais EnableRetryOnFailure aqui
                 options.UseNpgsql(
                     connectionString,
                     npgsql =>
                     {
-                        npgsql.EnableRetryOnFailure(
-                            maxRetryCount: postgresSettings.MaxRetryCount,
-                            maxRetryDelay: TimeSpan.FromSeconds(
-                                postgresSettings.MaxRetryDelaySeconds),
-                            errorCodesToAdd: null);
-
                         npgsql.CommandTimeout(postgresSettings.CommandTimeoutSeconds);
-                        
+
                         npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
                     });
 

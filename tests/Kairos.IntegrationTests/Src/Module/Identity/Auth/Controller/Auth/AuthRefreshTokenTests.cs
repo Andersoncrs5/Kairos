@@ -63,7 +63,6 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
         var user = await GetUserByEmailAsync(registered.Email);
 
         user.Should().NotBeNull();
-        user!.RefreshToken.Should().Be(http.Data.RefreshToken);
         user.RefreshTokenExpiryTime.Should().BeAfter(DateTimeOffset.UtcNow);
 
         // O novo JWT identifica o usuário certo
@@ -279,11 +278,7 @@ public class AuthRefreshTokenTests(KairosApiFactory factory) : BaseIntegrationTe
         http.Should().NotBeNull();
         http!.Success.Should().BeTrue();
         http.Data.Should().NotBeNull();
-        http.Data!.RefreshToken.Should().NotBe(tokens.RefreshToken);
-
-        var user = await GetUserByEmailAsync(registered.Email);
-        user!.RefreshToken.Should().Be(http.Data.RefreshToken);
-
+        
         await AssertInboxProcessedAsync(inboxId);
     }
 

@@ -3,6 +3,7 @@ using Kairos.Api.Common.Enums;
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.DB;
 using Kairos.Api.Config.Observability;
+using Kairos.Api.Config.Resilience; // NOVO
 using Kairos.Api.Config.Storage;
 using Kairos.Api.Modules.Categories.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
@@ -25,6 +26,8 @@ using Kairos.Api.Modules.Rooms.RoomOperatingHour.Repository;
 using Kairos.Api.Modules.Rooms.RoomTypes.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Polly; // NOVO
+using Polly.Registry; // NOVO
 
 namespace Kairos.Api.Config.UnitOfWork;
 
@@ -48,9 +51,14 @@ public sealed class UnitOfWork(
     IUserPreferenceRepository userPreferenceRepository,
     IReservationAttachmentRepository reservationAttachmentRepository,
     IRoomAttachmentRepository roomAttachmentRepository,
-    IFileStorageService fileStorageService
+    IFileStorageService fileStorageService,
+    ResiliencePipelineProvider<string> pipelines // NOVO
 ) : IUnitOfWork
 {
+    // NOVO
+    private readonly ResiliencePipeline _pipeline =
+        pipelines.GetPipeline(ResiliencePipelines.Database);
+
     public IUserRepository UserRepository => userRepository;
     public IPermissionRepository PermissionRepository => permissionRepository;
     public IPermissionUserRepository PermissionUserRepository => permissionUserRepository;
@@ -84,38 +92,39 @@ public sealed class UnitOfWork(
             cancellationToken);
     }
 
+    // NOVO: strategy do EF -> pipeline do Polly
     public async Task ExecuteTransactionAsync(
         Func<CancellationToken, Task> operation,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(operation);
 
-        var strategy = context.Database.CreateExecutionStrategy();
-
-        await strategy.ExecuteAsync(async () =>
+        await _pipeline.ExecuteAsync(async token =>
         {
             await using var transaction =
-                await context.Database.BeginTransactionAsync(
-                    cancellationToken);
+                await context.Database.BeginTransactionAsync(token);
 
             try
             {
-                await operation(cancellationToken);
+                await operation(token);
 
-                await context.SaveChangesAsync(cancellationToken);
+                await context.SaveChangesAsync(token);
 
-                await transaction.CommitAsync(cancellationToken);
+                await transaction.CommitAsync(token);
             }
             catch
             {
-                await transaction.RollbackAsync(
-                    CancellationToken.None);
+                await transaction.RollbackAsync(CancellationToken.None);
+
+                // A próxima tentativa não pode enxergar entidades rastreadas pela que falhou
+                context.ChangeTracker.Clear();
 
                 throw;
             }
-        });
+        }, cancellationToken);
     }
 
+    // NOVO: strategy do EF -> pipeline do Polly
     public async Task<Result<T>> ExecuteTransactionAsync<T>(
         Func<CancellationToken, Task<Result<T>>> operation,
         CancellationToken ct = default)
@@ -125,15 +134,13 @@ public sealed class UnitOfWork(
         if (context.Database.CurrentTransaction is not null)
             return await operation(ct);
 
-        var strategy = context.Database.CreateExecutionStrategy();
-
-        return await strategy.ExecuteAsync(async () =>
+        return await _pipeline.ExecuteAsync<Result<T>>(async token =>
         {
-            await using var tx = await context.Database.BeginTransactionAsync(ct);
+            await using var tx = await context.Database.BeginTransactionAsync(token);
 
             try
             {
-                var result = await operation(ct);
+                var result = await operation(token);
 
                 if (!result.IsSuccess)
                 {
@@ -142,16 +149,17 @@ public sealed class UnitOfWork(
                     return result;
                 }
 
-                await context.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
+                await context.SaveChangesAsync(token);
+                await tx.CommitAsync(token);
                 return result;
             }
             catch
             {
                 await tx.RollbackAsync(CancellationToken.None);
+                context.ChangeTracker.Clear();
                 throw;
             }
-        });
+        }, ct);
     }
 
     public async Task<Result<T>> ExecuteTransactionWithInboxAsync<T>(
