@@ -7,6 +7,9 @@ namespace Kairos.Api.Modules.Identity.Users.Repositories;
 
 public interface IUserRepository
 {
+    Task<UserModel?> GetByExternalLogin(string provider, string providerKey);
+    Task<IdentityResult> InsertWithoutPassword(UserModel user);
+    Task<IdentityResult> AddExternalLogin(UserModel user, string provider, string providerKey, string? displayName);
     Task<Page<UserModel>> Find(FilterUserDto dto, CancellationToken cancellationToken = default);
     Task<UserModel?> GetByIdAsync(string id);
     Task<bool> ExistsByIdAsync(string id);
