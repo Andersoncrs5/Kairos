@@ -1,4 +1,5 @@
 using Kairos.Api.Config;
+using Kairos.Api.Config.Authentication;
 using Kairos.Api.Config.Bootstrap;
 using Kairos.Api.Config.Cors.Contracts;
 using Kairos.Api.Config.DB;
@@ -46,6 +47,8 @@ builder.Services
     .AddConfigModule()
     .AddReliabilityModule()
     .AddAuthModule();
+
+builder.Services.AddExternalAuthenticationConfig(builder.Configuration);
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

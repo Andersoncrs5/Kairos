@@ -11,6 +11,34 @@ namespace Kairos.Api.Modules.Identity.Users.Repositories;
 
 public class UserRepository(AppDbContext context, UserManager<UserModel> manager): IUserRepository
 {
+    public Task<UserModel?> GetByExternalLogin(
+        string provider,
+        string providerKey)
+    {
+        return manager.FindByLoginAsync(provider, providerKey);
+    }
+
+    public Task<IdentityResult> InsertWithoutPassword(UserModel user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        user.CreatedAt = DateTimeOffset.UtcNow;
+
+        return manager.CreateAsync(user);
+    }
+
+    public Task<IdentityResult> AddExternalLogin(
+        UserModel user,
+        string provider,
+        string providerKey,
+        string? displayName)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        return manager.AddLoginAsync(
+            user,
+            new UserLoginInfo(provider, providerKey, displayName));
+    }
     
     public async Task<Page<UserModel>> Find(
         FilterUserDto dto,

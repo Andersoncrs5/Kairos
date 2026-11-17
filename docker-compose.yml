@@ -23,6 +23,16 @@ services:
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-kairos};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123456}"
       ConnectionStrings__Redis: "redis:6379,abortConnect=false"
       Observability__OtlpEndpoint: "http://alloy:4317"
+      ExternalAuthentication__Discord__ClientId: "${DISCORD_CLIENT_ID:-}"
+      ExternalAuthentication__Discord__ClientSecret: "${DISCORD_CLIENT_SECRET:-}"
+      ExternalAuthentication__Facebook__ClientId: "${FACEBOOK_CLIENT_ID:-}"
+      ExternalAuthentication__Facebook__ClientSecret: "${FACEBOOK_CLIENT_SECRET:-}"
+      ExternalAuthentication__Facebook__TrustEmail: "${FACEBOOK_TRUST_EMAIL:-false}"
+      ExternalAuthentication__LinkedIn__ClientId: "${LINKEDIN_CLIENT_ID:-}"
+      ExternalAuthentication__LinkedIn__ClientSecret: "${LINKEDIN_CLIENT_SECRET:-}"
+      ExternalAuthentication__Microsoft__ClientId: "${MICROSOFT_CLIENT_ID:-}"
+      ExternalAuthentication__Microsoft__ClientSecret: "${MICROSOFT_CLIENT_SECRET:-}"
+      ExternalAuthentication__Microsoft__Tenant: "${MICROSOFT_TENANT:-consumers}"
     ports:
       - "5093:8080"
 

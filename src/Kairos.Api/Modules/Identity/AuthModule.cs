@@ -96,6 +96,8 @@ public static class AuthModule
         services.AddScoped<IEnsureUserPreferenceUseCase, EnsureUserPreferenceUseCase>();
         services.AddScoped<IExistsUserPreferenceByUserIdUseCase, ExistsUserPreferenceByUserIdUseCase>();
         
+        services.AddScoped<IExternalLoginUseCase, ExternalLoginUseCase>();
+        
         return services;
     }
 }
