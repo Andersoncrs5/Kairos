@@ -7,6 +7,8 @@ namespace Kairos.Api.Modules.Identity.Users.Repositories;
 
 public interface IUserRepository
 {
+    Task<bool> HasPassword(UserModel user);
+    Task<bool> HasExternalLogin(UserModel user);
     Task<UserModel?> GetByExternalLogin(string provider, string providerKey);
     Task<IdentityResult> InsertWithoutPassword(UserModel user);
     Task<IdentityResult> AddExternalLogin(UserModel user, string provider, string providerKey, string? displayName);

@@ -21,6 +21,7 @@
     <PackageReference Include="EFCoreSecondLevelCacheInterceptor.StackExchange.Redis" Version="5.6.0" />
     <PackageReference Include="EntityFrameworkCore.Exceptions.Common" Version="10.0.1" />
     <PackageReference Include="EntityFrameworkCore.Locking.PostgreSQL" Version="0.5.0" />
+    <PackageReference Include="Fido2.AspNet" Version="4.3.3" />
     <PackageReference Include="Mapster" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Facebook" Version="10.0.15" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="10.0.15" />

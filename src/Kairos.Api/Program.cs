@@ -12,6 +12,7 @@ using Kairos.Api.Config.RateLimiting;
 using Kairos.Api.Config.Swagger;
 using Kairos.Api.Modules.Categories;
 using Kairos.Api.Modules.Identity;
+using Kairos.Api.Modules.Identity.Passkeys;
 using Kairos.Api.Modules.Reliability;
 using Kairos.Api.Modules.Reservations;
 using Kairos.Api.Modules.Rooms;
@@ -46,6 +47,7 @@ builder.Services
     .AddCategoriesModule()
     .AddConfigModule()
     .AddReliabilityModule()
+    .AddPasskeysModule(builder.Configuration)
     .AddAuthModule();
 
 builder.Services.AddExternalAuthenticationConfig(builder.Configuration);
@@ -104,6 +106,11 @@ app.UseAuthorization();
 app.UseExceptionHandler();
 
 app.UseOutputCache();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapPasskeyDemo();
+}
 
 if (!app.Environment.IsDevelopment())
 {

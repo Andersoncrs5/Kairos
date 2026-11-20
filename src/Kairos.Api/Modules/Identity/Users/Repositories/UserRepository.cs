@@ -11,6 +11,16 @@ namespace Kairos.Api.Modules.Identity.Users.Repositories;
 
 public class UserRepository(AppDbContext context, UserManager<UserModel> manager): IUserRepository
 {
+    public Task<bool> HasPassword(UserModel user) =>
+        manager.HasPasswordAsync(user);
+
+    public async Task<bool> HasExternalLogin(UserModel user)
+    {
+        IList<UserLoginInfo> logins = await manager.GetLoginsAsync(user);
+
+        return logins.Count > 0;
+    }
+    
     public Task<UserModel?> GetByExternalLogin(
         string provider,
         string providerKey)

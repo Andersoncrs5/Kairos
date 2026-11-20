@@ -98,6 +98,8 @@ public static class AuthModule
         
         services.AddScoped<IExternalLoginUseCase, ExternalLoginUseCase>();
         
+        services.AddScoped<ICreateSessionUseCase, CreateSessionUseCase>();
+        
         return services;
     }
 }

@@ -277,6 +277,35 @@ namespace Kairos.Api.Config.DB.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "user_passkeys",
+                columns: table => new
+                {
+                    id = table.Column<string>(type: "text", nullable: false),
+                    user_id = table.Column<string>(type: "text", nullable: false),
+                    credential_id = table.Column<byte[]>(type: "bytea", nullable: false),
+                    public_key = table.Column<byte[]>(type: "bytea", nullable: false),
+                    sign_count = table.Column<long>(type: "bigint", nullable: false, defaultValue: 0L),
+                    name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    is_backup_eligible = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    is_backed_up = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    last_used_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
+                    version = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("p_k_user_passkeys", x => x.id);
+                    table.ForeignKey(
+                        name: "f_k_user_passkeys_app_users_user_id",
+                        column: x => x.user_id,
+                        principalTable: "app_users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "user_preferences",
                 columns: table => new
                 {
@@ -1091,6 +1120,17 @@ namespace Kairos.Api.Config.DB.Migrations
                 column: "room_type_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_user_passkeys_user_id",
+                table: "user_passkeys",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_user_passkeys_credential_id",
+                table: "user_passkeys",
+                column: "credential_id",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "ux_user_preferences_user_id",
                 table: "user_preferences",
                 column: "user_id",
@@ -1144,6 +1184,9 @@ namespace Kairos.Api.Config.DB.Migrations
 
             migrationBuilder.DropTable(
                 name: "room_operating_hours");
+
+            migrationBuilder.DropTable(
+                name: "user_passkeys");
 
             migrationBuilder.DropTable(
                 name: "user_preferences");

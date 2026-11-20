@@ -6,6 +6,7 @@ using Kairos.Api.Config.Observability;
 using Kairos.Api.Config.Resilience; // NOVO
 using Kairos.Api.Config.Storage;
 using Kairos.Api.Modules.Categories.Repositories;
+using Kairos.Api.Modules.Identity.Passkeys.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
 using Kairos.Api.Modules.Identity.UserPreference.Repositories;
@@ -33,6 +34,7 @@ namespace Kairos.Api.Config.UnitOfWork;
 
 public sealed class UnitOfWork(
     AppDbContext context,
+    IUserPasskeyRepository userPasskeyRepository,
     IRoomFavoriteRepository roomFavoriteRepository,
     IRoomFeedbackRepository roomFeedbackRepository,
     IUserRepository userRepository,
@@ -67,6 +69,7 @@ public sealed class UnitOfWork(
     public IRoomTypeRepository RoomTypeRepository => roomTypeRepository;
     public IRoomBlockoutRepository RoomBlockoutRepository => roomBlockoutRepository;
     public IReservationRepository ReservationRepository => reservationRepository;
+    public IUserPasskeyRepository UserPasskeyRepository => userPasskeyRepository;
     public IInboxRepository InboxRepository => inboxRepository;
     public IRoomOperatingHourRepository RoomOperatingHourRepository => roomOperatingHourRepository;
     public IEquipmentRepository EquipmentRepository => equipmentRepository;

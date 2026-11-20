@@ -1,6 +1,7 @@
 using Kairos.Api.Common.Result;
 using Kairos.Api.Config.Storage;
 using Kairos.Api.Modules.Categories.Repositories;
+using Kairos.Api.Modules.Identity.Passkeys.Repositories;
 using Kairos.Api.Modules.Identity.Permissions.Repositories;
 using Kairos.Api.Modules.Identity.PermissionUsers.Repositories;
 using Kairos.Api.Modules.Identity.UserPreference.Repositories;
@@ -24,6 +25,7 @@ namespace Kairos.Api.Config.UnitOfWork;
 
 public interface IUnitOfWork
 {
+    IUserPasskeyRepository UserPasskeyRepository { get; }
     IFileStorageService FileStorageService { get; }
     IRoomOperatingHourRepository RoomOperatingHourRepository { get; }
     IUserPreferenceRepository UserPreferenceRepository { get; }
